@@ -54,8 +54,8 @@ No terminal, dentro da pasta do backend:
 ```bash
 cd server/pontoCerto
 
-export DB_URL=jdbc:postgresql://ep-crimson-smoke-ayozdouc-pooler.c-5.us-east-2.aws.neon.tech/neondb
-export DB_USER=neondb_owner
+export DB_URL=seu_url_aqui
+export DB_USER=seu_user_aqui
 export DB_PASSWORD=sua_senha_aqui
 
 ./mvnw spring-boot:run
