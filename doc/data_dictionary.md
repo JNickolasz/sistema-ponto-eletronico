@@ -68,18 +68,14 @@
 | `id` | UUID / Int | Identificador do equipamento. | PK |
 | `local_trabalho_id` | UUID / Int | Onde ele está fisicamente instalado. | FK, Not Null |
 | `tipo` | Enum | Define a origem da batida. | `RELOGIO_AFD`, `ESTACAO_WEB` |
-| `num_identificacao` | String | Serial ou token único (Ex: ST-001). | Not Null, Unique |
-
-## ESTAÇÃO
-**Descrição:** Subtipo de `EQUIPAMENTO` para quando `tipo = ESTACAO_WEB` — carrega os dados de autenticação do terminal (WebAuthn/attestation), separados da autenticação do funcionário.
-
-| Coluna | Tipo | Descrição | Observações |
-| :--- | :--- | :--- | :--- |
-| `equipamento_id` | UUID / Int | Referência ao equipamento pai. | PK e FK |
-| `nome` | String | Ex: "Corredor B", "Recepção Central #04". | Not Null |
-| `status` | Enum | Estado do terminal. | `ATIVO`, `INATIVO`, `MANUTENCAO` |
+| `identificacao` | String | Ex: "Corredor B", "Recepção Central #04". | Not Null |
+| `status` | Enum | Estado do terminal. | `ATIVO`, `INATIVO`, `MANUTENCAO`, `REVOGADO` | Not Null |
 | `credential_id` | String | ID de credencial WebAuthn do terminal. | Nullable |
 | `public_key` | String | Chave pública criptográfica do terminal. | Nullable |
+| `created_at` | Timestamp | Quando foi criado. | Not Null |
+| `updated_at` | Timestamp | Quando foi atualizado | Nullable |
+| `revoked_at` | Timestamp | Quando foi revogado. | Nullable |
+| `created_by` | UUID/Int | Por quem foi criado. | FK, Not Null |
 
 ---
 
@@ -161,13 +157,25 @@
 ---
 
 ## AUTH_CHALLENGE
-**Descrição:** Desafio criptográfico de curta duração usado para autenticar a estação (o terminal físico) junto ao backend — independente da autenticação do funcionário.
+**Descrição:** Desafio criptográfico de curta duração usado para autenticar a estação (o terminal físico) junto ao backend — independente da autenticação do funcionário. O servidor consome atomicamente o challenge após uma validação bem-sucedida.
 
 | Coluna | Tipo | Descrição | Observações |
 | :--- | :--- | :--- | :--- |
 | `id` | UUID / Int | Identificador. | PK |
 | `estacao_id` | UUID / Int | Estação que solicitou o desafio. | FK, Not Null |
 | `challenge` | String | Valor do desafio criptográfico. | Not Null |
+| `ttl` | Int | Tempo (segundos) que a verificação dura. | Not Null |
+
+---
+
+## PARING_CODE
+**Descrição:** Código de pareamento gerado para sincronizar uma estação física com a criada no servidor. O servidor consome atomicamente o código após um pareamento bem-sucedido.
+
+| Coluna | Tipo | Descrição | Observações |
+| :--- | :--- | :--- | :--- |
+| `id` | UUID / Int | Identificador. | PK |
+| `paring_code` | Int | Código de 6 dígitos usado para parear a estação física. | Not Null |
+| `equipament_id` | UUID/Int | Id do equipamento que está sendo pareado | FK, Not Null |
 | `ttl` | Int | Tempo (segundos) que a verificação dura. | Not Null |
 
 ---
