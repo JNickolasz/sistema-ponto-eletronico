@@ -8,13 +8,13 @@ public class FuncionarioDTO {
             String nomeCompleto,
             String usuario,
             String senha,
-            PerfilAcesso.Perfil perfilAcesso
+            PerfilAcesso perfilAcesso
     ) {}
 
     public record Response(
             Long id,
             String nomeCompleto,
             String usuario,
-            PerfilAcesso.Perfil perfilAcesso
+            PerfilAcesso perfilAcesso
     ) {}
 }

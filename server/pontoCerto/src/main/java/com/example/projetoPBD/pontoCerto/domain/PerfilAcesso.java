@@ -1,10 +1,7 @@
 package com.example.projetoPBD.pontoCerto.domain;
 
-public class PerfilAcesso {
-
-    public enum Perfil {
+public enum PerfilAcesso {
         COLABORADOR,
         GESTOR,
         RH
-    }
 }
