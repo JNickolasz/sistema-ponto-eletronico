@@ -1,4 +1,4 @@
 package com.example.projetoPBD.pontoCerto.dto;
 
-public class EmployeeDTO {
+public class LoginDTO {
 }

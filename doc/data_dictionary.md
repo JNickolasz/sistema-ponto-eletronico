@@ -33,7 +33,7 @@
 | `usuario` | String | Login do sistema. | Not Null, **Unique por empresa_id** |
 | `senha_hash` | String | Senha criptografada (login web). | Not Null |
 | `pin_hash` | String | PIN numérico (4-6 dígitos) para autenticação rápida na estação. | Not Null |
-| `jornada_id` | UUID / Int | Vínculo com a tabela de jornadas. | FK, Not Null |
+| `jornada_id` | UUID / Int | Vínculo com a tabela de jornadas. | FK, **Nullable** (JORNADA fora do escopo de T1/T2 — vira Not Null quando a tarefa de jornada entrar) |
 | `cargo` | String | Função exercida. | Not Null |
 | `data_admissao` | Date | Data de início. | Not Null |
 | `data_desligamento` | Date | Data de rescisão (se preenchido, inativa o usuário). | Nullable |
@@ -61,15 +61,30 @@
 ---
 
 ## EQUIPAMENTO
-**Descrição:** Cadastro geral dos relógios de ponto físicos (AFD) instalados nos locais de trabalho.
+**Descrição:** Cadastro geral de relógios físicos (AFD) e estações web instaladas nos locais de trabalho. `empresa_id` é denormalizado aqui (além de vir via `local_trabalho_id`) para permitir a constraint de unicidade do número de fabricação por empresa direto no banco. `status` mora na classe base — tanto relógio quanto estação precisam poder ser desativados, conforme T02.
 
 | Coluna | Tipo | Descrição | Observações |
 | :--- | :--- | :--- | :--- |
 | `id` | UUID / Int | Identificador do equipamento. | PK |
+| `empresa_id` | UUID / Int | Denormalizado, para a unique constraint de `num_fabricacao`. | FK, Not Null |
 | `local_trabalho_id` | UUID / Int | Onde ele está fisicamente instalado. | FK, Not Null |
+<<<<<<< Updated upstream
 | `tipo` | Enum | Define a origem da batida. | `RELOGIO_AFD`, `ESTACAO_WEB` |
 | `identificacao` | String | Ex: "Corredor B", "Recepção Central #04". | Not Null |
 | `status` | Enum | Estado do terminal. | `ATIVO`, `INATIVO`, `MANUTENCAO`, `REVOGADO` | Not Null |
+=======
+| `tipo` | Enum | Define a origem da batida. | `RELOGIO`, `ESTACAO` |
+| `identificacao` | String | Nome/token do equipamento (Ex: "Corredor B", "REP-004"). | Not Null |
+| `num_fabricacao` | String | Serial do fabricante. Obrigatório só se `tipo = RELOGIO` (validado no service, não no banco). | Nullable, **Unique por empresa_id** |
+| `status` | Enum | Permite desativar sem apagar marcações já vindas dele. | `ATIVO`, `INATIVO` |
+
+## ESTAÇÃO
+**Descrição:** Subtipo de `EQUIPAMENTO` para quando `tipo = ESTACAO` — carrega os dados de autenticação do terminal (WebAuthn/attestation), separados da autenticação do funcionário.
+
+| Coluna | Tipo | Descrição | Observações |
+| :--- | :--- | :--- | :--- |
+| `equipamento_id` | UUID / Int | Referência ao equipamento pai. | PK e FK |
+>>>>>>> Stashed changes
 | `credential_id` | String | ID de credencial WebAuthn do terminal. | Nullable |
 | `public_key` | String | Chave pública criptográfica do terminal. | Nullable |
 | `created_at` | Timestamp | Quando foi criado. | Not Null |
@@ -131,7 +146,7 @@
 | `id` | UUID / Int | ID individual da batida. | PK |
 | `funcionario_id` | UUID / Int | Quem bateu. | FK, Not Null |
 | `data_hora` | Timestamp | Momento exato do registro. | Not Null |
-| `origem` | Enum | De onde veio a informação. | `ESTACAO_WEB`, `ARQUIVO_IMPORTADO`, `AJUSTE_MANUAL` |
+| `origem` | Enum | De onde veio a informação. | `ESTACAO`, `ARQUIVO_IMPORTADO`, `AJUSTE_MANUAL` |
 | `equipamento_id` | UUID / Int | Aparelho físico ou estação web utilizada. | FK, Nullable |
 | `arquivo_importado_id` | UUID / Int | De qual importação essa batida veio, se `origem = ARQUIVO_IMPORTADO`. | FK, Nullable |
 | `pedido_ajuste_id` | UUID / Int | Pedido que originou esta batida, se `origem = AJUSTE_MANUAL`. | FK, Nullable |
