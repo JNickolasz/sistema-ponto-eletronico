@@ -20,8 +20,10 @@ public class FuncionarioService {
     }
 
     public FuncionarioDTO.Response criar(FuncionarioDTO.Criar dto, Long empresaId) {
-        if (repository.existsByUsuarioAndEmpresaId(dto.usuario(), empresaId)) {
-            throw new UsuarioDuplicadoException("Usuário já cadastrado nessa empresa!");
+        // depois voltamos para o (repository.existsByUsuarioAndEmpresaId(dto.usuario(), empresaId))
+        // por hora será apenas para cumprir o primeiro critério da T1
+        if (repository.existsByUsuario(dto.usuario())) {
+            throw new UsuarioDuplicadoException("Usuário já cadastrado!");
         }
 
         /*
@@ -39,6 +41,7 @@ public class FuncionarioService {
         funcionario.setUsuario(dto.usuario());
         funcionario.setSenhaHash(passwordEncoder.encode(dto.senha()));
         funcionario.setPerfilAcesso(dto.perfilAcesso());
+        funcionario.setEmpresaId(empresaId);
 
         Funcionario salvo = repository.save(funcionario);
 
