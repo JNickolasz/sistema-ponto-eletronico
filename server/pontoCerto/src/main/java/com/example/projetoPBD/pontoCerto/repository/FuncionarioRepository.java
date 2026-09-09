@@ -8,8 +8,8 @@ import java.util.Optional;
 public interface FuncionarioRepository extends JpaRepository<Funcionario, Long> {
 
     Optional<Funcionario> findByUsuarioAndEmpresaId(String usuario, Long empresaId);
-
     boolean existsByUsuarioAndEmpresaId(String usuario, Long empresaId);
 
     Optional<Funcionario> findByUsuario(String usuario);
+    boolean existsByUsuario(String usuario);
 }
