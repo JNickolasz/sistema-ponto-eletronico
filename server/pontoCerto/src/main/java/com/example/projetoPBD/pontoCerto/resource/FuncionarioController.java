@@ -4,6 +4,7 @@ import com.example.projetoPBD.pontoCerto.dto.FuncionarioDTO;
 import com.example.projetoPBD.pontoCerto.service.FuncionarioService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,6 +20,7 @@ public class FuncionarioController {
         this.service = service;
     }
 
+    @PreAuthorize("hasAuthority('RH')")
     @PostMapping
     public ResponseEntity<FuncionarioDTO.Response> criarFuncionario(@RequestBody FuncionarioDTO.Criar dto) {
         Long empresaId = 1L;
