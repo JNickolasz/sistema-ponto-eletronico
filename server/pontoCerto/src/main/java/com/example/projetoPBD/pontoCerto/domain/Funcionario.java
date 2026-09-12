@@ -1,16 +1,14 @@
 package com.example.projetoPBD.pontoCerto.domain;
 
 import jakarta.persistence.*;
-import lombok.Data;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.time.LocalDate;
-import java.util.Collection;
-import java.util.List;
+import java.util.UUID;
 
-@Data
+@Getter
+@Setter
 @Entity
 @Table(name = "funcionario", uniqueConstraints = {
         @UniqueConstraint(columnNames = {"empresa_id", "cpf"}),
@@ -18,11 +16,13 @@ import java.util.List;
         @UniqueConstraint(columnNames = {"empresa_id", "usuario"}),
         @UniqueConstraint(columnNames = {"empresa_id", "email"})
 })
-public class Funcionario implements UserDetails {
+public class Funcionario{
+
+    public Funcionario(){}
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     //@ManyToOne
     //@JoinColumn(name = "empresa_id", nullable = true) // provisoriamente, depois fica = false
@@ -58,11 +58,8 @@ public class Funcionario implements UserDetails {
     @Column(name = "usuario", nullable = false)
     private String usuario;
 
-    @Column(name = "senha_hash", nullable = false, length = 60)
+    @Column(name = "senha_hash", nullable = false, length = 255)
     private String senhaHash;
-
-    @Column(name = "pin_hash", length = 60, nullable = true) // provisoriamente, depois fica = false
-    private String pinHash;
 
     // lembrar de por o ManyToOne
     //@JoinColumn(name = "jornada_id", nullable = true)
@@ -79,29 +76,4 @@ public class Funcionario implements UserDetails {
     @Column(name = "data_desligamento", nullable = true) // provisoriamente, depois fica = false
     private LocalDate dataDesligamento;
 
-    public Funcionario() {
-    }
-
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        if (this.perfilAcesso == null) {
-            return List.of();
-        }
-        return List.of(
-                new SimpleGrantedAuthority(this.perfilAcesso.name()),
-                new SimpleGrantedAuthority("ROLE_" + this.perfilAcesso.name())
-        );
-    }
-    @Override
-    public String getPassword() { return this.senhaHash; }
-    @Override
-    public String getUsername() { return this.usuario; }
-    @Override
-    public boolean isAccountNonExpired() { return true; }
-    @Override
-    public boolean isAccountNonLocked() { return true; }
-    @Override
-    public boolean isCredentialsNonExpired() { return true; }
-    @Override
-    public boolean isEnabled() { return this.dataDesligamento == null; }
 }
