@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api")
@@ -26,7 +27,7 @@ public class FuncionarioController {
     }
 
     @PostMapping("/rh/adicionar")
-    @PreAuthorize("hasAuthority('RH')")
+    @PreAuthorize("hasRole('RH')")
     public ResponseEntity<FuncionarioDTO.Response> criarFuncionario(@RequestBody FuncionarioDTO.Criar dto) {
         Long empresaId = 1L;
         // Só por hora enquanto ainda n temos o objeto de Empresa definido
@@ -35,7 +36,7 @@ public class FuncionarioController {
     }
 
     @GetMapping("/rh/painel")
-    @PreAuthorize("hasAuthority('RH')")
+    @PreAuthorize("hasRole('RH')")
     public ResponseEntity<Map<String, Object>> rotaRh(Authentication authentication) {
         Map<String, Object> response = new HashMap<>();
         response.put("mensagem", "Acesso liberado para RH");
@@ -46,7 +47,7 @@ public class FuncionarioController {
     }
 
     @GetMapping("/colaborador/painel")
-    @PreAuthorize("hasAuthority('COLABORADOR')")
+    @PreAuthorize("hasRole('COLABORADOR')")
     public ResponseEntity<Map<String, Object>> rotaColaborador(Authentication authentication) {
         Map<String, Object> response = new HashMap<>();
         response.put("mensagem", "Acesso liberado para COLABORADOR");
@@ -57,8 +58,8 @@ public class FuncionarioController {
     }
 
     @GetMapping("/colaborador/{id}/espelho")
-    @PreAuthorize("hasAuthority('COLABORADOR')")
-    public ResponseEntity<Map<String, Object>> verEspelhoColaborador(@PathVariable Long id, Authentication authentication){
+    @PreAuthorize("hasRole('COLABORADOR')")
+    public ResponseEntity<Map<String, Object>> verEspelhoColaborador(@PathVariable UUID id, Authentication authentication){
         var funcionarioLogado = repository.findByUsuario(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
 
@@ -71,14 +72,14 @@ public class FuncionarioController {
         Map<String, Object> response = new HashMap<>();
         response.put("mensagem", "Acesso liberado ao seu espelho de ponto!");
         response.put("espelhoId", id);
-        response.put("donoDoEspelho", funcionarioLogado.getUsername());
+        response.put("donoDoEspelho", funcionarioLogado.getUsuario());
 
         return ResponseEntity.ok(response);
 
     }
 
     @GetMapping("/gestor/painel")
-    @PreAuthorize("hasAuthority('GESTOR')")
+    @PreAuthorize("hasRole('GESTOR')")
     public ResponseEntity<Map<String, Object>> rotaGestor(Authentication authentication) {
         Map<String, Object> response = new HashMap<>();
         response.put("mensagem", "Acesso liberado para GESTOR");

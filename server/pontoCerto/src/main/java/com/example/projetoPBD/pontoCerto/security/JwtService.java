@@ -19,11 +19,15 @@ public class JwtService {
     @Value("${api.security.token.expiration:86400000}")
     private Long expiration;
 
+    @Value("${api.security.issuer:pontoCerto-api}")
+    private String issuer;
+
+
     public String generateToken(Funcionario funcionario) {
         try {
             Algorithm algorithm = Algorithm.HMAC256(secret);
             return JWT.create()
-                    .withIssuer("pontoCerto-api")
+                    .withIssuer(issuer)
                     .withSubject(funcionario.getUsuario())
                     .withClaim("role", funcionario.getPerfilAcesso().name())
                     .withExpiresAt(new Date(System.currentTimeMillis() + expiration))
@@ -37,7 +41,7 @@ public class JwtService {
         try {
             Algorithm algorithm = Algorithm.HMAC256(secret);
             return JWT.require(algorithm)
-                    .withIssuer("pontoCerto-api")
+                    .withIssuer(issuer)
                     .build()
                     .verify(token)
                     .getSubject();
