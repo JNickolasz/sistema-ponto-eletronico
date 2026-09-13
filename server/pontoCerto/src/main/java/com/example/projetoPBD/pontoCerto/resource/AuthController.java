@@ -38,7 +38,7 @@ public class AuthController {
             var authentication = authenticationManager.authenticate(authToken);
 
             var userDetails = (FuncionarioUserDetails) authentication.getPrincipal();
-            var funcionario = userDetails.getFuncionario();
+            var funcionario = userDetails.getFuncionario(); //Funcionario não pode ser NULL pos já foi autenticado.
 
             String token = jwtService.generateToken(funcionario);
 

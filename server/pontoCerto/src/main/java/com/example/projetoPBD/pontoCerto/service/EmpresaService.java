@@ -5,10 +5,8 @@ import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.dto.EmpresaDTO;
 import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
 import com.example.projetoPBD.pontoCerto.service.exceptions.EmpresaExistenteException;
-import jakarta.validation.constraints.NotEmpty;
+import com.example.projetoPBD.pontoCerto.service.exceptions.ErroCadastroEmpresaException;
 import org.springframework.stereotype.Service;
-
-import java.util.Optional;
 
 @Service
 public class EmpresaService {
@@ -20,15 +18,26 @@ public class EmpresaService {
 
     }
 
-    public EmpresaDTO.Response cadastrarEmpresa(EmpresaDTO.Request dto) {
+    public EmpresaDTO.Response cadastrarEmpresa(EmpresaDTO.Criar empresaDTO) {
 
-        if (empresaRepository.existsByCnpj(dto.cnpj())) {
-            throw new EmpresaExistenteException("Empresa já existente");
+        if (empresaRepository.existsByCnpj(empresaDTO.cnpj())) {
+            throw new EmpresaExistenteException("CNPJ já cadastrado");
         }
 
+        if (empresaRepository.existsBySubDominio(empresaDTO.subdominio())){
+            throw new EmpresaExistenteException("Subdomínio já cadastrado");
+        }
+
+
         Empresa empresa = new Empresa();
-        empresa.setCnpj(dto.cnpj());
-        empresa.setRazaoSocial(dto.razaoSocial());
+        empresa.setCnpj(empresaDTO.cnpj());
+        empresa.setRazaoSocial(empresaDTO.razaoSocial());
+        empresa.setEndereco(empresaDTO.endereco());
+        empresa.setSubDominio(empresaDTO.subdominio());
+
+        empresa.setLogoUrl(
+                empresaDTO.logoUrl() != null ? empresaDTO.logoUrl() : ""
+        );
 
         Empresa empresaSalva = empresaRepository.save(empresa);
 
@@ -36,5 +45,6 @@ public class EmpresaService {
                 empresaSalva.getId(),
                 empresaSalva.getRazaoSocial()
         );
+
     }
 }
