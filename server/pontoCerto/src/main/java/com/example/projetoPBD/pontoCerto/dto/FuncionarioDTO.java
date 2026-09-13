@@ -1,5 +1,6 @@
 package com.example.projetoPBD.pontoCerto.dto;
 
+import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.PerfilAcesso;
 
 import java.util.UUID;
@@ -10,7 +11,8 @@ public class FuncionarioDTO {
             String nomeCompleto,
             String usuario,
             String senha,
-            PerfilAcesso perfilAcesso
+            PerfilAcesso perfilAcesso,
+            String empresaCnpj
     ) {}
 
     public record Response(

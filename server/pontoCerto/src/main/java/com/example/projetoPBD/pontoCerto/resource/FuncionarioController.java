@@ -29,9 +29,9 @@ public class FuncionarioController {
     @PostMapping("/rh/adicionar")
     @PreAuthorize("hasRole('RH')")
     public ResponseEntity<FuncionarioDTO.Response> criarFuncionario(@RequestBody FuncionarioDTO.Criar dto) {
-        Long empresaId = 1L;
+
         // Só por hora enquanto ainda n temos o objeto de Empresa definido
-        FuncionarioDTO.Response response = service.criar(dto, empresaId);
+        FuncionarioDTO.Response response = service.criar(dto, dto.empresaCnpj());
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

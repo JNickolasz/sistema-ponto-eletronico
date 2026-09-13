@@ -1,5 +1,6 @@
 package com.example.projetoPBD.pontoCerto.seed;
 
+import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.Funcionario;
 import com.example.projetoPBD.pontoCerto.domain.PerfilAcesso;
 import com.example.projetoPBD.pontoCerto.repository.FuncionarioRepository;
@@ -34,7 +35,7 @@ public class DataSeeder implements CommandLineRunner {
             adminRh.setCargo("Analista de RH");
             adminRh.setPerfilAcesso(PerfilAcesso.RH);
             adminRh.setDataAdmissao(LocalDate.now());
-            adminRh.setEmpresaId(1L);
+            adminRh.setEmpresaId(new Empresa("Bugteco", "12345"));
 
             // Cifra a senha inicial obrigatória
             adminRh.setSenhaHash(passwordEncoder.encode("admin123"));

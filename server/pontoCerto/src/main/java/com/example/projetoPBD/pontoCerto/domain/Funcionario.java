@@ -24,10 +24,11 @@ public class Funcionario{
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    //@ManyToOne
-    //@JoinColumn(name = "empresa_id", nullable = true) // provisoriamente, depois fica = false
+    @ManyToOne
+    @JoinColumn(name = "empresa_id", nullable = false)
+
     @Column(name = "empresa_id")
-    private Long empresaId; // tem q mudar o tipo pra Empresa dps
+    private Empresa empresaId;
 
     @ManyToOne
     @JoinColumn(name = "gestor_id", nullable = true) // provisoriamente, depois fica = false
