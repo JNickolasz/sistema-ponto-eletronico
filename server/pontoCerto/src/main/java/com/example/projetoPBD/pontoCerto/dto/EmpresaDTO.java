@@ -17,7 +17,7 @@ public class EmpresaDTO {
             @NotBlank(message = "Subdomínio é obrigatório")
             String subdominio,
 
-            @CNPJ
+            @CNPJ(message = "CNPJ deve ser válido")
             @NotBlank(message = "CNPJ é obrigatório")
             String cnpj,
 
