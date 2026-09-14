@@ -1,7 +1,8 @@
 package com.example.projetoPBD.pontoCerto.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
+import org.hibernate.validator.constraints.br.CNPJ;
+
 
 import java.util.UUID;
 
@@ -9,12 +10,14 @@ public class EmpresaDTO {
 
     public record Criar(
 
+
             @NotBlank(message = "Razão social é obrigatório")
             String razaoSocial,
 
             @NotBlank(message = "Subdomínio é obrigatório")
             String subdominio,
 
+            @CNPJ
             @NotBlank(message = "CNPJ é obrigatório")
             String cnpj,
 
