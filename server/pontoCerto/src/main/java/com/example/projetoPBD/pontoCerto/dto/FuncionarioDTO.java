@@ -1,5 +1,6 @@
 package com.example.projetoPBD.pontoCerto.dto;
 
+
 import com.example.projetoPBD.pontoCerto.domain.PerfilAcesso;
 
 import java.util.UUID;

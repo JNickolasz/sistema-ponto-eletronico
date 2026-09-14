@@ -1,5 +1,7 @@
-package com.example.projetoPBD.pontoCerto.security;
+package com.example.projetoPBD.pontoCerto.security.filter;
 
+import com.example.projetoPBD.pontoCerto.security.JwtService;
+import com.example.projetoPBD.pontoCerto.security.UserDetailsServiceImpl;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,12 +29,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         this.userDetailsServiceImpl = userDetailsServiceImpl;
     }
 
+    // Ignora todas os filtros para /api/admin/** Essa rota tem um filtro especifico.
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        return request.getRequestURI().startsWith("/api/admin");
+    }
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
+
 
         String authHeader = request.getHeader("Authorization");
 
