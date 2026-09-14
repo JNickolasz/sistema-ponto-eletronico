@@ -22,7 +22,7 @@ public class AdminController {
 
 
 
-    @PostMapping("/cadastrar-empresa")
+    @PostMapping("/empresas")
     public ResponseEntity<EntityResponse<EmpresaDTO.Response>> cadastrarEmpresa(@Valid @RequestBody EmpresaDTO.Criar empresaDTO){
 
 
