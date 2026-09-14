@@ -11,7 +11,10 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "empresa")
+@Table(name = "empresa", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"subdominio"}),
+        @UniqueConstraint(columnNames = {"cnpj"})
+})
 
 public class Empresa {
 
