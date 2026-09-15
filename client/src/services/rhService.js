@@ -46,6 +46,31 @@ export const rhService = {
     const query = empresaId ? `?empresaId=${empresaId}` : '';
     return await api.get(`/v1/locais-trabalho${query}`);
   },
+
+  /**
+   * Lista os equipamentos de registro cadastrados
+   */
+  async listarEquipamentos(filtros = {}) {
+    const params = new URLSearchParams();
+    if (filtros.localTrabalhoId) params.append('localTrabalhoId', filtros.localTrabalhoId);
+    if (filtros.empresaId) params.append('empresaId', filtros.empresaId);
+    const query = params.toString() ? `?${params.toString()}` : '';
+    return await api.get(`/v1/equipamentos${query}`);
+  },
+
+  /**
+   * Cadastra um novo equipamento (RELOGIO ou ESTACAO)
+   */
+  async cadastrarEquipamento(dados) {
+    return await api.post('/v1/equipamentos', dados);
+  },
+
+  /**
+   * Altera o status do equipamento (ATIVO / INATIVO)
+   */
+  async alterarStatusEquipamento(id, status) {
+    return await api.patch(`/v1/equipamentos/${id}/status?status=${status}`);
+  },
 };
 
 export default rhService;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import rhService from '../services/rhService';
+import equipamentoService from '../services/equipamentoService';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -17,8 +18,14 @@ import {
   MapPin,
   Plus,
   X,
+  HardDrive,
+  Clock,
+  Monitor,
+  Power,
+  Hash,
+  Filter,
 } from 'lucide-react';
-import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { FormControl, Select, MenuItem } from '@mui/material';
 import toast from 'react-hot-toast';
 
 export function RhDashboard() {
@@ -46,6 +53,16 @@ export function RhDashboard() {
   const [municipioLocal, setMunicipioLocal] = useState('');
   const [ufLocal, setUfLocal] = useState('');
   const [submittingLocal, setSubmittingLocal] = useState(false);
+
+  // Estado dos Equipamentos de Registro (T02)
+  const [equipamentos, setEquipamentos] = useState([]);
+  const [loadingEquipamentos, setLoadingEquipamentos] = useState(false);
+  const [localTrabalhoIdEquipamento, setLocalTrabalhoIdEquipamento] = useState('');
+  const [tipoEquipamento, setTipoEquipamento] = useState('RELOGIO');
+  const [identificacaoEquipamento, setIdentificacaoEquipamento] = useState('');
+  const [numFabricacaoEquipamento, setNumFabricacaoEquipamento] = useState('');
+  const [submittingEquipamento, setSubmittingEquipamento] = useState(false);
+  const [filtroLocalEquipamento, setFiltroLocalEquipamento] = useState('');
 
   // Modal de Cadastro de Empresa (Área Admin)
   const [modalEmpresaAberto, setModalEmpresaAberto] = useState(false);
@@ -90,24 +107,44 @@ export function RhDashboard() {
     try {
       setLoadingEmpresas(true);
       setLoadingLocais(true);
-      const [listaEmpresas, listaLocais] = await Promise.all([
+      setLoadingEquipamentos(true);
+      const [listaEmpresas, listaLocais, listaEquipamentos] = await Promise.all([
         rhService.listarEmpresas().catch(() => []),
         rhService.listarLocaisTrabalho().catch(() => []),
+        equipamentoService.listarEquipamentos().catch(() => []),
       ]);
 
       const arrayEmpresas = Array.isArray(listaEmpresas) ? listaEmpresas : [];
       const arrayLocais = Array.isArray(listaLocais) ? listaLocais : [];
+      const arrayEquipamentos = Array.isArray(listaEquipamentos) ? listaEquipamentos : [];
 
       setEmpresas(arrayEmpresas);
       if (arrayEmpresas.length > 0 && !empresaIdSelecionada) {
         setEmpresaIdSelecionada(arrayEmpresas[0].id);
       }
       setLocaisTrabalho(arrayLocais);
+      if (arrayLocais.length > 0 && !localTrabalhoIdEquipamento) {
+        setLocalTrabalhoIdEquipamento(arrayLocais[0].id);
+      }
+      setEquipamentos(arrayEquipamentos);
     } catch (err) {
-      console.error('Erro ao carregar empresas e locais:', err);
+      console.error('Erro ao carregar empresas, locais e equipamentos:', err);
     } finally {
       setLoadingEmpresas(false);
       setLoadingLocais(false);
+      setLoadingEquipamentos(false);
+    }
+  };
+
+  const carregarEquipamentos = async (filtros = {}) => {
+    try {
+      setLoadingEquipamentos(true);
+      const lista = await equipamentoService.listarEquipamentos(filtros);
+      setEquipamentos(Array.isArray(lista) ? lista : []);
+    } catch (err) {
+      console.error('Erro ao carregar equipamentos:', err);
+    } finally {
+      setLoadingEquipamentos(false);
     }
   };
 
@@ -248,6 +285,87 @@ export function RhDashboard() {
       setUfLocal('SC');
     }
     toast(`Exemplo de ${tipo} preenchido no formulário!`, { icon: '🏢' });
+  };
+
+  // Cadastro de Equipamento (T02 - Issues #16, #17, #18)
+  const handleCadastrarEquipamento = async (e) => {
+    e.preventDefault();
+
+    if (!localTrabalhoIdEquipamento) {
+      toast.error('Selecione um local de trabalho para o equipamento');
+      return;
+    }
+
+    if (!identificacaoEquipamento.trim()) {
+      toast.error('Informe a identificação do equipamento');
+      return;
+    }
+
+    if (tipoEquipamento === 'RELOGIO' && !numFabricacaoEquipamento.trim()) {
+      toast.error('O número de fabricação é obrigatório para relógios físicos');
+      return;
+    }
+
+    try {
+      setSubmittingEquipamento(true);
+      const payload = {
+        localTrabalhoId: localTrabalhoIdEquipamento,
+        tipo: tipoEquipamento,
+        identificacao: identificacaoEquipamento.trim(),
+        numFabricacao: tipoEquipamento === 'RELOGIO' ? numFabricacaoEquipamento.trim() : null,
+      };
+
+      const novo = await equipamentoService.cadastrarEquipamento(payload);
+      toast.success(`Equipamento "${novo.identificacao}" cadastrado com sucesso!`);
+
+      // Limpa formulário
+      setIdentificacaoEquipamento('');
+      setNumFabricacaoEquipamento('');
+
+      // Atualiza listagem
+      const listaAtualizada = await equipamentoService.listarEquipamentos();
+      setEquipamentos(Array.isArray(listaAtualizada) ? listaAtualizada : [novo, ...equipamentos]);
+    } catch (err) {
+      toast.error(err.message || 'Erro ao cadastrar equipamento');
+    } finally {
+      setSubmittingEquipamento(false);
+    }
+  };
+
+  // Desativação Lógica / Alteração de Status de Equipamento (Issue #17)
+  const handleAlternarStatusEquipamento = async (equipamento) => {
+    const novoStatus = equipamento.status === 'ATIVO' ? 'INATIVO' : 'ATIVO';
+    try {
+      const atualizado = await equipamentoService.alterarStatus(equipamento.id, novoStatus);
+      toast.success(
+        novoStatus === 'INATIVO'
+          ? `Equipamento "${equipamento.identificacao}" desativado (marcações preservadas)!`
+          : `Equipamento "${equipamento.identificacao}" reativado!`
+      );
+      setEquipamentos((prev) =>
+        prev.map((eq) => (eq.id === equipamento.id ? { ...eq, status: atualizado.status } : eq))
+      );
+    } catch (err) {
+      toast.error(err.message || 'Erro ao alterar status do equipamento');
+    }
+  };
+
+  const handlePreencherExemploEquipamento = (tipo) => {
+    const randomNum = Math.floor(100000 + Math.random() * 900000);
+    if (tipo === 'RELOGIO') {
+      setTipoEquipamento('RELOGIO');
+      setIdentificacaoEquipamento(`Relógio Biometria Portaria #${Math.floor(Math.random() * 9 + 1)}`);
+      setNumFabricacaoEquipamento(`REP-${randomNum}`);
+      toast('Exemplo de Relógio físico preenchido!', { icon: '⏰' });
+    } else {
+      setTipoEquipamento('ESTACAO');
+      setIdentificacaoEquipamento(`Estação Tablet Corredor #${Math.floor(Math.random() * 9 + 1)}`);
+      setNumFabricacaoEquipamento('');
+      toast('Exemplo de Estação Web preenchido!', { icon: '💻' });
+    }
+    if (locaisTrabalho.length > 0 && !localTrabalhoIdEquipamento) {
+      setLocalTrabalhoIdEquipamento(locaisTrabalho[0].id);
+    }
   };
 
   // Cadastro de Funcionário (T01)
@@ -420,6 +538,23 @@ export function RhDashboard() {
             {locaisTrabalho.length > 0 && (
               <span className="px-2 py-0.5 text-xs rounded-full bg-indigo-500/20 text-indigo-300 font-mono">
                 {locaisTrabalho.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva('equipamentos')}
+            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              abaAtiva === 'equipamentos'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <HardDrive size={18} />
+            <span>Equipamentos (T02)</span>
+            {equipamentos.length > 0 && (
+              <span className="px-2 py-0.5 text-xs rounded-full bg-indigo-500/20 text-indigo-300 font-mono">
+                {equipamentos.length}
               </span>
             )}
           </button>
@@ -703,12 +838,472 @@ export function RhDashboard() {
 
               {/* Card Explicativo da Tarefa T02 */}
               <div className="rounded-2xl bg-indigo-950/30 border border-indigo-900/40 p-5 text-xs text-indigo-300/90 space-y-2">
-                <div className="font-semibold text-indigo-200 flex items-center gap-1.5 text-sm">
-                  <Briefcase size={16} /> Tarefa T02 - Papel dos Locais:
+                <div className="font-semibold text-indigo-200 flex items-center justify-between text-sm">
+                  <span className="flex items-center gap-1.5">
+                    <Briefcase size={16} /> Tarefa T02 - Papel dos Locais:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setAbaAtiva('equipamentos')}
+                    className="text-xs text-indigo-400 hover:text-indigo-300 underline font-normal cursor-pointer"
+                  >
+                    Ir para Equipamentos &rarr;
+                  </button>
                 </div>
                 <p className="text-slate-300 leading-relaxed">
                   Toda marcação de ponto deve ter uma origem física conhecida. Cada local cadastrado (Matriz, Filial, Obra) receberá seus <strong>Equipamentos</strong> (Relógio AFD ou Estação Web) para registrar as batidas.
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Conteúdo da Aba Equipamentos (T02 - Issues #16, #17, #18) */}
+        {abaAtiva === 'equipamentos' && (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Coluna do Formulário de Equipamento */}
+            <div className="lg:col-span-7">
+              <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+                      <HardDrive size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-white">Cadastrar Equipamento de Registro</h3>
+                      <p className="text-xs text-slate-400">
+                        Dispara requisição para <span className="font-mono text-indigo-300">POST /api/v1/equipamentos</span>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Exemplos Rápidos */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handlePreencherExemploEquipamento('RELOGIO')}
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <Clock size={12} /> + Exemplo Relógio
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePreencherExemploEquipamento('ESTACAO')}
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <Monitor size={12} /> + Exemplo Estação
+                    </button>
+                  </div>
+                </div>
+
+                <form onSubmit={handleCadastrarEquipamento} className="space-y-4">
+                  {/* Select do Local de Trabalho */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                        Local de Trabalho Vinculado *
+                      </label>
+                      {locaisTrabalho.length === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setAbaAtiva('locais')}
+                          className="text-xs text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                        >
+                          Cadastre um local primeiro
+                        </button>
+                      )}
+                    </div>
+
+                    <FormControl fullWidth size="small">
+                      <Select
+                        displayEmpty
+                        value={localTrabalhoIdEquipamento}
+                        onChange={(e) => setLocalTrabalhoIdEquipamento(e.target.value)}
+                        renderValue={(selected) => {
+                          if (!selected) {
+                            return <span className="text-slate-500 text-sm">Selecione o local de instalação...</span>;
+                          }
+                          const found = locaisTrabalho.find((l) => l.id === selected);
+                          return found
+                            ? `${found.nome} (${found.razaoSocialEmpresa || 'Empresa'})`
+                            : selected;
+                        }}
+                        sx={{
+                          color: '#f8fafc',
+                          backgroundColor: 'rgba(2, 6, 23, 0.6)',
+                          borderRadius: '0.75rem',
+                          '.MuiOutlinedInput-notchedOutline': {
+                            borderColor: 'rgba(51, 65, 85, 0.8)',
+                          },
+                          '&:hover .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#6366f1',
+                          },
+                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                            borderColor: '#6366f1',
+                          },
+                          '.MuiSvgIcon-root': {
+                            color: '#94a3b8',
+                          },
+                        }}
+                        MenuProps={{
+                          slotProps: {
+                            paper: {
+                              sx: {
+                                bgcolor: '#0f172a',
+                                color: '#f8fafc',
+                                border: '1px solid #334155',
+                                borderRadius: '0.75rem',
+                              },
+                            },
+                          },
+                        }}
+                      >
+                        {locaisTrabalho.length === 0 ? (
+                          <MenuItem disabled value="">
+                            Nenhum local cadastrado. Acesse a aba "Locais de Trabalho" para criar um.
+                          </MenuItem>
+                        ) : (
+                          locaisTrabalho.map((local) => (
+                            <MenuItem key={local.id} value={local.id} sx={{ '&:hover': { bgcolor: '#1e293b' } }}>
+                              {local.nome} — {local.razaoSocialEmpresa || 'Empresa'} ({local.municipio || ''}/{local.uf || ''})
+                            </MenuItem>
+                          ))
+                        )}
+                      </Select>
+                    </FormControl>
+                  </div>
+
+                  {/* Seleção do Tipo de Equipamento (Cards clicáveis) */}
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
+                      Tipo de Equipamento *
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setTipoEquipamento('RELOGIO')}
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                          tipoEquipamento === 'RELOGIO'
+                            ? 'bg-indigo-950/60 border-indigo-500 ring-1 ring-indigo-500/50'
+                            : 'bg-slate-950/50 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div
+                          className={`p-2 rounded-lg ${
+                            tipoEquipamento === 'RELOGIO'
+                              ? 'bg-indigo-500 text-white'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          <Clock size={18} />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-sm text-slate-100 flex items-center gap-1.5">
+                            Relógio Físico (AFD)
+                            {tipoEquipamento === 'RELOGIO' && (
+                              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded">
+                                Selecionado
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Aparelho de parede. Exige número de fabricação único por empresa.
+                          </p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTipoEquipamento('ESTACAO');
+                          setNumFabricacaoEquipamento('');
+                        }}
+                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                          tipoEquipamento === 'ESTACAO'
+                            ? 'bg-sky-950/60 border-sky-500 ring-1 ring-sky-500/50'
+                            : 'bg-slate-950/50 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div
+                          className={`p-2 rounded-lg ${
+                            tipoEquipamento === 'ESTACAO'
+                              ? 'bg-sky-500 text-white'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          <Monitor size={18} />
+                        </div>
+                        <div>
+                          <div className="font-semibold text-sm text-slate-100 flex items-center gap-1.5">
+                            Estação Web (Tablet/PC)
+                            {tipoEquipamento === 'ESTACAO' && (
+                              <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded">
+                                Selecionado
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">
+                            Terminal de corredor ou browser. Serial de fabricação nulo (Issue #16).
+                          </p>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Identificação do Equipamento */}
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                      Identificação do Equipamento *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={identificacaoEquipamento}
+                      onChange={(e) => setIdentificacaoEquipamento(e.target.value)}
+                      placeholder="Ex: Catraca Entrada Principal, REP-001, Tablet Recepção B"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/60 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
+
+                  {/* Número de Fabricação */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                        Número de Fabricação (Serial) {tipoEquipamento === 'RELOGIO' ? '*' : ''}
+                      </label>
+                      <span className="text-[11px] text-slate-400">
+                        {tipoEquipamento === 'RELOGIO' ? (
+                          <span className="text-amber-400/90 font-medium">Obrigatório e único por empresa</span>
+                        ) : (
+                          <span className="text-slate-500">Ignorado para Estação Web (Issue #16)</span>
+                        )}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      disabled={tipoEquipamento === 'ESTACAO'}
+                      required={tipoEquipamento === 'RELOGIO'}
+                      value={tipoEquipamento === 'ESTACAO' ? '' : numFabricacaoEquipamento}
+                      onChange={(e) => setNumFabricacaoEquipamento(e.target.value)}
+                      placeholder={
+                        tipoEquipamento === 'RELOGIO'
+                          ? 'Ex: REP-987654321, 000140028900012'
+                          : 'Não aplicável para Estação Web (será salvo como null)'
+                      }
+                      className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-100 focus:outline-none transition-all ${
+                        tipoEquipamento === 'ESTACAO'
+                          ? 'bg-slate-950/30 border-slate-800/60 text-slate-500 cursor-not-allowed italic'
+                          : 'bg-slate-950/60 border-slate-700/80 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Botão de Envio */}
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      disabled={submittingEquipamento || locaisTrabalho.length === 0}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {submittingEquipamento ? (
+                        <>
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                          <span>Cadastrando Equipamento...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus size={16} />
+                          <span>Cadastrar Equipamento</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* Coluna da Listagem de Equipamentos Cadastrados */}
+            <div className="lg:col-span-5 space-y-4">
+              <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <HardDrive size={18} className="text-indigo-400" />
+                    <h3 className="text-base font-bold text-white">Equipamentos Cadastrados</h3>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => carregarEquipamentos()}
+                      disabled={loadingEquipamentos}
+                      title="Recarregar equipamentos"
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw size={13} className={loadingEquipamentos ? 'animate-spin' : ''} />
+                    </button>
+                    <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full font-mono">
+                      Total: {equipamentos.length}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Filtro por Local */}
+                {locaisTrabalho.length > 0 && (
+                  <div className="flex items-center gap-2 mb-3 px-1">
+                    <Filter size={13} className="text-slate-500 shrink-0" />
+                    <select
+                      value={filtroLocalEquipamento}
+                      onChange={(e) => setFiltroLocalEquipamento(e.target.value)}
+                      className="w-full text-xs bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
+                    >
+                      <option value="">Todos os locais de trabalho</option>
+                      {locaisTrabalho.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.nome} ({l.razaoSocialEmpresa || 'Empresa'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {loadingEquipamentos ? (
+                  <div className="flex items-center justify-center gap-2 py-8 text-slate-400 text-sm">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                    <span>Carregando equipamentos...</span>
+                  </div>
+                ) : equipamentos.length === 0 ? (
+                  <div className="text-center py-8 px-4 rounded-xl border border-dashed border-slate-800 text-slate-400 text-sm">
+                    <HardDrive size={32} className="mx-auto mb-2 text-slate-600" />
+                    <p>Nenhum equipamento cadastrado ainda.</p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Cadastre o primeiro relógio ou estação web usando o formulário ao lado!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+                    {(filtroLocalEquipamento
+                      ? equipamentos.filter((eq) => eq.localTrabalhoId === filtroLocalEquipamento)
+                      : equipamentos
+                    ).map((eq) => {
+                      const isAtivo = eq.status === 'ATIVO';
+                      const isRelogio = eq.tipo === 'RELOGIO';
+
+                      return (
+                        <div
+                          key={eq.id}
+                          className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-all space-y-2.5"
+                        >
+                          {/* Cabeçalho do Card */}
+                          <div className="flex items-center justify-between gap-2">
+                            {/* Badge Tipo */}
+                            <span
+                              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+                                isRelogio
+                                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
+                                  : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
+                              }`}
+                            >
+                              {isRelogio ? <Clock size={12} /> : <Monitor size={12} />}
+                              {isRelogio ? 'Relógio AFD' : 'Estação Web'}
+                            </span>
+
+                            {/* Badge Status */}
+                            <span
+                              className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                isAtivo
+                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isAtivo ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                                }`}
+                              />
+                              {eq.status}
+                            </span>
+                          </div>
+
+                          {/* Identificação e Local */}
+                          <div>
+                            <h4 className="font-bold text-sm text-slate-100">{eq.identificacao}</h4>
+                            <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                              <Building2 size={12} className="text-slate-500 shrink-0" />
+                              <span className="truncate">
+                                {eq.localTrabalhoNome || 'Local não identificado'}
+                                {eq.empresaRazaoSocial ? ` • ${eq.empresaRazaoSocial}` : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Serial & Marcações */}
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800/80">
+                              <span className="text-[10px] text-slate-500 block uppercase font-semibold">
+                                Número Fabricação
+                              </span>
+                              <span className="text-xs font-mono font-medium text-slate-200 truncate flex items-center gap-1 mt-0.5">
+                                <Hash size={11} className="text-slate-500 shrink-0" />
+                                {eq.numFabricacao || '— (Nulo / Estação)'}
+                              </span>
+                            </div>
+
+                            <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800/80">
+                              <span className="text-[10px] text-slate-500 block uppercase font-semibold">
+                                Marcações (Issue #18)
+                              </span>
+                              <span className="text-xs font-mono font-bold text-indigo-300 block mt-0.5">
+                                {eq.totalMarcacoes ?? 0} marcações
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Ações (Desativação Lógica - Issue #17) */}
+                          <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[11px]">
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              ID: #{eq.id?.slice(0, 8)}...
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={() => handleAlternarStatusEquipamento(eq)}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                                isAtivo
+                                  ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20'
+                                  : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20'
+                              }`}
+                              title={
+                                isAtivo
+                                  ? 'Desativar equipamento sem apagar marcações (PATCH status=INATIVO)'
+                                  : 'Reativar equipamento (PATCH status=ATIVO)'
+                              }
+                            >
+                              <Power size={11} />
+                              {isAtivo ? 'Desativar (Soft Delete)' : 'Reativar'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Card Explicativo das Regras da Tarefa T02 */}
+              <div className="rounded-2xl bg-indigo-950/30 border border-indigo-900/40 p-5 text-xs text-indigo-300/90 space-y-2">
+                <div className="font-semibold text-indigo-200 flex items-center gap-1.5 text-sm">
+                  <Briefcase size={16} /> Tarefa T02 - Critérios Atendidos:
+                </div>
+                <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px] leading-relaxed">
+                  <li>
+                    <strong>Critério 4 (Issue #16):</strong> Relógio exige número de fabricação único por empresa; Estações Web ignoram e salvam como nulo.
+                  </li>
+                  <li>
+                    <strong>Critério 5 (Issue #17):</strong> Equipamentos são desativados via <code>PATCH /status</code> sem exclusão física, preservando histórico de marcações.
+                  </li>
+                  <li>
+                    <strong>Critério 6 (Issue #18):</strong> A listagem exibe o contador <code>totalMarcacoes</code> para cada equipamento cadastrado.
+                  </li>
+                </ul>
               </div>
             </div>
           </div>
