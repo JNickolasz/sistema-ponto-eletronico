@@ -56,7 +56,42 @@ public class DataSeeder implements CommandLineRunner {
             adminRh.setSenhaHash(passwordEncoder.encode("admin123"));
 
             funcionarioRepository.save(adminRh);
-            System.out.println(">>> Seed executado: Usuário RH Master criado com sucesso! Login: admin.rh | Senha: admin123");
+
+            // Gestor Padrão para Testes
+            Funcionario gestor = new Funcionario();
+            gestor.setNomeCompleto("Mariana Gestora");
+            gestor.setUsuario("gestor.teste");
+            gestor.setEmail("gestor@empresa.com");
+            gestor.setMatricula("GES001");
+            gestor.setCpf("22222222222");
+            gestor.setPisPasep("22222222222");
+            gestor.setCargo("Gerente de Operações");
+            gestor.setPerfilAcesso(PerfilAcesso.GESTOR);
+            gestor.setDataAdmissao(LocalDate.now());
+            gestor.setEmpresa(empresa);
+            gestor.setSenhaHash(passwordEncoder.encode("gestor123"));
+            funcionarioRepository.save(gestor);
+
+            // Colaborador Padrão para Testes
+            Funcionario colaborador = new Funcionario();
+            colaborador.setNomeCompleto("João Colaborador");
+            colaborador.setUsuario("colaborador.teste");
+            colaborador.setEmail("colaborador@empresa.com");
+            colaborador.setMatricula("COL001");
+            colaborador.setCpf("11111111111");
+            colaborador.setPisPasep("11111111111");
+            colaborador.setCargo("Desenvolvedor");
+            colaborador.setPerfilAcesso(PerfilAcesso.COLABORADOR);
+            colaborador.setDataAdmissao(LocalDate.now());
+            colaborador.setEmpresa(empresa);
+            colaborador.setGestor(gestor);
+            colaborador.setSenhaHash(passwordEncoder.encode("user123"));
+            funcionarioRepository.save(colaborador);
+
+            System.out.println(">>> Seed executado com sucesso! Contas de teste prontas:");
+            System.out.println("    - RH:          admin.rh          | Senha: admin123");
+            System.out.println("    - GESTOR:      gestor.teste      | Senha: gestor123");
+            System.out.println("    - COLABORADOR: colaborador.teste | Senha: user123");
         }
     }
 }
