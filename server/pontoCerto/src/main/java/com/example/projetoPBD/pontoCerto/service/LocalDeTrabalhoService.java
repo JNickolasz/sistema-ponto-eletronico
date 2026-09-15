@@ -36,14 +36,14 @@ public class LocalDeTrabalhoService {
 
         LocalDeTrabalho local = new LocalDeTrabalho();
         local.setEmpresa(empresa);
-        local.setNome(dto.nome().trim());
+        local.setNome(dto.nome() != null ? dto.nome().trim() : "");
         local.setLatitude(dto.latitude());
         local.setLongitude(dto.longitude());
         local.setRaioMetros(dto.raioMetros() != null ? dto.raioMetros() : 0);
-        local.setIpEsperado(dto.ipEsperado() != null ? dto.ipEsperado().trim() : null);
-        local.setEndereco(dto.endereco().trim());
-        local.setMunicipio(dto.municipio().trim());
-        local.setUf(dto.uf().trim().toUpperCase());
+        local.setIpEsperado(dto.ipEsperado() != null && !dto.ipEsperado().isBlank() ? dto.ipEsperado().trim() : null);
+        local.setEndereco(dto.endereco() != null ? dto.endereco().trim() : "");
+        local.setMunicipio(dto.municipio() != null ? dto.municipio().trim() : "");
+        local.setUf(dto.uf() != null ? dto.uf().trim().toUpperCase() : "");
 
         local = localDeTrabalhoRepository.save(local);
         return new LocalDeTrabalhoDTO.Response(local);

@@ -7,6 +7,7 @@ import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
 import com.example.projetoPBD.pontoCerto.service.exceptions.EmpresaExistenteException;
 import com.example.projetoPBD.pontoCerto.service.exceptions.ErroCadastroEmpresaException;
 import org.springframework.stereotype.Service;
+import java.util.List;
 
 @Service
 public class EmpresaService {
@@ -16,6 +17,15 @@ public class EmpresaService {
     public EmpresaService(EmpresaRepository empresaRepository) {
         this.empresaRepository = empresaRepository;
 
+    }
+
+    public List<EmpresaDTO.Response> listarEmpresas() {
+        return empresaRepository.findAll().stream()
+                .map(empresa -> new EmpresaDTO.Response(
+                        empresa.getId(),
+                        empresa.getRazaoSocial()
+                ))
+                .toList();
     }
 
     public EmpresaDTO.Response cadastrarEmpresa(EmpresaDTO.Criar empresaDTO) {

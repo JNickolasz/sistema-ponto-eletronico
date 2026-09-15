@@ -15,6 +15,28 @@ export const rhService = {
   async cadastrarFuncionario(dados) {
     return await api.post('/rh/adicionar', dados);
   },
+
+  /**
+   * Lista as empresas cadastradas
+   */
+  async listarEmpresas() {
+    return await api.get('/empresa');
+  },
+
+  /**
+   * Cadastra um novo local de trabalho vinculado à empresa
+   */
+  async cadastrarLocalTrabalho(dados) {
+    return await api.post('/v1/locais-trabalho', dados);
+  },
+
+  /**
+   * Lista os locais de trabalho cadastrados
+   */
+  async listarLocaisTrabalho(empresaId) {
+    const query = empresaId ? `?empresaId=${empresaId}` : '';
+    return await api.get(`/v1/locais-trabalho${query}`);
+  },
 };
 
 export default rhService;

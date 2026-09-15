@@ -10,7 +10,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "local_de_trabalho")
+@Table(name = "local_trabalho")
 
 public class LocalDeTrabalho {
 
