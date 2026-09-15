@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
+@PreAuthorize("hasRole('RH')")
+// Pra n precisar botar em cada endpoint
 @RequestMapping({"/api/v1/equipamentos", "/api/equipamentos"})
 public class EquipamentoController {
 
@@ -23,14 +25,12 @@ public class EquipamentoController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('RH')")
     public ResponseEntity<EquipamentoDTO.Response> cadastrar(@Valid @RequestBody EquipamentoDTO.Request dto) {
         EquipamentoDTO.Response response = equipamentoService.cadastrar(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('RH')")
     public ResponseEntity<List<EquipamentoDTO.Response>> listar(
             @RequestParam(required = false) UUID localTrabalhoId,
             @RequestParam(required = false) UUID empresaId) {
@@ -39,16 +39,17 @@ public class EquipamentoController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('RH')")
     public ResponseEntity<EquipamentoDTO.Response> buscarPorId(@PathVariable UUID id) {
         return ResponseEntity.ok(equipamentoService.buscarPorId(id));
     }
 
+    // exemplo de uso "/api/v1/equipamentos/{id}/status?status=INATIVO"
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasRole('RH')")
     public ResponseEntity<EquipamentoDTO.Response> alterarStatus(
             @PathVariable UUID id,
             @RequestParam StatusEquipamento status) {
-        return ResponseEntity.ok(equipamentoService.alterarStatus(id, status));
+        EquipamentoDTO.Response response = equipamentoService.alterarStatus(id, status);
+        // dessa forma a gnt tbm já mata o critério 5, pq ele apenas muda o status do equipamento sem desativar
+        return ResponseEntity.ok(response);
     }
 }

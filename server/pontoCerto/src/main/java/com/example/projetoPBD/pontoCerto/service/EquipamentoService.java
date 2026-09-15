@@ -60,8 +60,8 @@ public class EquipamentoService {
                 throw new EquipamentoExistenteException("Já existe um relógio cadastrado com o número de fabricação '" + numFabricacao + "' para esta empresa");
             }
         } else {
-            // Estação web não exige número de fabricação
-            numFabricacao = (numFabricacao != null && !numFabricacao.isBlank()) ? numFabricacao : null;
+            // Estação web não exige número de fabricação, portanto vai forcar o valor ser null
+            numFabricacao = null;
         }
 
         Equipamento eq = new Equipamento();

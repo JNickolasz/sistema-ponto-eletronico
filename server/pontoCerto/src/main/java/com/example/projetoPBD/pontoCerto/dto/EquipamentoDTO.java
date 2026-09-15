@@ -32,7 +32,8 @@ public class EquipamentoDTO {
             UUID localTrabalhoId,
             String localTrabalhoNome,
             UUID empresaId,
-            String empresaRazaoSocial
+            String empresaRazaoSocial,
+            Long totalMarcacoes
     ) {
         public Response(Equipamento eq) {
             this(
@@ -44,7 +45,10 @@ public class EquipamentoDTO {
                     eq.getLocalTrabalho() != null ? eq.getLocalTrabalho().getId() : null,
                     eq.getLocalTrabalho() != null ? eq.getLocalTrabalho().getNome() : null,
                     eq.getEmpresa() != null ? eq.getEmpresa().getId() : null,
-                    eq.getEmpresa() != null ? eq.getEmpresa().getRazaoSocial() : null
+                    eq.getEmpresa() != null ? eq.getEmpresa().getRazaoSocial() : null,
+                    0L
+            // Valor mockado, depois que adicionar a lógica de ponto ajeitamos isso
+            // Também vai precisar implementar a contagem no repositorio de ponto
             );
         }
     }
