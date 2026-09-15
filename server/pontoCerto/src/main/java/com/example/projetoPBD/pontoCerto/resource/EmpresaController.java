@@ -15,18 +15,4 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/empresa")
 
-public class EmpresaController {
-
-    private final EmpresaService empresaService;
-
-    public EmpresaController(EmpresaRepository repository, EmpresaService empresaService) {
-        this.empresaService = empresaService;
-    }
-
-    @PostMapping("/cadastrar")
-    @PreAuthorize("hasRole('RH')")
-    public ResponseEntity<EmpresaDTO.Response> cadastrarEmpresa(@RequestBody EmpresaDTO.Request dto){
-        EmpresaDTO.Response response = empresaService.cadastrarEmpresa(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-}
+public class EmpresaController { }

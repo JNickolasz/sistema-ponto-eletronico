@@ -32,7 +32,6 @@
 | `telefone` | String | Contato principal (pode ser JSON se for array). | Nullable |
 | `usuario` | String | Login do sistema. | Not Null, **Unique por empresa_id** |
 | `senha_hash` | String | Senha criptografada (login web). | Not Null |
-| `pin_hash` | String | PIN numérico (4-6 dígitos) para autenticação rápida na estação. | Not Null |
 | `jornada_id` | UUID / Int | Vínculo com a tabela de jornadas. | FK, **Nullable** (JORNADA fora do escopo de T1/T2 — vira Not Null quando a tarefa de jornada entrar) |
 | `cargo` | String | Função exercida. | Not Null |
 | `data_admissao` | Date | Data de início. | Not Null |

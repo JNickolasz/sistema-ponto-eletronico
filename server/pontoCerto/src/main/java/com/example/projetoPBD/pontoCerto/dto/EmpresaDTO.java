@@ -1,14 +1,32 @@
 package com.example.projetoPBD.pontoCerto.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import org.hibernate.validator.constraints.br.CNPJ;
+
+
 import java.util.UUID;
 
 public class EmpresaDTO {
-    public record Request(
+
+    public record Criar(
+
+
+            @NotBlank(message = "Razão social é obrigatório")
             String razaoSocial,
+
+            @NotBlank(message = "Subdomínio é obrigatório")
             String subdominio,
+
+            @CNPJ(message = "CNPJ deve ser válido")
+            @NotBlank(message = "CNPJ é obrigatório")
             String cnpj,
-            String endereco
-            //String logoUrl,
+
+            @NotBlank(message = "Endereço é obrigatório")
+            String endereco,
+
+            String logoUrl
+
+            // Está faltando o campo de WhiteLabels
 
     ) {}
     public record Response(
@@ -16,4 +34,5 @@ public class EmpresaDTO {
             String razaoSocial
 
     ) {}
+
 }

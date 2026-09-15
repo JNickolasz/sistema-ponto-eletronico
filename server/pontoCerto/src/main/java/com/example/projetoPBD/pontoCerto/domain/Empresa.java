@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.hibernate.validator.constraints.br.CNPJ;
 
 import java.util.UUID;
 
@@ -34,6 +35,7 @@ public class Empresa {
     @Column(name = "subdominio", nullable = false, unique = true)
     private String subDominio;
 
+    // @CNPJ Essas válidações devem existem em ambiente de produção. Por enquanto pode manter sem.
     @Column(name = "cnpj", nullable = false, unique = true)
     private String cnpj;
 
