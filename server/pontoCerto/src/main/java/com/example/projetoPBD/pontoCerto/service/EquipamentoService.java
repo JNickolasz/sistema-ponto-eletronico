@@ -5,7 +5,7 @@ import com.example.projetoPBD.pontoCerto.domain.Equipamento;
 import com.example.projetoPBD.pontoCerto.domain.LocalDeTrabalho;
 import com.example.projetoPBD.pontoCerto.domain.StatusEquipamento;
 import com.example.projetoPBD.pontoCerto.domain.TipoEquipamento;
-import com.example.projetoPBD.pontoCerto.dto.EquipamentoDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoDTO;
 import com.example.projetoPBD.pontoCerto.repository.EquipamentoRepository;
 import com.example.projetoPBD.pontoCerto.repository.LocalDeTrabalhoRepository;
 import com.example.projetoPBD.pontoCerto.service.exceptions.EquipamentoExistenteException;

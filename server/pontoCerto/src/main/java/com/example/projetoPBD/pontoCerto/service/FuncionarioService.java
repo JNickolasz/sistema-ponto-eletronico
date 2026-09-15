@@ -1,18 +1,12 @@
 package com.example.projetoPBD.pontoCerto.service;
 
-import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.Funcionario;
-import com.example.projetoPBD.pontoCerto.dto.EmpresaDTO;
-import com.example.projetoPBD.pontoCerto.dto.FuncionarioDTO;
-import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.FuncionarioDTO;
 import com.example.projetoPBD.pontoCerto.repository.FuncionarioRepository;
-import com.example.projetoPBD.pontoCerto.service.exceptions.EmpresaNaoEncontradaException;
 import com.example.projetoPBD.pontoCerto.service.exceptions.UsuarioDuplicadoException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import org.springframework.stereotype.Service;
-
-import java.util.UUID;
 
 @Service
 public class FuncionarioService {
