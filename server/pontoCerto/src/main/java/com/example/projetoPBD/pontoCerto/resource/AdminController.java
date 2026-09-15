@@ -37,4 +37,10 @@ public class AdminController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
+    @GetMapping("/empresas")
+    public ResponseEntity<java.util.List<EmpresaDTO.Response>> listarEmpresas() {
+        java.util.List<EmpresaDTO.Response> empresas = empresaService.listarEmpresas();
+        return ResponseEntity.ok(empresas);
+    }
+
 }

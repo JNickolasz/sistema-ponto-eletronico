@@ -26,6 +26,8 @@ export function AuthProvider({ children }) {
 
   const getDashboardPath = (perfil = user?.perfil) => {
     switch (perfil) {
+      case 'ADMIN':
+        return '/admin';
       case 'RH':
         return '/rh';
       case 'GESTOR':

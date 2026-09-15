@@ -9,11 +9,14 @@ export const localTrabalhoService = {
   },
 
   /**
-   * Cadastra uma nova empresa
+   * Cadastra uma nova empresa via API administrativa (POST /api/admin/empresas)
    * @param {{razaoSocial: string, subdominio: string, cnpj: string, endereco: string, logoUrl?: string}} dados
+   * @param {string} [adminKey]
    */
-  async cadastrarEmpresa(dados) {
-    return await api.post('/empresa', dados);
+  async cadastrarEmpresaAdmin(dados, adminKey = 'admin123') {
+    return await api.post('/admin/empresas', dados, {
+      headers: { 'X-Admin-Key': adminKey },
+    });
   },
 
   /**

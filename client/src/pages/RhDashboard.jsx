@@ -16,6 +16,7 @@ import {
   Building2,
   MapPin,
   Plus,
+  X,
 } from 'lucide-react';
 import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import toast from 'react-hot-toast';
@@ -45,6 +46,15 @@ export function RhDashboard() {
   const [municipioLocal, setMunicipioLocal] = useState('');
   const [ufLocal, setUfLocal] = useState('');
   const [submittingLocal, setSubmittingLocal] = useState(false);
+
+  // Modal de Cadastro de Empresa (Área Admin)
+  const [modalEmpresaAberto, setModalEmpresaAberto] = useState(false);
+  const [adminKey, setAdminKey] = useState('admin123');
+  const [razaoSocialNova, setRazaoSocialNova] = useState('');
+  const [cnpjNovo, setCnpjNovo] = useState('');
+  const [subdominioNovo, setSubdominioNovo] = useState('');
+  const [enderecoNovo, setEnderecoNovo] = useState('');
+  const [submittingEmpresa, setSubmittingEmpresa] = useState(false);
 
   // Formulário de cadastro de funcionário
   const [nomeCompleto, setNomeCompleto] = useState('');
@@ -121,6 +131,61 @@ export function RhDashboard() {
       isMounted = false;
     };
   }, []);
+
+  // Cadastro de Empresa via API Admin (POST /api/admin/empresas com X-Admin-Key)
+  const handleCadastrarEmpresaAdmin = async (e) => {
+    e.preventDefault();
+
+    if (!razaoSocialNova.trim() || !cnpjNovo.trim() || !subdominioNovo.trim() || !enderecoNovo.trim()) {
+      toast.error('Preencha todos os campos obrigatórios da empresa');
+      return;
+    }
+
+    try {
+      setSubmittingEmpresa(true);
+      const payload = {
+        razaoSocial: razaoSocialNova.trim(),
+        cnpj: cnpjNovo.trim(),
+        subdominio: subdominioNovo.trim().toLowerCase(),
+        endereco: enderecoNovo.trim(),
+      };
+
+      const res = await rhService.cadastrarEmpresaAdmin(payload, adminKey.trim() || 'admin123');
+      const novaEmpresa = res?.data || res;
+      toast.success(`Empresa cadastrada via Admin com sucesso!`);
+
+      // Recarrega empresas no select
+      const listaAtualizada = await rhService.listarEmpresas();
+      const arrayAtualizado = Array.isArray(listaAtualizada) ? listaAtualizada : [];
+      setEmpresas(arrayAtualizado);
+
+      if (novaEmpresa?.id) {
+        setEmpresaIdSelecionada(novaEmpresa.id);
+      } else if (arrayAtualizado.length > 0) {
+        setEmpresaIdSelecionada(arrayAtualizado[arrayAtualizado.length - 1].id);
+      }
+
+      // Limpar formulário e fechar modal
+      setRazaoSocialNova('');
+      setCnpjNovo('');
+      setSubdominioNovo('');
+      setEnderecoNovo('');
+      setModalEmpresaAberto(false);
+    } catch (err) {
+      toast.error(err.message || 'Erro ao cadastrar empresa. Verifique a chave de Admin e o CNPJ.');
+    } finally {
+      setSubmittingEmpresa(false);
+    }
+  };
+
+  const handlePreencherExemploEmpresa = () => {
+    const timestamp = Math.floor(Math.random() * 899 + 100);
+    setRazaoSocialNova(`Empresa Exemplo ${timestamp} S/A`);
+    setCnpjNovo('33.000.167/0001-01'); // CNPJ válido (Petrobras)
+    setSubdominioNovo(`empresa${timestamp}`);
+    setEnderecoNovo('Av. das Nações Unidas, 12901 - Brooklin Paulista, SP');
+    toast('Exemplo de empresa preenchido!', { icon: '🏢' });
+  };
 
   // Cadastro de Local de Trabalho (Issue 2)
   const handleCadastrarLocal = async (e) => {
@@ -423,11 +488,22 @@ export function RhDashboard() {
                 </div>
 
                 <form onSubmit={handleCadastrarLocal} className="space-y-4">
-                  {/* Select da Empresa via MUI */}
+                  {/* Select da Empresa com botão de Admin */}
                   <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-                      Empresa Vinculada (MUI Select) *
-                    </label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                        Empresa Vinculada (MUI Select) *
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setModalEmpresaAberto(true)}
+                        className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors cursor-pointer"
+                        title="Cadastrar nova empresa cliente via API Admin"
+                      >
+                        <Plus size={14} /> + Nova Empresa (Admin)
+                      </button>
+                    </div>
+
                     <FormControl fullWidth size="small">
                       <Select
                         displayEmpty
@@ -470,7 +546,7 @@ export function RhDashboard() {
                       >
                         {empresas.length === 0 ? (
                           <MenuItem disabled value="">
-                            Nenhuma empresa cadastrada
+                            Nenhuma empresa encontrada (clique em "+ Nova Empresa" acima)
                           </MenuItem>
                         ) : (
                           empresas.map((emp) => (
@@ -834,6 +910,145 @@ export function RhDashboard() {
                   <li>Faça login e veja a tela do painel exclusiva do perfil correspondente!</li>
                 </ol>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Cadastro de Nova Empresa (Admin) */}
+        {modalEmpresaAberto && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-lg rounded-2xl bg-slate-900 border border-slate-800 p-6 shadow-2xl space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+                    <ShieldCheck size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Cadastrar Empresa (Admin)</h3>
+                    <p className="text-xs text-slate-400">
+                      Dispara <span className="font-mono text-purple-300">POST /api/admin/empresas</span> com <span className="font-mono text-purple-300">X-Admin-Key</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setModalEmpresaAberto(false)}
+                  className="text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handlePreencherExemploEmpresa}
+                  className="text-xs px-3 py-1 rounded-lg bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white border border-indigo-500/30 transition-all cursor-pointer"
+                >
+                  Preencher com Dados Válidos (Exemplo)
+                </button>
+              </div>
+
+              <form onSubmit={handleCadastrarEmpresaAdmin} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                    Chave Administrativa (Header X-Admin-Key) *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={adminKey}
+                    onChange={(e) => setAdminKey(e.target.value)}
+                    placeholder="admin123"
+                    className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                    Razão Social *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={razaoSocialNova}
+                    onChange={(e) => setRazaoSocialNova(e.target.value)}
+                    placeholder="Ex: Construtora Horizonte S/A"
+                    className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                      CNPJ (Válido) *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={cnpjNovo}
+                      onChange={(e) => setCnpjNovo(e.target.value)}
+                      placeholder="Ex: 33.000.167/0001-01"
+                      className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                      Subdomínio *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={subdominioNovo}
+                      onChange={(e) => setSubdominioNovo(e.target.value)}
+                      placeholder="Ex: horizonte"
+                      className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none lowercase"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                    Endereço Completo *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={enderecoNovo}
+                    onChange={(e) => setEnderecoNovo(e.target.value)}
+                    placeholder="Ex: Av. Brasil, 1500 - Centro, Rio de Janeiro/RJ"
+                    className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setModalEmpresaAberto(false)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submittingEmpresa}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-semibold text-white shadow-lg shadow-purple-600/25 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {submittingEmpresa ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        <span>Cadastrando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={14} />
+                        <span>Cadastrar Empresa (Admin)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
