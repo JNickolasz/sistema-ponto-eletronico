@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.projetoPBD.pontoCerto.dto.EntityResponse;
+import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController

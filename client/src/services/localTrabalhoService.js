@@ -9,6 +9,14 @@ export const localTrabalhoService = {
   },
 
   /**
+   * Cadastra uma nova empresa
+   * @param {{razaoSocial: string, subdominio: string, cnpj: string, endereco: string, logoUrl?: string}} dados
+   */
+  async cadastrarEmpresa(dados) {
+    return await api.post('/empresa', dados);
+  },
+
+  /**
    * Cadastra um novo local de trabalho vinculado à empresa
    * @param {{empresaId: string, nome: string, endereco: string, municipio?: string, uf?: string, raioMetros?: number, ipEsperado?: string, latitude?: number, longitude?: number}} dados
    */

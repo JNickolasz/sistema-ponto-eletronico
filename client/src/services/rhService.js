@@ -24,6 +24,13 @@ export const rhService = {
   },
 
   /**
+   * Cadastra uma nova empresa
+   */
+  async cadastrarEmpresa(dados) {
+    return await api.post('/empresa', dados);
+  },
+
+  /**
    * Cadastra um novo local de trabalho vinculado à empresa
    */
   async cadastrarLocalTrabalho(dados) {
