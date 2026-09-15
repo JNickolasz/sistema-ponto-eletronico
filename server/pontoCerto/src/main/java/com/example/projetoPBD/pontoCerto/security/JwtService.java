@@ -28,7 +28,8 @@ public class JwtService {
             Algorithm algorithm = Algorithm.HMAC256(secret);
             return JWT.create()
                     .withIssuer(issuer)
-                    .withSubject(funcionario.getId().toString())
+                    .withSubject(funcionario.getUsuario())
+                    .withClaim("id", funcionario.getId().toString())
                     .withClaim("ROLE", funcionario.getPerfilAcesso().name())
                     .withExpiresAt(new Date(System.currentTimeMillis() + expiration))
                     .sign(algorithm);
