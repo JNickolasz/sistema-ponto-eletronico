@@ -1,4 +1,4 @@
-package com.example.projetoPBD.pontoCerto.dto;
+package com.example.projetoPBD.pontoCerto.dto.domaindtos;
 
 import jakarta.validation.constraints.NotBlank;
 import org.hibernate.validator.constraints.br.CNPJ;

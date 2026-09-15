@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.hibernate.validator.constraints.URL;
 import org.hibernate.validator.constraints.br.CNPJ;
 
 import java.util.UUID;
@@ -21,10 +22,6 @@ public class Empresa {
 
     public Empresa(){}
 
-    public Empresa(String razaoSocial, String cnpj){
-        this.cnpj = cnpj;
-        this.razaoSocial = razaoSocial;
-    }
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
@@ -32,13 +29,14 @@ public class Empresa {
     @Column(name = "razao_social", nullable = false)
     private String razaoSocial;
 
-    @Column(name = "subdominio", nullable = false, unique = true)
+    @Column(name = "subdominio", nullable = false)
     private String subDominio;
 
     // @CNPJ Essas válidações devem existem em ambiente de produção. Por enquanto pode manter sem.
-    @Column(name = "cnpj", nullable = false, unique = true)
+    @Column(name = "cnpj", nullable = false)
     private String cnpj;
 
+    // @URL Essas válidações devem existem em ambiente de produção. Por enquanto pode manter sem.
     @Column(name = "logo_url")
     private String logoUrl;
 
@@ -50,3 +48,7 @@ public class Empresa {
     private WhiteLabel configWhiteLabel;
 
 }
+
+
+
+

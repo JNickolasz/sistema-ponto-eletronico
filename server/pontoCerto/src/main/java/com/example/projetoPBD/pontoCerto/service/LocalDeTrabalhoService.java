@@ -3,7 +3,7 @@ package com.example.projetoPBD.pontoCerto.service;
 
 import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.LocalDeTrabalho;
-import com.example.projetoPBD.pontoCerto.dto.LocalDeTrabalhoDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.LocalDeTrabalhoDTO;
 import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
 import com.example.projetoPBD.pontoCerto.repository.LocalDeTrabalhoRepository;
 import com.example.projetoPBD.pontoCerto.service.exceptions.EmpresaCampoVazioException;

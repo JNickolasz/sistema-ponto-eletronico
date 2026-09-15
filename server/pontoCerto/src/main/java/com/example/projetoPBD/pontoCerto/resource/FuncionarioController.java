@@ -1,8 +1,11 @@
 package com.example.projetoPBD.pontoCerto.resource;
 
-import com.example.projetoPBD.pontoCerto.dto.FuncionarioDTO;
+import com.example.projetoPBD.pontoCerto.dto.EntityResponse;
+import com.example.projetoPBD.pontoCerto.dto.PainelDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.FuncionarioDTO;
 import com.example.projetoPBD.pontoCerto.repository.FuncionarioRepository;
 import com.example.projetoPBD.pontoCerto.service.FuncionarioService;
+import com.example.projetoPBD.pontoCerto.service.PainelService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -11,19 +14,18 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 public class FuncionarioController {
 
     private final FuncionarioService service;
-    private final FuncionarioRepository repository;
+    private final PainelService painelService;
 
-    public FuncionarioController(FuncionarioService service, FuncionarioRepository repository) {
+    public FuncionarioController(FuncionarioService service, PainelService painelService) {
         this.service = service;
-        this.repository = repository;
+        this.painelService = painelService;
     }
 
     @PostMapping("/rh/adicionar")
@@ -59,34 +61,34 @@ public class FuncionarioController {
 
     @GetMapping("/colaborador/{id}/espelho")
     @PreAuthorize("hasRole('COLABORADOR')")
-    public ResponseEntity<Map<String, Object>> verEspelhoColaborador(@PathVariable UUID id, Authentication authentication){
-        var funcionarioLogado = repository.findByUsuario(authentication.getName())
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado."));
+    public ResponseEntity<EntityResponse<PainelDTO.AcessoEspelho>> verEspelhoColaborador(@PathVariable UUID id, Authentication authentication){
 
-        if (!funcionarioLogado.getId().equals(id)) {
-            Map<String, Object> erro = new HashMap<>();
-            erro.put("message", "Acesso negado: Você só pode acessar o seu próprio espelho de ponto.");
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(erro);
-        }
+        var data = painelService.verEspelhoColaborador(id, authentication.getName());
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("mensagem", "Acesso liberado ao seu espelho de ponto!");
-        response.put("espelhoId", id);
-        response.put("donoDoEspelho", funcionarioLogado.getUsuario());
+        EntityResponse<PainelDTO.AcessoEspelho> response = new EntityResponse<>(
+                data,
+                "Acesso liberado ao seu espelho de ponto!");
 
-        return ResponseEntity.ok(response);
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
 
     }
 
     @GetMapping("/gestor/painel")
     @PreAuthorize("hasRole('GESTOR')")
-    public ResponseEntity<Map<String, Object>> rotaGestor(Authentication authentication) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("mensagem", "Acesso liberado para GESTOR");
-        response.put("usuarioLogado", authentication.getName());
-        response.put("permissoes", authentication.getAuthorities());
+    public ResponseEntity<EntityResponse<PainelDTO.AcessoLiberado>> rotaGestor(Authentication authentication) {
 
-        return ResponseEntity.ok(response);
+
+        String usuarioLogado =  authentication.getName();
+        String permissoes = authentication.getAuthorities().toString();
+        PainelDTO.AcessoLiberado data = new PainelDTO.AcessoLiberado(usuarioLogado, permissoes);
+
+        EntityResponse<PainelDTO.AcessoLiberado> response = new EntityResponse<>(
+                data,
+                "Acesso liberado para GESTOR");
+
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
 }

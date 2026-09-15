@@ -1,4 +1,4 @@
-package com.example.projetoPBD.pontoCerto.dto;
+package com.example.projetoPBD.pontoCerto.dto.domaindtos;
 
 import com.example.projetoPBD.pontoCerto.domain.Equipamento;
 import com.example.projetoPBD.pontoCerto.domain.StatusEquipamento;

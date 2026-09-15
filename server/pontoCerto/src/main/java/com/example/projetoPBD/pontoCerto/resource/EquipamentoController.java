@@ -1,7 +1,7 @@
 package com.example.projetoPBD.pontoCerto.resource;
 
 import com.example.projetoPBD.pontoCerto.domain.StatusEquipamento;
-import com.example.projetoPBD.pontoCerto.dto.EquipamentoDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoDTO;
 import com.example.projetoPBD.pontoCerto.service.EquipamentoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RestController
 @PreAuthorize("hasRole('RH')")
 // Pra n precisar botar em cada endpoint
-@RequestMapping({"/api/v1/equipamentos", "/api/equipamentos"})
+@RequestMapping({"/api/v1/equipamento", "/api/v1/equipamentos"})
 public class EquipamentoController {
 
     private final EquipamentoService equipamentoService;
