@@ -39,24 +39,34 @@ public class FuncionarioController {
 
     @GetMapping("/rh/painel")
     @PreAuthorize("hasRole('RH')")
-    public ResponseEntity<Map<String, Object>> rotaRh(Authentication authentication) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("mensagem", "Acesso liberado para RH");
-        response.put("usuarioLogado", authentication.getName());
-        response.put("permissoes", authentication.getAuthorities());
+    public ResponseEntity<EntityResponse<PainelDTO.AcessoLiberado>> rotaRh(Authentication authentication) {
 
-        return ResponseEntity.ok(response);
+        String usuarioLogado =  authentication.getName();
+        String permissoes = authentication.getAuthorities().toString();
+
+        var data = painelService.liberarAcesso(usuarioLogado, permissoes);
+
+        EntityResponse<PainelDTO.AcessoLiberado> response = new EntityResponse<>(
+                data,
+                "Acesso liberado para RH");
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
     @GetMapping("/colaborador/painel")
     @PreAuthorize("hasRole('COLABORADOR')")
-    public ResponseEntity<Map<String, Object>> rotaColaborador(Authentication authentication) {
-        Map<String, Object> response = new HashMap<>();
-        response.put("mensagem", "Acesso liberado para COLABORADOR");
-        response.put("usuarioLogado", authentication.getName());
-        response.put("permissoes", authentication.getAuthorities());
+    public ResponseEntity<EntityResponse<PainelDTO.AcessoLiberado>> rotaColaborador(Authentication authentication) {
 
-        return ResponseEntity.ok(response);
+        String usuarioLogado =  authentication.getName();
+        String permissoes = authentication.getAuthorities().toString();
+
+        var data = painelService.liberarAcesso(usuarioLogado, permissoes);
+
+        EntityResponse<PainelDTO.AcessoLiberado> response = new EntityResponse<>(
+                data,
+                "Acesso liberado para COLABORADOR");
+
+        return ResponseEntity.status(HttpStatus.OK).body(response);
     }
 
     @GetMapping("/colaborador/{id}/espelho")
@@ -69,7 +79,6 @@ public class FuncionarioController {
                 data,
                 "Acesso liberado ao seu espelho de ponto!");
 
-
         return ResponseEntity.status(HttpStatus.OK).body(response);
 
     }
@@ -78,15 +87,14 @@ public class FuncionarioController {
     @PreAuthorize("hasRole('GESTOR')")
     public ResponseEntity<EntityResponse<PainelDTO.AcessoLiberado>> rotaGestor(Authentication authentication) {
 
-
         String usuarioLogado =  authentication.getName();
         String permissoes = authentication.getAuthorities().toString();
-        PainelDTO.AcessoLiberado data = new PainelDTO.AcessoLiberado(usuarioLogado, permissoes);
+
+        var data = painelService.liberarAcesso(usuarioLogado, permissoes);
 
         EntityResponse<PainelDTO.AcessoLiberado> response = new EntityResponse<>(
                 data,
                 "Acesso liberado para GESTOR");
-
 
         return ResponseEntity.status(HttpStatus.OK).body(response);
     }

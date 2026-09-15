@@ -19,12 +19,12 @@ public class PainelService {
         this.funcionarioRepository = funcionarioRepository;
     }
 
-    public PainelDTO.AcessoEspelho verEspelhoColaborador(UUID id, String usuario) {
-        var funcionarioLogado = funcionarioRepository.findByUsuario(usuario).orElseThrow(
+    public PainelDTO.AcessoEspelho verEspelhoColaborador(UUID id, String usuarioLogado) {
+        var funcionarioLogado = funcionarioRepository.findByUsuario(usuarioLogado).orElseThrow(
                 () -> new UsernameNotFoundException("Usuário não encontrado."));
 
 
-        if (!(funcionarioLogado.getId() == id)){
+        if (!(funcionarioLogado.getId().equals(id))){
             throw new AcessoNegadoException("Você só pode acessar o seu próprio espelho de ponto");}
 
 
@@ -36,5 +36,7 @@ public class PainelService {
     }
 
 
-
+    public PainelDTO.AcessoLiberado liberarAcesso(String usuarioLogado, String permissoes) {
+        return new PainelDTO.AcessoLiberado(usuarioLogado, permissoes);
+    }
 }
