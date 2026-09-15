@@ -32,6 +32,19 @@ public class LocalDeTrabalhoDTO {
             String uf
     ) {
         public Response(LocalDeTrabalho local) {
+            this(
+                    local.getId(),
+                    local.getEmpresa().getId(),
+                    local.getEmpresa().getRazaoSocial(),
+                    local.getNome(),
+                    local.getLatitude(),
+                    local.getLongitude(),
+                    local.getRaioMetros(),
+                    local.getIpEsperado(),
+                    local.getEndereco(),
+                    local.getMunicipio(),
+                    local.getUf()
+            );
         }
     }
 }
