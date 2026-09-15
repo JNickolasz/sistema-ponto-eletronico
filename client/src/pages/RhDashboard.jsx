@@ -534,12 +534,14 @@ export function RhDashboard() {
                           },
                         }}
                         MenuProps={{
-                          PaperProps: {
-                            sx: {
-                              bgcolor: '#0f172a',
-                              color: '#f8fafc',
-                              border: '1px solid #334155',
-                              borderRadius: '0.75rem',
+                          slotProps: {
+                            paper: {
+                              sx: {
+                                bgcolor: '#0f172a',
+                                color: '#f8fafc',
+                                border: '1px solid #334155',
+                                borderRadius: '0.75rem',
+                              },
                             },
                           },
                         }}
