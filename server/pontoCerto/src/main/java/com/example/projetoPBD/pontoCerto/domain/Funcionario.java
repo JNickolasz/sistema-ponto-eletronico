@@ -24,10 +24,9 @@ public class Funcionario{
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    //@ManyToOne
-    //@JoinColumn(name = "empresa_id", nullable = true) // provisoriamente, depois fica = false
-    @Column(name = "empresa_id")
-    private Long empresaId; // tem q mudar o tipo pra Empresa dps
+    @ManyToOne
+    @JoinColumn(name = "empresa_id", nullable = true) //Atualmente não está implementado a associação entre Funcionario e Empresa, Depois deve trocar para FALSE
+    private Empresa empresa;
 
     @ManyToOne
     @JoinColumn(name = "gestor_id", nullable = true) // provisoriamente, depois fica = false

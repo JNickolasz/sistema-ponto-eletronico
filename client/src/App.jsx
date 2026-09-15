@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import RhDashboard from './pages/RhDashboard';
 import ColaboradorDashboard from './pages/ColaboradorDashboard';
 import GestorDashboard from './pages/GestorDashboard';
+import AdminDashboard from './pages/AdminDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function RootRedirect() {
@@ -34,6 +35,16 @@ function App() {
         <Routes>
           <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<LoginPage />} />
+
+          {/* Painel do Administrador Geral */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute allowedRoles={['ADMIN']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Painel do RH */}
           <Route

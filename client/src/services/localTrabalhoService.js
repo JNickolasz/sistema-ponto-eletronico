@@ -1,23 +1,8 @@
 import api from './api';
 
-export const rhService = {
+export const localTrabalhoService = {
   /**
-   * Consulta os dados do painel do RH
-   */
-  async getPainel() {
-    return await api.get('/rh/painel');
-  },
-
-  /**
-   * Cadastra um novo funcionário (RH, GESTOR ou COLABORADOR)
-   * @param {{nomeCompleto: string, usuario: string, senha: string, perfilAcesso: 'RH'|'GESTOR'|'COLABORADOR'}} dados
-   */
-  async cadastrarFuncionario(dados) {
-    return await api.post('/rh/adicionar', dados);
-  },
-
-  /**
-   * Lista as empresas cadastradas
+   * Lista as empresas cadastradas no sistema
    */
   async listarEmpresas() {
     return await api.get('/empresa');
@@ -25,6 +10,8 @@ export const rhService = {
 
   /**
    * Cadastra uma nova empresa via API administrativa (POST /api/admin/empresas)
+   * @param {{razaoSocial: string, subdominio: string, cnpj: string, endereco: string, logoUrl?: string}} dados
+   * @param {string} [adminKey]
    */
   async cadastrarEmpresaAdmin(dados, adminKey = 'admin123') {
     return await api.post('/admin/empresas', dados, {
@@ -34,13 +21,15 @@ export const rhService = {
 
   /**
    * Cadastra um novo local de trabalho vinculado à empresa
+   * @param {{empresaId: string, nome: string, endereco: string, municipio?: string, uf?: string, raioMetros?: number, ipEsperado?: string, latitude?: number, longitude?: number}} dados
    */
   async cadastrarLocalTrabalho(dados) {
     return await api.post('/v1/locais-trabalho', dados);
   },
 
   /**
-   * Lista os locais de trabalho cadastrados
+   * Lista os locais de trabalho (opcionalmente filtrados por empresa)
+   * @param {string} [empresaId]
    */
   async listarLocaisTrabalho(empresaId) {
     const query = empresaId ? `?empresaId=${empresaId}` : '';
@@ -48,4 +37,4 @@ export const rhService = {
   },
 };
 
-export default rhService;
+export default localTrabalhoService;

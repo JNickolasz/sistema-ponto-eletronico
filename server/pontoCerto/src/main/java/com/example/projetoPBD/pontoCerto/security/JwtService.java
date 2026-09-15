@@ -29,7 +29,8 @@ public class JwtService {
             return JWT.create()
                     .withIssuer(issuer)
                     .withSubject(funcionario.getUsuario())
-                    .withClaim("role", funcionario.getPerfilAcesso().name())
+                    .withClaim("id", funcionario.getId().toString())
+                    .withClaim("ROLE", funcionario.getPerfilAcesso().name())
                     .withExpiresAt(new Date(System.currentTimeMillis() + expiration))
                     .sign(algorithm);
         } catch (JWTCreationException exception) {

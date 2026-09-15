@@ -5,9 +5,11 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
  */
 export async function request(endpoint, options = {}) {
   const token = localStorage.getItem('token');
+  const adminKey = localStorage.getItem('adminKey');
   const headers = {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(token && token !== 'admin-session-token' ? { Authorization: `Bearer ${token}` } : {}),
+    ...(adminKey ? { 'X-Admin-Key': adminKey } : {}),
     ...options.headers,
   };
 

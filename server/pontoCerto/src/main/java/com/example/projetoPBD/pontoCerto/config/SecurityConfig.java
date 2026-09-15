@@ -1,6 +1,7 @@
 package com.example.projetoPBD.pontoCerto.config;
 
-import com.example.projetoPBD.pontoCerto.security.JwtAuthFilter;
+import com.example.projetoPBD.pontoCerto.security.filter.AdminFilter;
+import com.example.projetoPBD.pontoCerto.security.filter.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -28,9 +29,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final AdminFilter adminFilter;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, AdminFilter adminFilter) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.adminFilter = adminFilter;
     }
 
     @Bean
@@ -50,11 +53,15 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .requestMatchers("/api/admin/**").permitAll() //So permite usuário com X-Admin-Key CORRETA.
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/funcionarios").permitAll() // TEM QUE SER ALTERADO DEPOIS, ATUALMENTE PERMITE USUARIOS NÃO AUTENTICADOS ACESSAREM ESSA ROTA.
                         .anyRequest().authenticated()
                 )
+                .addFilterBefore(adminFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+
                 .build();
     }
 
@@ -63,7 +70,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:5173"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Admin-Key"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
