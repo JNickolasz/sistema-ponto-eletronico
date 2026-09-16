@@ -180,7 +180,7 @@ export function AdminDashboard() {
               <Building2 className="text-amber-400" size={20} />
               <div>
                 <h3 className="text-sm font-bold text-white">Cadastrar Nova Empresa</h3>
-                <p className="text-xs text-slate-400">Endpoint: POST /api/admin/empresas</p>
+                <p className="text-xs text-slate-400">Endpoint: POST /api/v1/admin/empresas</p>
               </div>
             </div>
 

@@ -169,7 +169,7 @@ export function RhDashboard() {
     };
   }, []);
 
-  // Cadastro de Empresa via API Admin (POST /api/admin/empresas com X-Admin-Key)
+  // Cadastro de Empresa via API Admin (POST /api/v1/admin/empresas com X-Admin-Key)
   const handleCadastrarEmpresaAdmin = async (e) => {
     e.preventDefault();
 
@@ -461,13 +461,13 @@ export function RhDashboard() {
           </div>
         </div>
 
-        {/* Backend Response Card (GET /api/rh/painel) */}
+        {/* Backend Response Card (GET /api/v1/rh/painel) */}
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-6 backdrop-blur-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Terminal size={18} className="text-purple-400" />
               <h2 className="text-base font-semibold text-slate-100">
-                Resposta do Endpoint: <span className="font-mono text-purple-300">GET /api/rh/painel</span>
+                Resposta do Endpoint: <span className="font-mono text-purple-300">GET /api/v1/rh/painel</span>
               </h2>
             </div>
             {painelData && (
@@ -1323,7 +1323,7 @@ export function RhDashboard() {
                     <div>
                       <h3 className="text-lg font-bold text-white">Cadastrar Novo Usuário</h3>
                       <p className="text-xs text-slate-400">
-                        Dispara requisição real para <span className="font-mono text-indigo-300">POST /api/rh/adicionar</span>
+                        Dispara requisição real para <span className="font-mono text-indigo-300">POST /api/v1/rh/adicionar</span>
                       </p>
                     </div>
                   </div>
@@ -1523,7 +1523,7 @@ export function RhDashboard() {
                   <div>
                     <h3 className="text-lg font-bold text-white">Cadastrar Empresa (Admin)</h3>
                     <p className="text-xs text-slate-400">
-                      Dispara <span className="font-mono text-purple-300">POST /api/admin/empresas</span> com <span className="font-mono text-purple-300">X-Admin-Key</span>
+                      Dispara <span className="font-mono text-purple-300">POST /api/v1/admin/empresas</span> com <span className="font-mono text-purple-300">X-Admin-Key</span>
                     </p>
                   </div>
                 </div>
