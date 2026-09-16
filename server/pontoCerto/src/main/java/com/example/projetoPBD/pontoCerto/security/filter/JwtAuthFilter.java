@@ -32,7 +32,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     // Ignora todas os filtros para /api/admin/** Essa rota tem um filtro especifico.
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return request.getRequestURI().startsWith("/api/admin");
+        return request.getRequestURI().startsWith("/api/v1/admin");
     }
 
     @Override
