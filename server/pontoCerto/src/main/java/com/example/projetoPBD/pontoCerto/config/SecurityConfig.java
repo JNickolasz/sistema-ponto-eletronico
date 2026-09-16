@@ -54,8 +54,8 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/admin/**").permitAll() //So permite usuário com X-Admin-Key CORRETA.
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/v1/admin/**").permitAll() //So permite usuário com X-Admin-Key CORRETA.
+                        .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/funcionarios").permitAll() // TEM QUE SER ALTERADO DEPOIS, ATUALMENTE PERMITE USUARIOS NÃO AUTENTICADOS ACESSAREM ESSA ROTA.
                         .anyRequest().authenticated()
                 )

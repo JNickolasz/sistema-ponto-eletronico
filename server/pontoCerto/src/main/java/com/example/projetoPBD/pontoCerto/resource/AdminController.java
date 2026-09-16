@@ -25,6 +25,7 @@ public class AdminController {
     @PostMapping("/empresas")
     public ResponseEntity<EntityResponse<EmpresaDTO.Response>> cadastrarEmpresa(@Valid @RequestBody EmpresaDTO.Criar empresaDTO){
 
+        System.out.println(">>> CHEGOU NO ADMIN CONTROLLER");
 
         EmpresaDTO.Response empresa = empresaService.cadastrarEmpresa(empresaDTO);
 
