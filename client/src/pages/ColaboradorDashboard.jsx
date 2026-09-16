@@ -29,7 +29,7 @@ export function ColaboradorDashboard() {
   // Relógio digital em tempo real
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Teste de Espelho de Ponto (GET /api/colaborador/{id}/espelho)
+  // Teste de Espelho de Ponto (GET /api/v1/colaborador/{id}/espelho)
   const [espelhoIdInput, setEspelhoIdInput] = useState('1');
   const [espelhoResult, setEspelhoResult] = useState(null);
   const [loadingEspelho, setLoadingEspelho] = useState(false);
@@ -160,14 +160,14 @@ export function ColaboradorDashboard() {
 
         </div>
 
-        {/* Backend Response Card (GET /api/colaborador/painel) */}
+        {/* Backend Response Card (GET /api/v1/colaborador/painel) */}
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-6 backdrop-blur-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Terminal size={18} className="text-emerald-400" />
               <h2 className="text-base font-semibold text-slate-100">
                 Resposta do Endpoint do Backend:{' '}
-                <span className="font-mono text-emerald-300">GET /api/colaborador/painel</span>
+                <span className="font-mono text-emerald-300">GET /api/v1/colaborador/painel</span>
               </h2>
             </div>
             {painelData && (
@@ -286,7 +286,7 @@ export function ColaboradorDashboard() {
             </div>
           </div>
 
-          {/* Teste do Espelho de Ponto (GET /api/colaborador/{id}/espelho) */}
+          {/* Teste do Espelho de Ponto (GET /api/v1/colaborador/{id}/espelho) */}
           <div className="lg:col-span-6 space-y-6">
             <div className="rounded-3xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
               <div className="flex items-center gap-2.5 mb-2">
@@ -296,7 +296,7 @@ export function ColaboradorDashboard() {
                 <div>
                   <h3 className="text-base font-bold text-white">Consulta do Espelho de Ponto</h3>
                   <p className="text-xs text-slate-400">
-                    Endpoint: <span className="font-mono text-indigo-300">GET /api/colaborador/&#123;id&#125;/espelho</span>
+                    Endpoint: <span className="font-mono text-indigo-300">GET /api/v1/colaborador/&#123;id&#125;/espelho</span>
                   </p>
                 </div>
               </div>

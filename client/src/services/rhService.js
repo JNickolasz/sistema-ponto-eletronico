@@ -24,7 +24,7 @@ export const rhService = {
   },
 
   /**
-   * Cadastra uma nova empresa via API administrativa (POST /api/admin/empresas)
+   * Cadastra uma nova empresa via API administrativa (POST /api/v1/admin/empresas)
    */
   async cadastrarEmpresaAdmin(dados, adminKey = 'admin123') {
     return await api.post('/admin/empresas', dados, {

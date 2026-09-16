@@ -14,7 +14,7 @@ export const authService = {
     // Verificação de Acesso Admin da Plataforma via Chave Mestra
     if (trimmedUsuario.toLowerCase() === 'admin') {
       try {
-        const testRes = await fetch('http://localhost:8080/api/admin/empresas', {
+        const testRes = await fetch('http://localhost:8080/api/v1/admin/empresas', {
           headers: { 'X-Admin-Key': trimmedSenha },
         });
         if (testRes.status === 401) {
