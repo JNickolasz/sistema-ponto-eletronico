@@ -1,6 +1,6 @@
 package com.example.projetoPBD.pontoCerto.resource;
 
-import com.example.projetoPBD.pontoCerto.dto.LocalDeTrabalhoDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.LocalDeTrabalhoDTO;
 import com.example.projetoPBD.pontoCerto.service.LocalDeTrabalhoService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @RestController
 @PreAuthorize("hasRole('RH')")
-@RequestMapping({"/api/v1/locais-trabalho", "/api/locais-de-trabalho", "/api/locais-trabalho"})
+@RequestMapping({"/api/v1/locais-trabalho", "/api/v1/locais-de-trabalho", "/api/v1/locais-trabalho"})
 public class LocalDeTrabalhoController {
 
     private final LocalDeTrabalhoService localDeTrabalhoService;

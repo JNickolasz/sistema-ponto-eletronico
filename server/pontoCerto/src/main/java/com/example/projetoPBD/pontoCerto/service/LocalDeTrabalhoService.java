@@ -3,10 +3,10 @@ package com.example.projetoPBD.pontoCerto.service;
 
 import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.LocalDeTrabalho;
-import com.example.projetoPBD.pontoCerto.dto.LocalDeTrabalhoDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.LocalDeTrabalhoDTO;
 import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
 import com.example.projetoPBD.pontoCerto.repository.LocalDeTrabalhoRepository;
-import com.example.projetoPBD.pontoCerto.service.exceptions.EmpresaCampoVazioException;
+import com.example.projetoPBD.pontoCerto.service.exceptions.EmpresaCampoInvalidoException;
 import com.example.projetoPBD.pontoCerto.service.exceptions.EmpresaNaoEncontradaException;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
@@ -28,7 +28,7 @@ public class LocalDeTrabalhoService {
     @Transactional
     public LocalDeTrabalhoDTO.Response cadastrar(LocalDeTrabalhoDTO.Request dto){
         if (dto.empresaId() == null){
-            throw new EmpresaCampoVazioException("A empresa é obrigatória");
+            throw new EmpresaCampoInvalidoException("A empresa é obrigatória");
         }
 
         Empresa empresa = empresaRepository.findById(dto.empresaId())

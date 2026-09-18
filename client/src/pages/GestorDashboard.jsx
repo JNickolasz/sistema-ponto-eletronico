@@ -132,14 +132,14 @@ export function GestorDashboard() {
 
         </div>
 
-        {/* Backend Response Card (GET /api/gestor/painel) */}
+        {/* Backend Response Card (GET /api/v1/gestor/painel) */}
         <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-6 backdrop-blur-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Terminal size={18} className="text-blue-400" />
               <h2 className="text-base font-semibold text-slate-100">
                 Resposta do Endpoint do Backend:{' '}
-                <span className="font-mono text-blue-300">GET /api/gestor/painel</span>
+                <span className="font-mono text-blue-300">GET /api/v1/gestor/painel</span>
               </h2>
             </div>
             {painelData && (

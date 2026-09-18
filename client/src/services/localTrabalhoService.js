@@ -9,7 +9,7 @@ export const localTrabalhoService = {
   },
 
   /**
-   * Cadastra uma nova empresa via API administrativa (POST /api/admin/empresas)
+   * Cadastra uma nova empresa via API administrativa (POST /api/v1/admin/empresas)
    * @param {{razaoSocial: string, subdominio: string, cnpj: string, endereco: string, logoUrl?: string}} dados
    * @param {string} [adminKey]
    */

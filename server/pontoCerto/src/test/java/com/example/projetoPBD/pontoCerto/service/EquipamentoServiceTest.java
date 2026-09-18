@@ -1,7 +1,7 @@
 package com.example.projetoPBD.pontoCerto.service;
 
 import com.example.projetoPBD.pontoCerto.domain.*;
-import com.example.projetoPBD.pontoCerto.dto.EquipamentoDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoDTO;
 import com.example.projetoPBD.pontoCerto.repository.EquipamentoRepository;
 import com.example.projetoPBD.pontoCerto.repository.LocalDeTrabalhoRepository;
 import com.example.projetoPBD.pontoCerto.service.exceptions.EquipamentoExistenteException;
@@ -14,7 +14,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 

@@ -1,7 +1,7 @@
 package com.example.projetoPBD.pontoCerto.resource;
 
 
-import com.example.projetoPBD.pontoCerto.dto.EmpresaDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.EmpresaDTO;
 import com.example.projetoPBD.pontoCerto.service.EmpresaService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import com.example.projetoPBD.pontoCerto.dto.EntityResponse;
 
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api/v1/admin")
 public class AdminController {
 
     private final EmpresaService empresaService;
@@ -25,6 +25,7 @@ public class AdminController {
     @PostMapping("/empresas")
     public ResponseEntity<EntityResponse<EmpresaDTO.Response>> cadastrarEmpresa(@Valid @RequestBody EmpresaDTO.Criar empresaDTO){
 
+        System.out.println(">>> CHEGOU NO ADMIN CONTROLLER");
 
         EmpresaDTO.Response empresa = empresaService.cadastrarEmpresa(empresaDTO);
 

@@ -2,10 +2,9 @@ package com.example.projetoPBD.pontoCerto.service;
 
 
 import com.example.projetoPBD.pontoCerto.domain.Empresa;
-import com.example.projetoPBD.pontoCerto.dto.EmpresaDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.EmpresaDTO;
 import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
 import com.example.projetoPBD.pontoCerto.service.exceptions.EmpresaExistenteException;
-import com.example.projetoPBD.pontoCerto.service.exceptions.ErroCadastroEmpresaException;
 import org.springframework.stereotype.Service;
 import java.util.List;
 

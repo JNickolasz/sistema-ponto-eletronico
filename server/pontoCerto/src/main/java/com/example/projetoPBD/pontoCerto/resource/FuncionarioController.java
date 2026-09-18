@@ -3,7 +3,7 @@ package com.example.projetoPBD.pontoCerto.resource;
 import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.Funcionario;
 import com.example.projetoPBD.pontoCerto.domain.FuncionarioUserDetails;
-import com.example.projetoPBD.pontoCerto.dto.FuncionarioDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.FuncionarioDTO;
 import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
 import com.example.projetoPBD.pontoCerto.repository.FuncionarioRepository;
 import com.example.projetoPBD.pontoCerto.service.FuncionarioService;
