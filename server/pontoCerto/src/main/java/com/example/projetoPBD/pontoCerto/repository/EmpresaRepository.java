@@ -11,6 +11,9 @@ public interface EmpresaRepository extends JpaRepository<Empresa, UUID> {
     Optional<Empresa> findByCnpj(String cnpj);
     boolean existsByCnpj(String cnpj);
 
+    Optional<Empresa> findById(UUID id);
+    boolean existsById(UUID id);
+
     boolean existsBySubDominio(String subdominio);
 
 }

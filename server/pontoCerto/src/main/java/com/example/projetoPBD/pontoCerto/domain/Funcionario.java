@@ -14,7 +14,8 @@ import java.util.UUID;
         @UniqueConstraint(columnNames = {"empresa_id", "cpf"}),
         @UniqueConstraint(columnNames = {"empresa_id", "matricula"}),
         @UniqueConstraint(columnNames = {"empresa_id", "usuario"}),
-        @UniqueConstraint(columnNames = {"empresa_id", "email"})
+        @UniqueConstraint(columnNames = {"empresa_id", "email"}),
+        @UniqueConstraint(columnNames = {"empresa_id", "pis_pasep"})
 })
 public class Funcionario{
 
@@ -31,6 +32,10 @@ public class Funcionario{
     @ManyToOne
     @JoinColumn(name = "gestor_id", nullable = true) // provisoriamente, depois fica = false
     private Funcionario gestor;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "local_trabalho_id", nullable = true)
+    private LocalDeTrabalho localDeTrabalho;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "perfil_acesso", nullable = false)
@@ -69,10 +74,10 @@ public class Funcionario{
     @Column(name = "cargo", nullable = true) // provisoriamente, depois fica = false
     private String cargo;
 
-    @Column(name = "data_admissao", nullable = true) // provisoriamente, depois fica = false
+    @Column(name = "data_admissao", nullable = false)
     private LocalDate dataAdmissao;
 
-    @Column(name = "data_desligamento", nullable = true) // provisoriamente, depois fica = false
+    @Column(name = "data_desligamento", nullable = true) // provisoriamente, depois fica = false <- na vdd não, só caso funcionario mude pra inativo
     private LocalDate dataDesligamento;
 
 }
