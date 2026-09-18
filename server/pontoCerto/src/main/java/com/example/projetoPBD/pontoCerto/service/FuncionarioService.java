@@ -40,7 +40,7 @@ public class FuncionarioService {
             throw new UsuarioDuplicadoException("Usuário já cadastrado!");
         }
 
-        if(repository.existsByCPFAndEmpresaId(dto.cpf(), empresa.getId())) {
+        if(repository.existsByCpfAndEmpresaId(dto.cpf(), empresa.getId())) {
             throw new CPFJaCadastradoException("CPF já cadastrado nesta empresa!");
         }
 
