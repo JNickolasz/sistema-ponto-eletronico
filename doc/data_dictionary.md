@@ -65,17 +65,16 @@
 | Coluna | Tipo | Descrição | Observações |
 | :--- | :--- | :--- | :--- |
 | `id` | UUID / Int | Identificador do equipamento. | PK |
+| `codigo` | String | Código único do equipamento `EQP-0000`. | Not Null |
 | `empresa_id` | UUID / Int | Denormalizado, para a unique constraint de `num_fabricacao`. | FK, Not Null |
 | `local_trabalho_id` | UUID / Int | Onde ele está fisicamente instalado. | FK, Not Null |
-<<<<<<< Updated upstream
-| `tipo` | Enum | Define a origem da batida. | `RELOGIO_AFD`, `ESTACAO_WEB` |
+| `tipo` | Enum | Define a origem da batida. | `RELOGIO`, `ESTACAO` | Not Null |
 | `identificacao` | String | Ex: "Corredor B", "Recepção Central #04". | Not Null |
-| `status` | Enum | Estado do terminal. | `ATIVO`, `INATIVO`, `MANUTENCAO`, `REVOGADO` | Not Null |
-=======
-| `tipo` | Enum | Define a origem da batida. | `RELOGIO`, `ESTACAO` |
-| `identificacao` | String | Nome/token do equipamento (Ex: "Corredor B", "REP-004"). | Not Null |
-| `num_fabricacao` | String | Serial do fabricante. Obrigatório só se `tipo = RELOGIO` (validado no service, não no banco). | Nullable, **Unique por empresa_id** |
-| `status` | Enum | Permite desativar sem apagar marcações já vindas dele. | `ATIVO`, `INATIVO` |
+| `status` | Enum | Estado do terminal. | `ATIVO`, `INATIVO`, `MANUTENCAO` | Not Null |
+| `created_by` | UUID/Int | Por quem foi criado. | FK, Not Null |
+| `updated_by` | UUID/Int | Por quem foi atualizado. | FK, Nullable |
+| `created_at` | Timestamp | Quando foi criado. | Not Null |
+| `updated_at` | Timestamp | Quando foi atualizado | Nullable |
 
 ## ESTAÇÃO
 **Descrição:** Subtipo de `EQUIPAMENTO` para quando `tipo = ESTACAO` — carrega os dados de autenticação do terminal (WebAuthn/attestation), separados da autenticação do funcionário.
@@ -83,13 +82,20 @@
 | Coluna | Tipo | Descrição | Observações |
 | :--- | :--- | :--- | :--- |
 | `equipamento_id` | UUID / Int | Referência ao equipamento pai. | PK e FK |
->>>>>>> Stashed changes
 | `credential_id` | String | ID de credencial WebAuthn do terminal. | Nullable |
 | `public_key` | String | Chave pública criptográfica do terminal. | Nullable |
-| `created_at` | Timestamp | Quando foi criado. | Not Null |
-| `updated_at` | Timestamp | Quando foi atualizado | Nullable |
+| `status` | Enum | Estado da Estação. | `ATIVO`, `PENDENTE`, `REVOGADO` | Not Null |
 | `revoked_at` | Timestamp | Quando foi revogado. | Nullable |
-| `created_by` | UUID/Int | Por quem foi criado. | FK, Not Null |
+| `revoked_by` | UUID/Int | Por quem foi revogado. | FK, Nullable |
+
+## RELOGIO
+**Descrição:** Subtipo de `EQUIPAMENTO` para quando `tipo = RELOGIO` — carrega o número do equipamento e quantas linhas foram importadas.
+
+| Coluna | Tipo | Descrição | Observações |
+| :--- | :--- | :--- | :--- |
+| `equipamento_id` | UUID / Int | Referência ao equipamento pai. | PK e FK |
+| `num_fabricacao` | String | Serial do fabricante.| Not Null, **Unique por empresa_id** |
+| `linhas_importadas` | Long | Quantas linhas já foram importadas desse equipamento, dado não é perdido mesmo se status for `INATIVO` | Nullable |
 
 ---
 
