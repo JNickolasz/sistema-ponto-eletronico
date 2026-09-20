@@ -12,7 +12,6 @@ import java.util.UUID;
 public class FuncionarioDTO {
 
     public record Criar(
-            UUID empresaId,
             String nomeCompleto,
             String usuario,
             String senha,
