@@ -1,8 +1,8 @@
 package com.example.projetoPBD.pontoCerto.dto.domaindtos;
 
 import com.example.projetoPBD.pontoCerto.domain.Equipamento;
-import com.example.projetoPBD.pontoCerto.domain.StatusEquipamento;
-import com.example.projetoPBD.pontoCerto.domain.TipoEquipamento;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusEquipamento;
+import com.example.projetoPBD.pontoCerto.domain.enums.TipoEquipamento;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 

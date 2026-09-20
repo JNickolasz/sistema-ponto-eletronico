@@ -1,6 +1,8 @@
 package com.example.projetoPBD.pontoCerto.service;
 
 import com.example.projetoPBD.pontoCerto.domain.*;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusEquipamento;
+import com.example.projetoPBD.pontoCerto.domain.enums.TipoEquipamento;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoDTO;
 import com.example.projetoPBD.pontoCerto.repository.EquipamentoRepository;
 import com.example.projetoPBD.pontoCerto.repository.LocalDeTrabalhoRepository;

@@ -3,8 +3,8 @@ package com.example.projetoPBD.pontoCerto.service;
 import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.Equipamento;
 import com.example.projetoPBD.pontoCerto.domain.LocalDeTrabalho;
-import com.example.projetoPBD.pontoCerto.domain.StatusEquipamento;
-import com.example.projetoPBD.pontoCerto.domain.TipoEquipamento;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusEquipamento;
+import com.example.projetoPBD.pontoCerto.domain.enums.TipoEquipamento;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoDTO;
 import com.example.projetoPBD.pontoCerto.repository.EquipamentoRepository;
 import com.example.projetoPBD.pontoCerto.repository.LocalDeTrabalhoRepository;
@@ -69,7 +69,6 @@ public class EquipamentoService {
         eq.setLocalTrabalho(local);
         eq.setTipo(dto.tipo());
         eq.setIdentificacao(dto.identificacao().trim());
-        eq.setNumFabricacao(numFabricacao);
         eq.setStatus(StatusEquipamento.ATIVO);
 
         eq = equipamentoRepository.save(eq);

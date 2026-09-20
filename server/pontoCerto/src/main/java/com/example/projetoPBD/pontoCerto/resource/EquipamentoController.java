@@ -1,6 +1,6 @@
 package com.example.projetoPBD.pontoCerto.resource;
 
-import com.example.projetoPBD.pontoCerto.domain.StatusEquipamento;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusEquipamento;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoDTO;
 import com.example.projetoPBD.pontoCerto.service.EquipamentoService;
 import jakarta.validation.Valid;
