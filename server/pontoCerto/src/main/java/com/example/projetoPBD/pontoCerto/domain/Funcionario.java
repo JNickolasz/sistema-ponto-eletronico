@@ -26,7 +26,7 @@ public class Funcionario{
     private UUID id;
 
     @ManyToOne
-    @JoinColumn(name = "empresa_id", nullable = true) //Atualmente não está implementado a associação entre Funcionario e Empresa, Depois deve trocar para FALSE
+    @JoinColumn(name = "empresa_id", nullable = false) //Atualmente não está implementado a associação entre Funcionario e Empresa, Depois deve trocar para FALSE
     private Empresa empresa;
 
     @ManyToOne

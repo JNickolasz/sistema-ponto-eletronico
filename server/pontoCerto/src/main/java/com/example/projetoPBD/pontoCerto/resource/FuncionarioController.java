@@ -40,7 +40,6 @@ public class FuncionarioController {
     @PreAuthorize("hasRole('RH')")
     public ResponseEntity<FuncionarioDTO.Response> criarFuncionario(@Valid @RequestBody FuncionarioDTO.Criar dto) {
 
-        // Só por hora enquanto ainda n temos o objeto de Empresa definido
         FuncionarioDTO.Response response = service.criar(dto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }

@@ -18,8 +18,8 @@ public interface FuncionarioRepository extends JpaRepository<Funcionario, UUID> 
     Optional<Funcionario> findByMatriculaAndEmpresaId(String matricula, UUID empresaId);
     boolean existsByMatriculaAndEmpresaId(String matricula, UUID empresaId);
 
-    Optional<Funcionario> findByCPFAndEmpresaId(String cpf, UUID empresaId);
-    boolean existsByCPFAndEmpresaId(String cpf, UUID empresaId);
+    Optional<Funcionario> findByCpfAndEmpresaId(String cpf, UUID empresaId);
+    boolean existsByCpfAndEmpresaId(String cpf, UUID empresaId);
 
     Optional<Funcionario> findByPisPasepAndEmpresaId(String pisPasep, UUID empresaId); // <-- Corrigido aqui
     boolean existsByPisPasepAndEmpresaId(String pisPasep, UUID empresaId);
