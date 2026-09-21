@@ -1,6 +1,7 @@
 package com.example.projetoPBD.pontoCerto.domain;
 
 
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusEquipamento;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoEquipamento;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -16,14 +17,14 @@ import lombok.Setter;
 public class Relogio extends Equipamento{
 
     public Relogio() {
-        super(TipoEquipamento.RELOGIO);
+        super(TipoEquipamento.RELOGIO, StatusEquipamento.ATIVO);
     }
 
     @Column(length = 100,  nullable = false, name = "numeros_fabricante")
-    private String num_fabricante;
+    private String numFabricante;
 
     @Column(name = "linhas_importadas")
-    private Long linhas_importadas;
+    private Long linhasImportadas;
 
 
 }

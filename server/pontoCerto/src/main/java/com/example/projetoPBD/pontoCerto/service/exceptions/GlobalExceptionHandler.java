@@ -66,6 +66,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex);
     }
 
+    @ExceptionHandler(FiltroDeBuscaException.class)
+    public ResponseEntity<String> handleException(FiltroDeBuscaException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<String> handleValidationException(
             MethodArgumentNotValidException ex) {

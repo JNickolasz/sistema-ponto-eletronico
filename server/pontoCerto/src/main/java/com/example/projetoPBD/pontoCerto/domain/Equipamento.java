@@ -16,7 +16,6 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(
     name = "equipamento",
     uniqueConstraints = {
@@ -55,14 +54,13 @@ public class Equipamento {
 
     // AINDA NÃO É PREENCHIDO AUTOMATICAMENTE, TEM QUE CONFIGURAR O AuditorAware
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by_id",  nullable = false, updatable = false)
+    @JoinColumn(name = "created_by_id",  nullable = true, updatable = false) //Nullable True por Enquanto, ate configurar AuditorAware
     private Funcionario createdBy;
 
     // AINDA NÃO É PREENCHIDO AUTOMATICAMENTE, TEM QUE CONFIGURAR O AuditorAware
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "updated_by_id")
     private Funcionario updatedBy;
-
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -72,8 +70,9 @@ public class Equipamento {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
-    public Equipamento(TipoEquipamento tipo){
+    public Equipamento(TipoEquipamento tipo, StatusEquipamento status){
         this.tipo = tipo;
+        this.status = status;
     }
 
     public Equipamento(){}

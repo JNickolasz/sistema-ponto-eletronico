@@ -1,7 +1,9 @@
 package com.example.projetoPBD.pontoCerto.resource;
 
 import com.example.projetoPBD.pontoCerto.domain.enums.StatusEquipamento;
+import com.example.projetoPBD.pontoCerto.dto.EquipamentoFiltroDTO;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoResponse;
 import com.example.projetoPBD.pontoCerto.service.EquipamentoService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -25,31 +27,23 @@ public class EquipamentoController {
     }
 
     @PostMapping
-    public ResponseEntity<EquipamentoDTO.Response> cadastrar(@Valid @RequestBody EquipamentoDTO.Request dto) {
-        EquipamentoDTO.Response response = equipamentoService.cadastrar(dto);
+    public ResponseEntity<EquipamentoResponse> cadastrar(@Valid @RequestBody EquipamentoDTO.Criar criarDto) {
+        EquipamentoResponse response = equipamentoService.cadastrar(criarDto);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping
-    public ResponseEntity<List<EquipamentoDTO.Response>> listar(
-            @RequestParam(required = false) UUID localTrabalhoId,
-            @RequestParam(required = false) UUID empresaId) {
-        List<EquipamentoDTO.Response> equipamentos = equipamentoService.listar(localTrabalhoId, empresaId);
+    public ResponseEntity<List<EquipamentoResponse>> listar(EquipamentoFiltroDTO filtro) {
+        List<EquipamentoResponse> equipamentos = equipamentoService.listar(filtro);
         return ResponseEntity.ok(equipamentos);
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<EquipamentoDTO.Response> buscarPorId(@PathVariable UUID id) {
-        return ResponseEntity.ok(equipamentoService.buscarPorId(id));
-    }
-
     // exemplo de uso "/api/v1/equipamentos/{id}/status?status=INATIVO"
-    @PatchMapping("/{id}/status")
-    public ResponseEntity<EquipamentoDTO.Response> alterarStatus(
-            @PathVariable UUID id,
+    @PatchMapping("/{codigo}/status")
+    public ResponseEntity<EquipamentoResponse> alterarStatus(
+            @PathVariable String codigo,
             @RequestParam StatusEquipamento status) {
-        EquipamentoDTO.Response response = equipamentoService.alterarStatus(id, status);
-        // dessa forma a gnt tbm já mata o critério 5, pq ele apenas muda o status do equipamento sem desativar
+        EquipamentoResponse response = equipamentoService.alterarStatus(codigo, status);
         return ResponseEntity.ok(response);
     }
 }
