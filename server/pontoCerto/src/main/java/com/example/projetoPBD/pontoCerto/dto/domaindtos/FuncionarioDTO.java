@@ -1,9 +1,8 @@
 package com.example.projetoPBD.pontoCerto.dto.domaindtos;
 
 
-import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.Funcionario;
-import com.example.projetoPBD.pontoCerto.domain.PerfilAcesso;
+import com.example.projetoPBD.pontoCerto.domain.enums.PerfilAcesso;
 import org.hibernate.validator.constraints.br.CPF;
 
 import java.time.LocalDate;
