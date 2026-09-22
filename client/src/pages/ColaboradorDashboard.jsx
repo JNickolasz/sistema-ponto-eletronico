@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import colaboradorService from '../services/colaboradorService';
+import jornadaService from '../services/jornadaService';
 import { useAuth } from '../hooks/useAuth';
 import {
   Clock,
@@ -15,24 +16,29 @@ import {
   History,
   TrendingUp,
   Award,
+  Coffee,
+  CalendarDays,
+  Briefcase,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export function ColaboradorDashboard() {
   const { user } = useAuth();
 
-  // Estado do painel do backend
   const [painelData, setPainelData] = useState(null);
   const [loadingPainel, setLoadingPainel] = useState(true);
   const [painelError, setPainelError] = useState(null);
 
-  // Relógio digital em tempo real
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Teste de Espelho de Ponto (GET /api/v1/colaborador/{id}/espelho)
   const [espelhoIdInput, setEspelhoIdInput] = useState('1');
   const [espelhoResult, setEspelhoResult] = useState(null);
   const [loadingEspelho, setLoadingEspelho] = useState(false);
+
+  const [horarioPrevistoColab, setHorarioPrevistoColab] = useState(null);
+  const [loadingHorarioColab, setLoadingHorarioColab] = useState(false);
+  const [dataHorarioColab, setDataHorarioColab] = useState(new Date().toISOString().split('T')[0]);
+  const [funcionarioIdColab, setFuncionarioIdColab] = useState('');
 
   // Histórico de batidas simuladas do dia
   const [pontosHoje, setPontosHoje] = useState([
@@ -55,10 +61,27 @@ export function ColaboradorDashboard() {
       setPainelError(null);
       const data = await colaboradorService.getPainel();
       setPainelData(data);
+      if (data?.funcionarioId) {
+        setFuncionarioIdColab(data.funcionarioId);
+        consultarHorarioSilencioso(data.funcionarioId, dataHorarioColab);
+      }
     } catch (err) {
       setPainelError(err.message || 'Erro ao consultar painel do Colaborador');
     } finally {
       setLoadingPainel(false);
+    }
+  };
+
+  const consultarHorarioSilencioso = async (funcId, data) => {
+    if (!funcId) return;
+    try {
+      setLoadingHorarioColab(true);
+      const res = await jornadaService.obterHorarioPrevisto(funcId, data);
+      setHorarioPrevistoColab(res);
+    } catch {
+      // Ignora falha silenciosa no autoload
+    } finally {
+      setLoadingHorarioColab(false);
     }
   };
 
@@ -67,7 +90,18 @@ export function ColaboradorDashboard() {
     colaboradorService
       .getPainel()
       .then((data) => {
-        if (isMounted) setPainelData(data);
+        if (isMounted) {
+          setPainelData(data);
+          if (data?.funcionarioId) {
+            setFuncionarioIdColab(data.funcionarioId);
+            jornadaService
+              .obterHorarioPrevisto(data.funcionarioId, dataHorarioColab)
+              .then((res) => {
+                if (isMounted) setHorarioPrevistoColab(res);
+              })
+              .catch(() => {});
+          }
+        }
       })
       .catch((err) => {
         if (isMounted) setPainelError(err.message || 'Erro ao consultar painel do Colaborador');
@@ -81,6 +115,24 @@ export function ColaboradorDashboard() {
     };
   }, []);
 
+  const handleConsultarMeuHorario = async (e) => {
+    if (e) e.preventDefault();
+    if (!funcionarioIdColab) {
+      toast.error('Informe seu UUID de colaborador');
+      return;
+    }
+    try {
+      setLoadingHorarioColab(true);
+      const res = await jornadaService.obterHorarioPrevisto(funcionarioIdColab, dataHorarioColab);
+      setHorarioPrevistoColab(res);
+      toast.success('Horário previsto consultado com sucesso!');
+    } catch (err) {
+      toast.error(err.message || 'Erro ao consultar horário previsto');
+      setHorarioPrevistoColab(null);
+    } finally {
+      setLoadingHorarioColab(false);
+    }
+  };
 
   // Registrar batida de ponto
   const handleBaterPonto = () => {
@@ -192,7 +244,7 @@ export function ColaboradorDashboard() {
               {painelError}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-slate-950/60 rounded-xl p-3.5 border border-slate-800">
                 <span className="text-xs text-slate-400">Mensagem da API</span>
                 <p className="text-sm font-semibold text-emerald-300 mt-1">
@@ -203,6 +255,12 @@ export function ColaboradorDashboard() {
                 <span className="text-xs text-slate-400">Colaborador Autenticado</span>
                 <p className="text-sm font-semibold text-slate-200 mt-1 font-mono">
                   {painelData?.usuarioLogado || user?.usuario || '—'}
+                </p>
+              </div>
+              <div className="bg-slate-950/60 rounded-xl p-3.5 border border-slate-800">
+                <span className="text-xs text-slate-400">UUID do Colaborador</span>
+                <p className="text-xs font-semibold text-indigo-300 mt-1 font-mono truncate" title={painelData?.funcionarioId}>
+                  {painelData?.funcionarioId || '—'}
                 </p>
               </div>
               <div className="bg-slate-950/60 rounded-xl p-3.5 border border-slate-800">
@@ -396,6 +454,156 @@ export function ColaboradorDashboard() {
                   <pre className="mt-2 p-2.5 bg-slate-950/80 rounded-lg overflow-x-auto text-[11px]">
                     {JSON.stringify(espelhoResult.data || { erro: espelhoResult.error }, null, 2)}
                   </pre>
+                </div>
+              )}
+            </div>
+
+            {/* Meu Horário Previsto do Dia (T04) */}
+            <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-6 backdrop-blur-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <CalendarDays size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-100 flex items-center gap-2">
+                      Meu Horário Previsto do Dia
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                        Tarefa T04
+                      </span>
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Calculado automaticamente a partir do Regime Vigente (Jornada fixa ou Escala cíclica)
+                    </p>
+                  </div>
+                </div>
+                {horarioPrevistoColab && (
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium border ${
+                        horarioPrevistoColab.diaTrabalho
+                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                      }`}
+                    >
+                      {horarioPrevistoColab.diaTrabalho ? (
+                        <>
+                          <CheckCircle2 size={12} /> Dia de Trabalho
+                        </>
+                      ) : (
+                        <>
+                          <Coffee size={12} /> Folga / DSR
+                        </>
+                      )}
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-slate-800 px-2.5 py-0.5 text-xs font-mono text-slate-300 border border-slate-700">
+                      {horarioPrevistoColab.tipoRegime}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <form onSubmit={handleConsultarMeuHorario} className="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-4">
+                <div className="sm:col-span-4">
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    Data de Referência
+                  </label>
+                  <input
+                    type="date"
+                    value={dataHorarioColab}
+                    onChange={(e) => setDataHorarioColab(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+                <div className="sm:col-span-5">
+                  <label className="block text-xs font-medium text-slate-400 mb-1">
+                    UUID do Funcionário
+                  </label>
+                  <input
+                    type="text"
+                    value={funcionarioIdColab}
+                    onChange={(e) => setFuncionarioIdColab(e.target.value)}
+                    placeholder="Auto-preenchido pelo login"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+                <div className="sm:col-span-3 flex items-end">
+                  <button
+                    type="submit"
+                    disabled={loadingHorarioColab}
+                    className="w-full h-[34px] inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs shadow-lg shadow-emerald-900/30 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <RefreshCw size={14} className={loadingHorarioColab ? 'animate-spin' : ''} />
+                    Consultar
+                  </button>
+                </div>
+              </form>
+
+              {loadingHorarioColab ? (
+                <div className="flex items-center justify-center py-6 text-slate-400 text-xs gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                  Calculando horário previsto do dia...
+                </div>
+              ) : horarioPrevistoColab ? (
+                <div className="space-y-3">
+                  {horarioPrevistoColab.diaTrabalho ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3">
+                        <span className="text-[11px] text-slate-400">Entrada Prevista</span>
+                        <p className="text-base font-bold font-mono text-emerald-400 mt-0.5">
+                          {horarioPrevistoColab.horaEntrada || '—'}
+                        </p>
+                      </div>
+                      <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3">
+                        <span className="text-[11px] text-slate-400">Saída Prevista</span>
+                        <p className="text-base font-bold font-mono text-emerald-400 mt-0.5">
+                          {horarioPrevistoColab.horaSaida || '—'}
+                        </p>
+                      </div>
+                      <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3">
+                        <span className="text-[11px] text-slate-400">Intervalo</span>
+                        <p className="text-xs font-bold font-mono text-slate-200 mt-1">
+                          {horarioPrevistoColab.intervaloInicio
+                            ? `${horarioPrevistoColab.intervaloInicio} - ${horarioPrevistoColab.intervaloFim}`
+                            : 'Sem intervalo'}
+                        </p>
+                      </div>
+                      <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3">
+                        <span className="text-[11px] text-slate-400">Carga Diária</span>
+                        <p className="text-xs font-bold font-mono text-indigo-300 mt-1">
+                          {horarioPrevistoColab.cargaDiariaMinutos
+                            ? `${Math.floor(horarioPrevistoColab.cargaDiariaMinutos / 60)}h ${horarioPrevistoColab.cargaDiariaMinutos % 60}m`
+                            : '0m'}{' '}
+                          <span className="text-[10px] text-slate-500 font-normal">
+                            (±{horarioPrevistoColab.toleranciaMinutos || 0}m tol.)
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-3">
+                      <Coffee size={20} className="text-amber-400 shrink-0" />
+                      <div>
+                        <p className="font-semibold text-amber-200">Hoje é dia de descanso!</p>
+                        <p className="text-amber-300/80 mt-0.5">
+                          {horarioPrevistoColab.mensagem || 'Você não tem escala ou jornada prevista para esta data.'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-3 rounded-xl bg-slate-950/50 border border-slate-800/80 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-slate-400">
+                      Regime: <strong className="text-slate-200">{horarioPrevistoColab.descricaoRegime}</strong> ({horarioPrevistoColab.diaSemana})
+                    </span>
+                    <span className="text-slate-500 font-mono text-[11px]">
+                      {horarioPrevistoColab.mensagem}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-slate-500 text-xs text-center">
+                  Informe o ID do colaborador e a data para simular ou visualizar o horário previsto.
                 </div>
               )}
             </div>

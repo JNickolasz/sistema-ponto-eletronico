@@ -24,6 +24,12 @@ import {
   Power,
   Hash,
   Filter,
+  Calendar,
+  CalendarDays,
+  Check,
+  Layers,
+  Search,
+  ArrowRight,
 } from 'lucide-react';
 import { FormControl, Select, MenuItem } from '@mui/material';
 import toast from 'react-hot-toast';
@@ -90,6 +96,50 @@ export function RhDashboard() {
     }
   });
 
+  const [jornadas, setJornadas] = useState([]);
+  const [loadingJornadas, setLoadingJornadas] = useState(false);
+  const [escalas, setEscalas] = useState([]);
+  const [loadingEscalas, setLoadingEscalas] = useState(false);
+  const [funcionariosEmpresa, setFuncionariosEmpresa] = useState([]);
+  const [loadingFuncionarios, setLoadingFuncionarios] = useState(false);
+
+  const [nomeJornada, setNomeJornada] = useState('');
+  const [toleranciaJornada, setToleranciaJornada] = useState(10);
+  const [diasJornada, setDiasJornada] = useState([
+    { diaSemana: 'SEGUNDA', diaTrabalho: true, horaEntrada: '08:00', horaSaida: '17:00', intervaloInicio: '12:00', intervaloFim: '13:00' },
+    { diaSemana: 'TERÇA', diaTrabalho: true, horaEntrada: '08:00', horaSaida: '17:00', intervaloInicio: '12:00', intervaloFim: '13:00' },
+    { diaSemana: 'QUARTA', diaTrabalho: true, horaEntrada: '08:00', horaSaida: '17:00', intervaloInicio: '12:00', intervaloFim: '13:00' },
+    { diaSemana: 'QUINTA', diaTrabalho: true, horaEntrada: '08:00', horaSaida: '17:00', intervaloInicio: '12:00', intervaloFim: '13:00' },
+    { diaSemana: 'SEXTA', diaTrabalho: true, horaEntrada: '08:00', horaSaida: '17:00', intervaloInicio: '12:00', intervaloFim: '13:00' },
+    { diaSemana: 'SÁBADO', diaTrabalho: false, horaEntrada: '08:00', horaSaida: '12:00', intervaloInicio: '10:00', intervaloFim: '10:15' },
+    { diaSemana: 'DOMINGO', diaTrabalho: false, horaEntrada: '', horaSaida: '', intervaloInicio: '', intervaloFim: '' },
+  ]);
+  const [submittingJornada, setSubmittingJornada] = useState(false);
+
+  const [nomeEscala, setNomeEscala] = useState('');
+  const [diasTrabalhoEscala, setDiasTrabalhoEscala] = useState(1);
+  const [diasFolgaEscala, setDiasFolgaEscala] = useState(1);
+  const [horaEntradaEscala, setHoraEntradaEscala] = useState('07:00');
+  const [horaSaidaEscala, setHoraSaidaEscala] = useState('19:00');
+  const [intervaloInicioEscala, setIntervaloInicioEscala] = useState('12:00');
+  const [intervaloFimEscala, setIntervaloFimEscala] = useState('13:00');
+  const [toleranciaEscala, setToleranciaEscala] = useState(10);
+  const [submittingEscala, setSubmittingEscala] = useState(false);
+
+  const [funcionarioIdRegime, setFuncionarioIdRegime] = useState('');
+  const [tipoRegimeSelecionado, setTipoRegimeSelecionado] = useState('JORNADA');
+  const [jornadaIdSelecionada, setJornadaIdSelecionada] = useState('');
+  const [escalaIdSelecionada, setEscalaIdSelecionada] = useState('');
+  const [dataInicioVigenciaRegime, setDataInicioVigenciaRegime] = useState(new Date().toISOString().split('T')[0]);
+  const [dataFimVigenciaRegime, setDataFimVigenciaRegime] = useState('');
+  const [submittingRegime, setSubmittingRegime] = useState(false);
+
+  const [funcionarioIdConsulta, setFuncionarioIdConsulta] = useState('');
+  const [dataConsulta, setDataConsulta] = useState(new Date().toISOString().split('T')[0]);
+  const [horarioPrevistoResultado, setHorarioPrevistoResultado] = useState(null);
+  const [loadingHorarioPrevisto, setLoadingHorarioPrevisto] = useState(false);
+  const [regimesColaborador, setRegimesColaborador] = useState([]);
+
   const recarregarPainel = async () => {
     try {
       setLoadingPainel(true);
@@ -148,6 +198,225 @@ export function RhDashboard() {
     }
   };
 
+  const carregarJornadas = async () => {
+    try {
+      setLoadingJornadas(true);
+      const lista = await rhService.listarJornadas();
+      const arr = Array.isArray(lista) ? lista : [];
+      setJornadas(arr);
+      if (arr.length > 0 && !jornadaIdSelecionada) {
+        setJornadaIdSelecionada(arr[0].id);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar jornadas:', err);
+    } finally {
+      setLoadingJornadas(false);
+    }
+  };
+
+  const carregarEscalas = async () => {
+    try {
+      setLoadingEscalas(true);
+      const lista = await rhService.listarEscalas();
+      const arr = Array.isArray(lista) ? lista : [];
+      setEscalas(arr);
+      if (arr.length > 0 && !escalaIdSelecionada) {
+        setEscalaIdSelecionada(arr[0].id);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar escalas:', err);
+    } finally {
+      setLoadingEscalas(false);
+    }
+  };
+
+  const carregarFuncionarios = async (empresaId) => {
+    if (!empresaId) return;
+    try {
+      setLoadingFuncionarios(true);
+      const lista = await rhService.buscarFuncionarios(empresaId);
+      const arr = Array.isArray(lista) ? lista : [];
+      setFuncionariosEmpresa(arr);
+      if (arr.length > 0 && !funcionarioIdRegime) {
+        setFuncionarioIdRegime(arr[0].id);
+      }
+      if (arr.length > 0 && !funcionarioIdConsulta) {
+        setFuncionarioIdConsulta(arr[0].id);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar funcionários:', err);
+    } finally {
+      setLoadingFuncionarios(false);
+    }
+  };
+
+  const handleCadastrarJornada = async (e) => {
+    e.preventDefault();
+    if (!nomeJornada.trim()) {
+      toast.error('Informe o nome da jornada');
+      return;
+    }
+    try {
+      setSubmittingJornada(true);
+      const payload = {
+        nome: nomeJornada.trim(),
+        toleranciaMinutos: Number(toleranciaJornada) || 10,
+        dias: diasJornada.map((d) => ({
+          diaSemana: d.diaSemana,
+          diaTrabalho: Boolean(d.diaTrabalho),
+          horaEntrada: d.diaTrabalho ? (d.horaEntrada || '08:00') : null,
+          horaSaida: d.diaTrabalho ? (d.horaSaida || '17:00') : null,
+          intervaloInicio: d.diaTrabalho ? (d.intervaloInicio || '12:00') : null,
+          intervaloFim: d.diaTrabalho ? (d.intervaloFim || '13:00') : null,
+        })),
+      };
+      await rhService.cadastrarJornada(payload);
+      toast.success('Jornada cadastrada com sucesso!');
+      setNomeJornada('');
+      carregarJornadas();
+    } catch (err) {
+      toast.error(err.message || 'Erro ao cadastrar jornada');
+    } finally {
+      setSubmittingJornada(false);
+    }
+  };
+
+  const handleCadastrarEscala = async (e) => {
+    e.preventDefault();
+    if (!nomeEscala.trim()) {
+      toast.error('Informe o nome da escala');
+      return;
+    }
+    try {
+      setSubmittingEscala(true);
+      const payload = {
+        nome: nomeEscala.trim(),
+        diasTrabalho: Number(diasTrabalhoEscala) || 1,
+        diasFolga: Number(diasFolgaEscala) || 1,
+        horaEntrada: horaEntradaEscala || '07:00',
+        horaSaida: horaSaidaEscala || '19:00',
+        intervaloInicio: intervaloInicioEscala || '12:00',
+        intervaloFim: intervaloFimEscala || '13:00',
+        toleranciaMinutos: Number(toleranciaEscala) || 10,
+      };
+      await rhService.cadastrarEscala(payload);
+      toast.success('Escala cadastrada com sucesso!');
+      setNomeEscala('');
+      carregarEscalas();
+    } catch (err) {
+      toast.error(err.message || 'Erro ao cadastrar escala');
+    } finally {
+      setSubmittingEscala(false);
+    }
+  };
+
+  const handleVincularRegime = async (e) => {
+    e.preventDefault();
+    if (!funcionarioIdRegime) {
+      toast.error('Informe o ID do funcionário');
+      return;
+    }
+    if (tipoRegimeSelecionado === 'JORNADA' && !jornadaIdSelecionada) {
+      toast.error('Selecione uma jornada');
+      return;
+    }
+    if (tipoRegimeSelecionado === 'ESCALA' && !escalaIdSelecionada) {
+      toast.error('Selecione uma escala');
+      return;
+    }
+    if (!dataInicioVigenciaRegime) {
+      toast.error('Informe a data de início de vigência');
+      return;
+    }
+    try {
+      setSubmittingRegime(true);
+      const payload = {
+        funcionarioId: funcionarioIdRegime,
+        tipoRegime: tipoRegimeSelecionado,
+        jornadaId: tipoRegimeSelecionado === 'JORNADA' ? jornadaIdSelecionada : null,
+        escalaId: tipoRegimeSelecionado === 'ESCALA' ? escalaIdSelecionada : null,
+        dataInicioVigencia: dataInicioVigenciaRegime,
+        dataFimVigencia: dataFimVigenciaRegime || null,
+      };
+      await rhService.vincularRegime(payload);
+      toast.success('Regime de trabalho vinculado com sucesso!');
+      carregarRegimesFuncionario(funcionarioIdRegime);
+    } catch (err) {
+      toast.error(err.message || 'Erro ao vincular regime');
+    } finally {
+      setSubmittingRegime(false);
+    }
+  };
+
+  const handleConsultarHorarioPrevisto = async (e) => {
+    if (e) e.preventDefault();
+    if (!funcionarioIdConsulta) {
+      toast.error('Informe o ID do colaborador para consultar');
+      return;
+    }
+    try {
+      setLoadingHorarioPrevisto(true);
+      const res = await rhService.obterHorarioPrevisto(funcionarioIdConsulta, dataConsulta);
+      setHorarioPrevistoResultado(res);
+      toast.success('Horário previsto calculado!');
+      carregarRegimesFuncionario(funcionarioIdConsulta);
+    } catch (err) {
+      toast.error(err.message || 'Erro ao consultar horário previsto');
+      setHorarioPrevistoResultado(null);
+    } finally {
+      setLoadingHorarioPrevisto(false);
+    }
+  };
+
+  const carregarRegimesFuncionario = async (fId) => {
+    if (!fId) return;
+    try {
+      const res = await rhService.listarRegimesFuncionario(fId);
+      setRegimesColaborador(Array.isArray(res) ? res : []);
+    } catch (err) {
+      console.error('Erro ao listar regimes do colaborador:', err);
+    }
+  };
+
+  const handlePreencherExemploEscala = (tipo) => {
+    if (tipo === '12x36') {
+      setNomeEscala('Escala 12x36 Diurna');
+      setDiasTrabalhoEscala(1);
+      setDiasFolgaEscala(1);
+      setHoraEntradaEscala('07:00');
+      setHoraSaidaEscala('19:00');
+      setIntervaloInicioEscala('12:00');
+      setIntervaloFimEscala('13:00');
+      setToleranciaEscala(10);
+    } else if (tipo === '5x2') {
+      setNomeEscala('Escala 5x2 Comercial');
+      setDiasTrabalhoEscala(5);
+      setDiasFolgaEscala(2);
+      setHoraEntradaEscala('08:00');
+      setHoraSaidaEscala('17:00');
+      setIntervaloInicioEscala('12:00');
+      setIntervaloFimEscala('13:00');
+      setToleranciaEscala(10);
+    } else if (tipo === '6x1') {
+      setNomeEscala('Escala 6x1 Operacional');
+      setDiasTrabalhoEscala(6);
+      setDiasFolgaEscala(1);
+      setHoraEntradaEscala('09:00');
+      setHoraSaidaEscala('17:20');
+      setIntervaloInicioEscala('13:00');
+      setIntervaloFimEscala('14:00');
+      setToleranciaEscala(10);
+    }
+  };
+
+  const handleAtualizarDiaJornada = (index, campo, valor) => {
+    setDiasJornada((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [campo]: valor };
+      return copy;
+    });
+  };
+
   useEffect(() => {
     let isMounted = true;
     rhService
@@ -163,6 +432,8 @@ export function RhDashboard() {
       });
 
     carregarEmpresasELocais();
+    carregarJornadas();
+    carregarEscalas();
 
     return () => {
       isMounted = false;
@@ -572,6 +843,23 @@ export function RhDashboard() {
             {usuariosCadastrados.length > 0 && (
               <span className="px-2 py-0.5 text-xs rounded-full bg-slate-800 text-slate-300 font-mono">
                 {usuariosCadastrados.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva('jornadas')}
+            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              abaAtiva === 'jornadas'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Calendar size={18} />
+            <span>Jornadas & Escalas (T04)</span>
+            {(jornadas.length > 0 || escalas.length > 0) && (
+              <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/20 text-emerald-300 font-mono">
+                {jornadas.length + escalas.length}
               </span>
             )}
           </button>
@@ -1506,6 +1794,772 @@ export function RhDashboard() {
                   <li>Clique em <strong>Testar</strong> no card do usuário para ir à tela de login.</li>
                   <li>Faça login e veja a tela do painel exclusiva do perfil correspondente!</li>
                 </ol>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {abaAtiva === 'jornadas' && (
+          <div className="space-y-8">
+            <div className="rounded-2xl bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-500/30 p-6 shadow-2xl backdrop-blur-xl">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-5">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                    <Clock size={22} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-white">Simulador de Horário Previsto do Dia</h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Critério Principal T04
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      Testa a rota <span className="font-mono text-indigo-300">GET /api/v1/regimes-trabalho/horario-previsto?funcionarioId=...&data=...</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => carregarFuncionarios(empresaIdSelecionada || (empresas[0] && empresas[0].id))}
+                    className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer flex items-center gap-1.5 border border-slate-700"
+                  >
+                    <RefreshCw size={13} className={loadingFuncionarios ? 'animate-spin' : ''} />
+                    <span>Carregar Colaboradores da Empresa</span>
+                  </button>
+                </div>
+              </div>
+
+              <form onSubmit={handleConsultarHorarioPrevisto} className="mt-5 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                  <div className="md:col-span-6">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                      Colaborador *
+                    </label>
+                    {funcionariosEmpresa.length > 0 ? (
+                      <FormControl fullWidth size="small">
+                        <Select
+                          value={funcionarioIdConsulta}
+                          onChange={(e) => {
+                            setFuncionarioIdConsulta(e.target.value);
+                            setFuncionarioIdRegime(e.target.value);
+                          }}
+                          sx={{
+                            color: '#f8fafc',
+                            backgroundColor: 'rgba(2, 6, 23, 0.6)',
+                            borderRadius: '0.75rem',
+                            '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(51, 65, 85, 0.8)' },
+                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1' },
+                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1' },
+                            '.MuiSvgIcon-root': { color: '#94a3b8' },
+                          }}
+                        >
+                          {funcionariosEmpresa.map((f) => (
+                            <MenuItem key={f.id} value={f.id}>
+                              {f.nomeCompleto} ({f.usuario || f.matricula}) - {f.perfilAcesso}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    ) : (
+                      <input
+                        type="text"
+                        required
+                        value={funcionarioIdConsulta}
+                        onChange={(e) => {
+                          setFuncionarioIdConsulta(e.target.value);
+                          setFuncionarioIdRegime(e.target.value);
+                        }}
+                        placeholder="Cole o UUID do funcionário ou clique em 'Carregar Colaboradores'"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none font-mono"
+                      />
+                    )}
+                  </div>
+
+                  <div className="md:col-span-4">
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                      Data da Consulta *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={dataConsulta}
+                      onChange={(e) => setDataConsulta(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3.5 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="md:col-span-2 flex items-end">
+                    <button
+                      type="submit"
+                      disabled={loadingHorarioPrevisto}
+                      className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {loadingHorarioPrevisto ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <Search size={15} />
+                      )}
+                      <span>Consultar</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap text-xs text-slate-400">
+                  <span className="font-semibold text-slate-300">Atalhos de data:</span>
+                  <button
+                    type="button"
+                    onClick={() => setDataConsulta(new Date().toISOString().split('T')[0])}
+                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      setDataConsulta(d.toISOString().split('T')[0]);
+                    }}
+                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                  >
+                    Amanhã
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      const dist = (6 - d.getDay() + 7) % 7 || 7;
+                      d.setDate(d.getDate() + dist);
+                      setDataConsulta(d.toISOString().split('T')[0]);
+                    }}
+                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                  >
+                    Próximo Sábado
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      const dist = (7 - d.getDay()) % 7 || 7;
+                      d.setDate(d.getDate() + dist);
+                      setDataConsulta(d.toISOString().split('T')[0]);
+                    }}
+                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                  >
+                    Próximo Domingo
+                  </button>
+                </div>
+              </form>
+
+              {horarioPrevistoResultado && (
+                <div className="mt-6 pt-6 border-t border-slate-800/80 animate-in fade-in duration-200">
+                  <div className="rounded-xl bg-slate-950/80 border border-slate-800 p-5 space-y-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold tracking-wide uppercase border ${
+                            horarioPrevistoResultado.diaTrabalho
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                              : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          }`}
+                        >
+                          {horarioPrevistoResultado.diaTrabalho ? (
+                            <>
+                              <CheckCircle2 size={14} /> Dia de Trabalho Previsto
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle size={14} /> Folga / DSR
+                            </>
+                          )}
+                        </span>
+                        <span className="text-xs font-mono text-slate-400">
+                          {horarioPrevistoResultado.data} ({horarioPrevistoResultado.diaSemana})
+                        </span>
+                      </div>
+
+                      <div className="text-xs text-slate-400">
+                        Regime: <strong className="text-white font-mono">{horarioPrevistoResultado.tipoRegime || 'Nenhum'}</strong> {horarioPrevistoResultado.descricaoRegime ? `(${horarioPrevistoResultado.descricaoRegime})` : ''}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 block mb-1">Entrada Prevista</span>
+                        <span className="text-base font-bold font-mono text-white">
+                          {horarioPrevistoResultado.horaEntrada || '--:--'}
+                        </span>
+                      </div>
+
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 block mb-1">Saída Prevista</span>
+                        <span className="text-base font-bold font-mono text-white">
+                          {horarioPrevistoResultado.horaSaida || '--:--'}
+                        </span>
+                      </div>
+
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 block mb-1">Intervalo</span>
+                        <span className="text-xs font-bold font-mono text-white block mt-1">
+                          {horarioPrevistoResultado.intervaloInicio
+                            ? `${horarioPrevistoResultado.intervaloInicio} às ${horarioPrevistoResultado.intervaloFim}`
+                            : 'Sem intervalo'}
+                        </span>
+                      </div>
+
+                      <div className="p-3 rounded-lg bg-slate-900 border border-slate-800">
+                        <span className="text-[11px] text-slate-400 block mb-1">Carga Prevista</span>
+                        <span className="text-base font-bold font-mono text-indigo-400">
+                          {horarioPrevistoResultado.cargaDiariaMinutos || 0} min
+                          {horarioPrevistoResultado.cargaDiariaMinutos > 0 && (
+                            <span className="text-[11px] font-normal text-slate-400 ml-1">
+                              ({Math.floor(horarioPrevistoResultado.cargaDiariaMinutos / 60)}h{horarioPrevistoResultado.cargaDiariaMinutos % 60 ? ` ${horarioPrevistoResultado.cargaDiariaMinutos % 60}m` : ''})
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-indigo-950/30 border border-indigo-800/30 text-xs text-indigo-200 flex items-center justify-between flex-wrap gap-2">
+                      <span>
+                        <strong>Mensagem:</strong> {horarioPrevistoResultado.mensagem}
+                      </span>
+                      <span>
+                        <strong>Tolerância:</strong> {horarioPrevistoResultado.toleranciaMinutos || 10} minutos
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-6 space-y-8">
+                <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+                        <CalendarDays size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Cadastrar Nova Jornada</h3>
+                        <p className="text-xs text-slate-400">Define o quadro de horários semanais</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDiasJornada([
+                          { diaSemana: 'SEGUNDA', diaTrabalho: true, horaEntrada: '08:00', horaSaida: '17:00', intervaloInicio: '12:00', intervaloFim: '13:00' },
+                          { diaSemana: 'TERÇA', diaTrabalho: true, horaEntrada: '08:00', horaSaida: '17:00', intervaloInicio: '12:00', intervaloFim: '13:00' },
+                          { diaSemana: 'QUARTA', diaTrabalho: true, horaEntrada: '08:00', horaSaida: '17:00', intervaloInicio: '12:00', intervaloFim: '13:00' },
+                          { diaSemana: 'QUINTA', diaTrabalho: true, horaEntrada: '08:00', horaSaida: '17:00', intervaloInicio: '12:00', intervaloFim: '13:00' },
+                          { diaSemana: 'SEXTA', diaTrabalho: true, horaEntrada: '08:00', horaSaida: '17:00', intervaloInicio: '12:00', intervaloFim: '13:00' },
+                          { diaSemana: 'SÁBADO', diaTrabalho: false, horaEntrada: '', horaSaida: '', intervaloInicio: '', intervaloFim: '' },
+                          { diaSemana: 'DOMINGO', diaTrabalho: false, horaEntrada: '', horaSaida: '', intervaloInicio: '', intervaloFim: '' },
+                        ]);
+                        toast.success('Dias pré-preenchidos como Seg a Sex (8h-17h)!');
+                      }}
+                      className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition-colors"
+                    >
+                      Seg-Sex Padrão
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleCadastrarJornada} className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Nome da Jornada *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={nomeJornada}
+                          onChange={(e) => setNomeJornada(e.target.value)}
+                          placeholder="Ex: Comercial 44h, Administrativo 40h"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Tolerância (min)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="60"
+                          value={toleranciaJornada}
+                          onChange={(e) => setToleranciaJornada(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3.5 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 border border-slate-800 rounded-xl p-3 bg-slate-950/40">
+                      <span className="text-xs font-semibold text-slate-300 block mb-2">
+                        Configuração dos Dias da Semana
+                      </span>
+                      {diasJornada.map((dia, idx) => (
+                        <div
+                          key={dia.diaSemana}
+                          className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2 rounded-lg bg-slate-900/60 border border-slate-800/80 text-xs"
+                        >
+                          <label className="flex items-center gap-2 cursor-pointer w-28">
+                            <input
+                              type="checkbox"
+                              checked={dia.diaTrabalho}
+                              onChange={(e) => handleAtualizarDiaJornada(idx, 'diaTrabalho', e.target.checked)}
+                              className="rounded border-slate-700 text-indigo-600 focus:ring-indigo-500 bg-slate-950"
+                            />
+                            <span className={dia.diaTrabalho ? 'font-bold text-slate-100' : 'text-slate-500'}>
+                              {dia.diaSemana}
+                            </span>
+                          </label>
+
+                          {dia.diaTrabalho ? (
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <input
+                                type="time"
+                                value={dia.horaEntrada}
+                                onChange={(e) => handleAtualizarDiaJornada(idx, 'horaEntrada', e.target.value)}
+                                className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-slate-200"
+                              />
+                              <span className="text-slate-500">até</span>
+                              <input
+                                type="time"
+                                value={dia.horaSaida}
+                                onChange={(e) => handleAtualizarDiaJornada(idx, 'horaSaida', e.target.value)}
+                                className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-slate-200"
+                              />
+                              <span className="text-slate-500">| Intervalo:</span>
+                              <input
+                                type="time"
+                                value={dia.intervaloInicio}
+                                onChange={(e) => handleAtualizarDiaJornada(idx, 'intervaloInicio', e.target.value)}
+                                className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-slate-200"
+                              />
+                              <span className="text-slate-500">-</span>
+                              <input
+                                type="time"
+                                value={dia.intervaloFim}
+                                onChange={(e) => handleAtualizarDiaJornada(idx, 'intervaloFim', e.target.value)}
+                                className="rounded border border-slate-700 bg-slate-950 px-2 py-1 text-slate-200"
+                              />
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 italic">Folga / DSR</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submittingJornada}
+                      className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-lg shadow-indigo-600/25 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {submittingJornada ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <Plus size={15} />
+                      )}
+                      <span>Cadastrar Jornada</span>
+                    </button>
+                  </form>
+                </div>
+
+                <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-white">Jornadas Cadastradas</h4>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-indigo-500/20 text-indigo-300">
+                        {jornadas.length}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={carregarJornadas}
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                    >
+                      <RefreshCw size={13} className={loadingJornadas ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
+
+                  {loadingJornadas ? (
+                    <div className="py-6 text-center text-xs text-slate-500">Carregando jornadas...</div>
+                  ) : jornadas.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-500">Nenhuma jornada cadastrada ainda.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {jornadas.map((j) => (
+                        <div key={j.id} className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-100 text-sm">{j.nome}</span>
+                            <span className="font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                              Carga: {Math.floor((j.cargaHorariaSemanaMinutos || 0) / 60)}h/sem ({j.cargaHorariaSemanaMinutos || 0}m)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {j.dias?.map((d) => (
+                              <span
+                                key={d.id || d.diaSemana}
+                                className={`px-2 py-0.5 rounded text-[10px] font-mono ${
+                                  d.diaTrabalho
+                                    ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                                    : 'bg-slate-800 text-slate-500'
+                                }`}
+                              >
+                                {d.diaSemana?.slice(0, 3)}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="lg:col-span-6 space-y-8">
+                <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+                        <Layers size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-base font-bold text-white">Cadastrar Nova Escala</h3>
+                        <p className="text-xs text-slate-400">Regime de revezamento cíclico (ex: 12x36, 5x2)</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handlePreencherExemploEscala('12x36')}
+                        className="text-[11px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                      >
+                        12x36
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePreencherExemploEscala('5x2')}
+                        className="text-[11px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                      >
+                        5x2
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePreencherExemploEscala('6x1')}
+                        className="text-[11px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+                      >
+                        6x1
+                      </button>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleCadastrarEscala} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                        Nome da Escala *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={nomeEscala}
+                        onChange={(e) => setNomeEscala(e.target.value)}
+                        placeholder="Ex: Escala 12x36 Diurna"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Dias Trabalho *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={diasTrabalhoEscala}
+                          onChange={(e) => setDiasTrabalhoEscala(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Dias Folga *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={diasFolgaEscala}
+                          onChange={(e) => setDiasFolgaEscala(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Tolerância (min)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={toleranciaEscala}
+                          onChange={(e) => setToleranciaEscala(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Entrada *
+                        </label>
+                        <input
+                          type="time"
+                          required
+                          value={horaEntradaEscala}
+                          onChange={(e) => setHoraEntradaEscala(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-2 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Saída *
+                        </label>
+                        <input
+                          type="time"
+                          required
+                          value={horaSaidaEscala}
+                          onChange={(e) => setHoraSaidaEscala(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-2 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Intervalo Início
+                        </label>
+                        <input
+                          type="time"
+                          value={intervaloInicioEscala}
+                          onChange={(e) => setIntervaloInicioEscala(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-2 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Intervalo Fim
+                        </label>
+                        <input
+                          type="time"
+                          value={intervaloFimEscala}
+                          onChange={(e) => setIntervaloFimEscala(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-2 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submittingEscala}
+                      className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-xs font-semibold text-white shadow-lg shadow-purple-600/25 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {submittingEscala ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <Plus size={15} />
+                      )}
+                      <span>Cadastrar Escala</span>
+                    </button>
+                  </form>
+                </div>
+
+                <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-sm font-bold text-white">Escalas Cadastradas</h4>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-mono bg-purple-500/20 text-purple-300">
+                        {escalas.length}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={carregarEscalas}
+                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
+                    >
+                      <RefreshCw size={13} className={loadingEscalas ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
+
+                  {loadingEscalas ? (
+                    <div className="py-6 text-center text-xs text-slate-500">Carregando escalas...</div>
+                  ) : escalas.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-500">Nenhuma escala cadastrada ainda.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {escalas.map((esc) => (
+                        <div key={esc.id} className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-100 text-sm">{esc.nome}</span>
+                            <span className="font-mono px-2 py-0.5 rounded bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                              {esc.diasTrabalho}T x {esc.diasFolga}F ({esc.cargaDiariaMinutos || 0}m/dia)
+                            </span>
+                          </div>
+                          <div className="text-slate-400 font-mono text-[11px]">
+                            Turno: {esc.horaEntrada} às {esc.horaSaida} | Intervalo: {esc.intervaloInicio} às {esc.intervaloFim}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl bg-gradient-to-br from-indigo-950/30 to-slate-900 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
+                  <div className="flex items-center gap-2.5 border-b border-slate-800 pb-4 mb-5">
+                    <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
+                      <UserPlus size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-white">Vincular Regime ao Colaborador</h3>
+                      <p className="text-xs text-slate-400">Atribui uma Jornada ou Escala com período de vigência</p>
+                    </div>
+                  </div>
+
+                  <form onSubmit={handleVincularRegime} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                        Colaborador *
+                      </label>
+                      {funcionariosEmpresa.length > 0 ? (
+                        <FormControl fullWidth size="small">
+                          <Select
+                            value={funcionarioIdRegime}
+                            onChange={(e) => setFuncionarioIdRegime(e.target.value)}
+                            sx={{
+                              color: '#f8fafc',
+                              backgroundColor: 'rgba(2, 6, 23, 0.6)',
+                              borderRadius: '0.75rem',
+                              '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(51, 65, 85, 0.8)' },
+                              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1' },
+                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1' },
+                              '.MuiSvgIcon-root': { color: '#94a3b8' },
+                            }}
+                          >
+                            {funcionariosEmpresa.map((f) => (
+                              <MenuItem key={f.id} value={f.id}>
+                                {f.nomeCompleto} ({f.usuario || f.matricula})
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      ) : (
+                        <input
+                          type="text"
+                          required
+                          value={funcionarioIdRegime}
+                          onChange={(e) => setFuncionarioIdRegime(e.target.value)}
+                          placeholder="UUID do Colaborador"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3.5 py-2 text-sm text-slate-100 font-mono"
+                        />
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Tipo de Regime *
+                        </label>
+                        <select
+                          value={tipoRegimeSelecionado}
+                          onChange={(e) => setTipoRegimeSelecionado(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        >
+                          <option value="JORNADA">JORNADA (Semanal)</option>
+                          <option value="ESCALA">ESCALA (Cíclica)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          {tipoRegimeSelecionado === 'JORNADA' ? 'Jornada *' : 'Escala *'}
+                        </label>
+                        {tipoRegimeSelecionado === 'JORNADA' ? (
+                          <select
+                            value={jornadaIdSelecionada}
+                            onChange={(e) => setJornadaIdSelecionada(e.target.value)}
+                            className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                          >
+                            <option value="">Selecione uma Jornada...</option>
+                            {jornadas.map((j) => (
+                              <option key={j.id} value={j.id}>
+                                {j.nome}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <select
+                            value={escalaIdSelecionada}
+                            onChange={(e) => setEscalaIdSelecionada(e.target.value)}
+                            className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                          >
+                            <option value="">Selecione uma Escala...</option>
+                            {escalas.map((esc) => (
+                              <option key={esc.id} value={esc.id}>
+                                {esc.nome}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Início da Vigência *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={dataInicioVigenciaRegime}
+                          onChange={(e) => setDataInicioVigenciaRegime(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Fim da Vigência
+                        </label>
+                        <input
+                          type="date"
+                          value={dataFimVigenciaRegime}
+                          onChange={(e) => setDataFimVigenciaRegime(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submittingRegime}
+                      className="w-full inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-xs font-semibold text-white shadow-lg shadow-emerald-600/25 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      {submittingRegime ? (
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      ) : (
+                        <Check size={15} />
+                      )}
+                      <span>Vincular Regime ao Colaborador</span>
+                    </button>
+                  </form>
+                </div>
               </div>
             </div>
           </div>

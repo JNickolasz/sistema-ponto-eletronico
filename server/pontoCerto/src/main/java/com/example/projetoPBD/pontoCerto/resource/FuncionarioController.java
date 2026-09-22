@@ -23,7 +23,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping({"/api", "/api/v1"})
 public class FuncionarioController {
 
     private final FuncionarioService service;
@@ -58,9 +58,11 @@ public class FuncionarioController {
     @GetMapping("/colaborador/painel")
     @PreAuthorize("hasRole('COLABORADOR')")
     public ResponseEntity<Map<String, Object>> rotaColaborador(Authentication authentication) {
+        FuncionarioUserDetails userDetails = (FuncionarioUserDetails) authentication.getPrincipal();
         Map<String, Object> response = new HashMap<>();
         response.put("mensagem", "Acesso liberado para COLABORADOR");
         response.put("usuarioLogado", authentication.getName());
+        response.put("funcionarioId", userDetails.getFuncionario().getId());
         response.put("permissoes", authentication.getAuthorities());
 
         return ResponseEntity.ok(response);
@@ -69,8 +71,6 @@ public class FuncionarioController {
     @GetMapping("/colaborador/{id}/espelho")
     @PreAuthorize("hasRole('COLABORADOR')")
     public ResponseEntity<Map<String, Object>> verEspelhoColaborador(@PathVariable UUID id, Authentication authentication){
-        // Por o ID ser do tipo UUID é impossível ter dois usuários com o mesmo UUID no mesmo
-        // banco. Por isso n é preciso usar o metodo de findByIdAndEmpresaId()
         FuncionarioUserDetails userDetails = (FuncionarioUserDetails) authentication.getPrincipal();
         String usuarioLogado = userDetails.getUsername();
         UUID empresaId = userDetails.getFuncionario().getEmpresa().getId();

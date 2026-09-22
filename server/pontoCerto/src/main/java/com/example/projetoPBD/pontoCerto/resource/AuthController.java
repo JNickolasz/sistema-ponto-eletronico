@@ -38,7 +38,7 @@ public class AuthController {
             var authentication = authenticationManager.authenticate(authToken);
 
             var userDetails = (FuncionarioUserDetails) authentication.getPrincipal();
-            var funcionario = userDetails.getFuncionario(); //Funcionario não pode ser NULL pos já foi autenticado.
+            var funcionario = userDetails.getFuncionario();
 
             String token = jwtService.generateToken(funcionario);
 
@@ -50,9 +50,6 @@ public class AuthController {
             ));
     }
 
-    // Dessa forma, bem a grosso modo dizendo, ele faz um "Override"
-    // sobrescrevendo a exception padrão. A AuthenticationException se refere a:
-    // usuario inexistente ou errado, senha errada ou conta inativa...
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ErroResponseDTO> handleBadCredentials(HttpServletRequest request) {
         ErroResponseDTO erro = new ErroResponseDTO(
