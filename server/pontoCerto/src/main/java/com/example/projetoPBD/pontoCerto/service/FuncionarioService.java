@@ -7,6 +7,7 @@ import com.example.projetoPBD.pontoCerto.dto.domaindtos.FuncionarioDTO;
 import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
 import com.example.projetoPBD.pontoCerto.repository.FuncionarioRepository;
 import com.example.projetoPBD.pontoCerto.repository.LocalDeTrabalhoRepository;
+import com.example.projetoPBD.pontoCerto.security.SecurityTenantContext;
 import com.example.projetoPBD.pontoCerto.service.exceptions.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -23,17 +24,19 @@ public class FuncionarioService {
     private final EmpresaRepository empresaRepository;
     private final LocalDeTrabalhoRepository localDeTrabalhoRepository;
     private final PasswordEncoder passwordEncoder;
+    private final SecurityTenantContext securityTenantContext;
 
-    public FuncionarioService(FuncionarioRepository repository, EmpresaRepository empresaRepository, LocalDeTrabalhoRepository localDeTrabalhoRepository, PasswordEncoder passwordEncoder) {
+    public FuncionarioService(FuncionarioRepository repository, EmpresaRepository empresaRepository, LocalDeTrabalhoRepository localDeTrabalhoRepository, PasswordEncoder passwordEncoder, SecurityTenantContext securityTenantContext) {
         this.repository = repository;
         this.empresaRepository = empresaRepository;
         this.localDeTrabalhoRepository = localDeTrabalhoRepository;
         this.passwordEncoder = passwordEncoder;
-
+        this.securityTenantContext = securityTenantContext;
     }
 
     public FuncionarioDTO.Response criar(FuncionarioDTO.Criar dto) {
-        Empresa empresa = empresaRepository.findById(dto.empresaId())
+
+        Empresa empresa = empresaRepository.findById(securityTenantContext.empresaAtual())
                 .orElseThrow(() -> new EmpresaNaoEncontradaException("Empresa não encontrada!"));
 
         if (repository.existsByUsuarioAndEmpresaId(dto.usuario(), empresa.getId())) {

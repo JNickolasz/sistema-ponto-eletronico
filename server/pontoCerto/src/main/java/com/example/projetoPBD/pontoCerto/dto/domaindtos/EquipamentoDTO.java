@@ -1,55 +1,38 @@
 package com.example.projetoPBD.pontoCerto.dto.domaindtos;
 
 import com.example.projetoPBD.pontoCerto.domain.Equipamento;
-import com.example.projetoPBD.pontoCerto.domain.StatusEquipamento;
-import com.example.projetoPBD.pontoCerto.domain.TipoEquipamento;
+import com.example.projetoPBD.pontoCerto.domain.Estacao;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusEquipamento;
+import com.example.projetoPBD.pontoCerto.domain.enums.TipoEquipamento;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.UUID;
 
 public class EquipamentoDTO {
 
-    public record Request(
+    public record Criar(
+
+            @NotBlank(message = "Código é obrigatorio!")
+            String codigo,
+
+            @NotNull(message = "O local de trabalho é obrigatório!")
+            UUID localTrabalhoId,
+
             @NotNull(message = "O tipo do equipamento é obrigatório (RELOGIO ou ESTACAO)")
             TipoEquipamento tipo,
 
             @NotBlank(message = "A identificação do equipamento é obrigatória")
             String identificacao,
 
-            @NotNull(message = "O local de trabalho é obrigatório")
-            UUID localTrabalhoId,
+            @Valid
+            EstacaoDTO.Criar estacao,
 
-            String numFabricacao
+            @Valid
+            RelogioDTO.Criar relogio
+
     ) {}
 
-    public record Response(
-            UUID id,
-            TipoEquipamento tipo,
-            String identificacao,
-            String numFabricacao,
-            StatusEquipamento status,
-            UUID localTrabalhoId,
-            String localTrabalhoNome,
-            UUID empresaId,
-            String empresaRazaoSocial,
-            Long totalMarcacoes
-    ) {
-        public Response(Equipamento eq) {
-            this(
-                    eq.getId(),
-                    eq.getTipo(),
-                    eq.getIdentificacao(),
-                    eq.getNumFabricacao(),
-                    eq.getStatus(),
-                    eq.getLocalTrabalho() != null ? eq.getLocalTrabalho().getId() : null,
-                    eq.getLocalTrabalho() != null ? eq.getLocalTrabalho().getNome() : null,
-                    eq.getEmpresa() != null ? eq.getEmpresa().getId() : null,
-                    eq.getEmpresa() != null ? eq.getEmpresa().getRazaoSocial() : null,
-                    0L
-            // Valor mockado, depois que adicionar a lógica de ponto ajeitamos isso
-            // Também vai precisar implementar a contagem no repositorio de ponto
-            );
-        }
-    }
 }

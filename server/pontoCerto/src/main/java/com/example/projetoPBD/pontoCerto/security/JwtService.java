@@ -4,11 +4,13 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.exceptions.JWTCreationException;
 import com.auth0.jwt.exceptions.JWTVerificationException;
+import com.auth0.jwt.interfaces.Claim;
 import com.example.projetoPBD.pontoCerto.domain.Funcionario;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.UUID;
 
 @Service
 public class JwtService {
@@ -29,7 +31,7 @@ public class JwtService {
             return JWT.create()
                     .withIssuer(issuer)
                     .withSubject(funcionario.getUsuario())
-                    .withClaim("id", funcionario.getId().toString())
+                    .withClaim("id", funcionario.getId().toString()) // Não precisa estar aqui, subject já é Funcionario
                     .withClaim("ROLE", funcionario.getPerfilAcesso().name())
                     .withExpiresAt(new Date(System.currentTimeMillis() + expiration))
                     .sign(algorithm);

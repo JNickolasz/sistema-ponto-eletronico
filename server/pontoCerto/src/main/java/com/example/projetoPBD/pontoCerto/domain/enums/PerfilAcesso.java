@@ -1,4 +1,4 @@
-package com.example.projetoPBD.pontoCerto.domain;
+package com.example.projetoPBD.pontoCerto.domain.enums;
 
 public enum PerfilAcesso {
         COLABORADOR,
