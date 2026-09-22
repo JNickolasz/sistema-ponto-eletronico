@@ -4,11 +4,15 @@ import com.example.projetoPBD.pontoCerto.domain.Alcance;
 import com.example.projetoPBD.pontoCerto.domain.PontoFacultativo;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.PontoFacultativoDTO;
 import com.example.projetoPBD.pontoCerto.repository.PontoFacultativoRepository;
+import com.example.projetoPBD.pontoCerto.service.exceptions.AlcanceInvalidoException;
+import com.example.projetoPBD.pontoCerto.service.exceptions.MunicipioCampoInvalidoException;
 import com.example.projetoPBD.pontoCerto.service.exceptions.PontoFacultativoExistenteException;
+import com.example.projetoPBD.pontoCerto.service.exceptions.UfCampoInvalidoException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class PontoFacultativoService {
@@ -25,8 +29,8 @@ public class PontoFacultativoService {
         validarCamposPorAlcance(dto.alcance(), dto.uf(), dto.municipio());
 
         // 2. Valida a duplicidade na mesma data, alcance e localidade[cite: 1]
-        boolean jaExiste = pontoFacultativoRepository.existsByDataAndAlcanceAndUfAndMunicipio(
-                dto.data(), dto.alcance(), dto.uf(), dto.municipio());
+        boolean jaExiste = pontoFacultativoRepository.existsPontoFacultativoConflitante(
+                dto.data(), dto.alcance(), dto.uf(), dto.municipio(), null);
 
         if (jaExiste) {
             throw new PontoFacultativoExistenteException("Já existe um ponto facultativo cadastrado para esta data, alcance e localidade.");
@@ -39,12 +43,52 @@ public class PontoFacultativoService {
         ponto.setData(dto.data());
         ponto.setUf(dto.uf());
         ponto.setMunicipio(dto.municipio());
+        ponto.setAtivo(true);
 
         // 4. Salva a entidade na base de dados[cite: 1]
         ponto = pontoFacultativoRepository.save(ponto);
 
         // 5. Retorna a resposta convertida para DTO via construtor
         return new PontoFacultativoDTO.Response(ponto);
+    }
+
+//    @Transactional
+//    public PontoFacultativoDTO.Response atualizar(UUID id, PontoFacultativoDTO.Request dto) {
+//        PontoFacultativo ponto = pontoFacultativoRepository.findById(id)
+//                .orElseThrow(() -> new RuntimeException("Ponto facultativo não encontrado com o ID informado."));
+//
+//        String ufNormalizada = sanitizarUf(dto.uf());
+//        String municipioNormalizado = sanitizarMunicipio(dto.municipio());
+//
+//        // 1. Valida campos
+//        validarCamposPorAlcance(dto.alcance(), ufNormalizada, municipioNormalizado);
+//
+//        // 2. Valida se já existe outro ponto conflitante ativo (ignorando o próprio ID atual)
+//        boolean jaExiste = pontoFacultativoRepository.existsPontoFacultativoConflitante(
+//                dto.data(), dto.alcance(), ufNormalizada, municipioNormalizado, id);
+//
+//        if (jaExiste) {
+//            throw new PontoFacultativoExistenteException("Já existe outro ponto facultativo ativo com estes mesmos dados.");
+//        }
+//
+//    // 3. Atualiza os dados
+//            ponto.setDescricao(dto.descricao().trim());
+//            ponto.setData(dto.data());
+//            ponto.setAlcance(dto.alcance());
+//            ponto.setUf(ufNormalizada);
+//            ponto.setMunicipio(municipioNormalizado);
+//
+//            return new PontoFacultativoDTO.Response(pontoFacultativoRepository.save(ponto));
+//}
+
+    @Transactional
+    public void inativar(UUID id) {
+        PontoFacultativo ponto = pontoFacultativoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Ponto facultativo não encontrado com o ID informado."));
+
+        // Exclusão lógica: muda o status para inativo
+        ponto.setAtivo(false);
+        pontoFacultativoRepository.save(ponto);
     }
 
     @Transactional(readOnly = true)
@@ -60,19 +104,19 @@ public class PontoFacultativoService {
     // PERDÃO, feriadoservice e facultativoservice - LUAN 20/09 13H47
     private void validarCamposPorAlcance(Alcance alcance, String uf, String municipio) {
         if (alcance == null) {
-            throw new IllegalArgumentException("O alcance do ponto facultativo é obrigatório.");
+            throw new AlcanceInvalidoException("O alcance do ponto facultativo é obrigatório.");
         }
 
         if (alcance == Alcance.ESTADUAL && (uf == null || uf.isBlank())) {
-            throw new IllegalArgumentException("A UF é obrigatória para pontos facultativos estaduais.");
+            throw new UfCampoInvalidoException("A UF é obrigatória para pontos facultativos estaduais.");
         }
 
         if (alcance == Alcance.MUNICIPAL) {
             if (uf == null || uf.isBlank()) {
-                throw new IllegalArgumentException("A UF é obrigatória para pontos facultativos municipais.");
+                throw new UfCampoInvalidoException("A UF é obrigatória para pontos facultativos municipais.");
             }
             if (municipio == null || municipio.isBlank()) {
-                throw new IllegalArgumentException("O município é obrigatório para pontos facultativos municipais.");
+                throw new MunicipioCampoInvalidoException("O município é obrigatório para pontos facultativos municipais.");
             }
         }
     }

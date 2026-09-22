@@ -4,7 +4,6 @@ import com.example.projetoPBD.pontoCerto.domain.Alcance;
 import com.example.projetoPBD.pontoCerto.domain.PontoFacultativo;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.cglib.core.Local;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -27,7 +26,8 @@ public class PontoFacultativoDTO {
             LocalDate data,
             Alcance alcance,
             String uf,
-            String municipio
+            String municipio,
+            boolean ativo
     ){
         public Response(PontoFacultativo pf) {
             this(
@@ -36,7 +36,8 @@ public class PontoFacultativoDTO {
                     pf.getData(),
                     pf.getAlcance(),
                     pf.getUf(),
-                    pf.getMunicipio()
+                    pf.getMunicipio(),
+                    pf.isAtivo()
             );
         }
     }

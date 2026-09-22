@@ -34,7 +34,8 @@ public class FeriadoDTO {
         LocalDate data,
         Alcance alcance,
         String uf,
-        String municipio
+        String municipio,
+        boolean ativo
     ){
         public Response(Feriado feriado) {
             this(
@@ -44,7 +45,8 @@ public class FeriadoDTO {
                     feriado.getData(),
                     feriado.getAlcance(),
                     feriado.getUf(),
-                    feriado.getMunicipio()
+                    feriado.getMunicipio(),
+                    feriado.isAtivo()
             );
 
         }

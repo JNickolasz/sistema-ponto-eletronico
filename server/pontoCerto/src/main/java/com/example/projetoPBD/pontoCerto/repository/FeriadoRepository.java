@@ -15,19 +15,51 @@ import java.util.UUID;
 @Repository
 public interface FeriadoRepository extends JpaRepository<Feriado, UUID> {
 
-    boolean existsByDataAndAlcanceAndUfAndMunicipio(LocalDate data, Alcance alcance, String uf, String Municipio);
-    // Valida duplicidade na mesma data, alcance e localidade
+    @Query("""
+            SELECT COUNT(f) > 0
+            FROM Feriado f
+            WHERE f.ativo = true
+              AND f.data = :data
+              AND (:idExcluir IS NULL OR f.id != :idExcluir)
+              AND (
+                  (f.alcance = 'NACIONAL' AND f.empresa IS NULL)
+                  OR
+                  (
+                      f.alcance = :alcance
+                      AND (:uf IS NULL OR UPPER(f.uf) = UPPER(:uf))
+                      AND (:municipio IS NULL OR LOWER(TRIM(f.municipio)) = LOWER(TRIM(:municipio)))
+                      AND (
+                          (:empresa IS NULL AND f.empresa IS NULL)
+                          OR (f.empresa = :empresa)
+                      )
+                  )
+              )
+            """)
+    boolean existsFeriadoConflitante(
+            @Param("data") LocalDate data,
+            @Param("alcance") Alcance alcance,
+            @Param("uf") String uf,
+            @Param("municipio") String municipio,
+            @Param("empresa") Empresa empresa,
+            @Param("idExcluir") UUID idExcluir
+    );
 
-    boolean existsByDataAndAlcanceAndUfAndMunicipioAndEmpresa(
-            LocalDate data, Alcance alcance, String uf, String municipio, Empresa empresa);
-
-
-    //Consulta do calendário anual pelo que foi cadastrado
-
-    @Query("SELECT f FROM Feriado f WHERE YEAR(f.data) = :ano " +
-            "AND (f.alcance = 'NACIONAL' " +
-            "OR (f.alcance = 'ESTADUAL' AND f.uf = :uf) " +
-            "OR (f.alcance = 'MUNICIPAL' AND f.uf = :uf AND f.municipio = :municipio))")
-    List<Feriado> buscarCalendarioAnual(@Param("ano") int ano, @Param("uf") String uf, @Param("municipio") String municipio);
-
+    @Query("""
+            SELECT f
+            FROM Feriado f
+            WHERE f.ativo = true
+              AND YEAR(f.data) = :ano
+              AND (f.empresa IS NULL OR (:empresaId IS NOT NULL AND f.empresa.id = :empresaId))
+              AND (
+                  f.alcance = 'NACIONAL'
+                  OR (f.alcance = 'ESTADUAL' AND UPPER(f.uf) = UPPER(:uf))
+                  OR (f.alcance = 'MUNICIPAL' AND UPPER(f.uf) = UPPER(:uf) AND LOWER(TRIM(f.municipio)) = LOWER(TRIM(:municipio)))
+              )
+            """)
+    List<Feriado> buscarCalendarioAnual(
+            @Param("ano") int ano,
+            @Param("uf") String uf,
+            @Param("municipio") String municipio,
+            @Param("empresaId") UUID empresaId
+    );
 }

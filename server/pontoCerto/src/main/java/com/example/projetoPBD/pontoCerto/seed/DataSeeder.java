@@ -1,10 +1,10 @@
 package com.example.projetoPBD.pontoCerto.seed;
 
-import com.example.projetoPBD.pontoCerto.domain.Empresa;
-import com.example.projetoPBD.pontoCerto.domain.Funcionario;
-import com.example.projetoPBD.pontoCerto.domain.PerfilAcesso;
+import com.example.projetoPBD.pontoCerto.domain.*;
 import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
+import com.example.projetoPBD.pontoCerto.repository.FeriadoRepository;
 import com.example.projetoPBD.pontoCerto.repository.FuncionarioRepository;
+import com.example.projetoPBD.pontoCerto.repository.PontoFacultativoRepository;
 import jakarta.validation.Valid;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,11 +18,15 @@ public class DataSeeder implements CommandLineRunner {
     private final FuncionarioRepository funcionarioRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmpresaRepository empresaRepository;
+    private final FeriadoRepository feriadoRepository;
+    private final PontoFacultativoRepository pontoFacultativoRepository;
 
-    public DataSeeder(FuncionarioRepository funcionarioRepository, PasswordEncoder passwordEncoder, EmpresaRepository empresaRepository) {
+    public DataSeeder(FuncionarioRepository funcionarioRepository, PasswordEncoder passwordEncoder, EmpresaRepository empresaRepository, FeriadoRepository feriadoRepository, PontoFacultativoRepository pontoFacultativoRepository) {
         this.funcionarioRepository = funcionarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.empresaRepository = empresaRepository;
+        this.feriadoRepository = feriadoRepository;
+        this.pontoFacultativoRepository = pontoFacultativoRepository;
     }
 
     @Override
@@ -87,6 +91,34 @@ public class DataSeeder implements CommandLineRunner {
             colaborador.setGestor(gestor);
             colaborador.setSenhaHash(passwordEncoder.encode("user123"));
             funcionarioRepository.save(colaborador);
+
+            // 1. Feriado Nacional (Global do Sistema - sem empresa)
+            Feriado natal = new Feriado();
+            natal.setDescricao("Natal");
+            natal.setData(LocalDate.of(2026, 12, 25));
+            natal.setAlcance(Alcance.NACIONAL);
+            natal.setAtivo(true);
+            feriadoRepository.save(natal);
+
+            // 2. Feriado Estadual (ex: PE)
+            Feriado saoJoao = new Feriado();
+            saoJoao.setDescricao("São João");
+            saoJoao.setData(LocalDate.of(2026, 6, 24));
+            saoJoao.setAlcance(Alcance.ESTADUAL);
+            saoJoao.setUf("PE");
+            saoJoao.setAtivo(true);
+            feriadoRepository.save(saoJoao);
+
+            // 3. Feriado Municipal da Empresa
+            Feriado municipal = new Feriado();
+            municipal.setDescricao("Aniversário do Município");
+            municipal.setData(LocalDate.of(2026, 5, 6));
+            municipal.setAlcance(Alcance.MUNICIPAL);
+            municipal.setUf("PE");
+            municipal.setMunicipio("Serra Talhada");
+            municipal.setEmpresa(empresa);
+            municipal.setAtivo(true);
+            feriadoRepository.save(municipal);
 
             System.out.println(">>> Seed executado com sucesso! Contas de teste prontas:");
             System.out.println("    - RH:          admin.rh          | Senha: admin123");

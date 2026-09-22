@@ -18,7 +18,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AlcanceInvalidoException.class)
     public ResponseEntity<String> handleException(AlcanceInvalidoException ex) {
-        return buildResponse(HttpStatus.UNAUTHORIZED, ex);
+        return buildResponse(HttpStatus.BAD_REQUEST, ex);
     }
 
     @ExceptionHandler(CredenciaisInvalidasException.class)
@@ -59,6 +59,21 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(FeriadoExistenteException.class)
     public ResponseEntity<String> handleException(FeriadoExistenteException ex) {
         return buildResponse(HttpStatus.CONFLICT, ex);
+    }
+
+    @ExceptionHandler(FeriadoNacionalEmpresaInvalidaException.class)
+    public ResponseEntity<String> handleException(FeriadoNacionalEmpresaInvalidaException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex);
+    }
+
+    @ExceptionHandler(MunicipioCampoInvalidoException.class)
+    public ResponseEntity<String> handleException(MunicipioCampoInvalidoException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex);
+    }
+
+    @ExceptionHandler(UfCampoInvalidoException.class)
+    public ResponseEntity<String> handleException(UfCampoInvalidoException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex);
     }
 
     @ExceptionHandler(UsuarioDuplicadoException.class)

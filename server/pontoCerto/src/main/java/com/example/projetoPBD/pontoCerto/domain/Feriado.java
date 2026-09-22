@@ -39,4 +39,7 @@ public class Feriado {
     @Column(name = "municipio")
     private String municipio;
 
+    @Column(name = "ativo", nullable = false)
+    private boolean ativo = true;
+
 }

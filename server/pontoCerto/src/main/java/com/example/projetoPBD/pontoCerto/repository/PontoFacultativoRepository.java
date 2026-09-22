@@ -14,14 +14,42 @@ import java.util.UUID;
 @Repository
 public interface PontoFacultativoRepository extends JpaRepository<PontoFacultativo, UUID> {
 
-    // Valida se a data repetida no mesmo alcance/local já existe
-    boolean existsByDataAndAlcanceAndUfAndMunicipio(LocalDate data, Alcance alcance, String uf, String municipio);
+    @Query("""
+            SELECT COUNT(p) > 0
+            FROM PontoFacultativo p
+            WHERE p.ativo = true
+              AND p.data = :data
+              AND (:idExcluir IS NULL OR p.id != :idExcluir)
+              AND p.alcance = :alcance
+              AND (:uf IS NULL OR UPPER(p.uf) = UPPER(:uf))
+              AND (:municipio IS NULL OR LOWER(TRIM(p.municipio)) = LOWER(TRIM(:municipio)))
+            """)
 
-    // Consulta do calendário anual
-    @Query("SELECT p FROM PontoFacultativo p WHERE YEAR(p.data) = :ano " +
-            "AND (p.alcance = 'NACIONAL' " +
-            "OR (p.alcance = 'ESTADUAL' AND p.uf = :uf) " +
-            "OR (p.alcance = 'MUNICIPAL' AND p.uf = :uf AND p.municipio = :municipio))")
-    List<PontoFacultativo> buscarCalendarioAnual(@Param("ano") int ano, @Param("uf") String uf, @Param("municipio") String municipio);
+        // Valida se a data repetida no mesmo alcance/local já existe
+    boolean existsPontoFacultativoConflitante(
+            @Param("data") LocalDate data,
+            @Param("alcance") Alcance alcance,
+            @Param("uf") String uf,
+            @Param("municipio") String municipio,
+            @Param("idExcluir") UUID idExcluir
+    );
 
+    @Query("""
+            SELECT p
+            FROM PontoFacultativo p
+            WHERE p.ativo = true
+              AND YEAR(p.data) = :ano
+              AND (
+                  p.alcance = 'NACIONAL'
+                  OR (p.alcance = 'ESTADUAL' AND UPPER(p.uf) = UPPER(:uf))
+                  OR (p.alcance = 'MUNICIPAL' AND UPPER(p.uf) = UPPER(:uf) AND LOWER(TRIM(p.municipio)) = LOWER(TRIM(:municipio)))
+              )
+            """)
+
+        // Consulta do calendário anual
+    List<PontoFacultativo> buscarCalendarioAnual(
+            @Param("ano") int ano,
+            @Param("uf") String uf,
+            @Param("municipio") String municipio
+    );
 }
