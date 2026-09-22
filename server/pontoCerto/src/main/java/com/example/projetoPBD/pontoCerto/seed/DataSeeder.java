@@ -5,11 +5,6 @@ import com.example.projetoPBD.pontoCerto.domain.enums.DiaSemana;
 import com.example.projetoPBD.pontoCerto.domain.enums.PerfilAcesso;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoRegime;
 import com.example.projetoPBD.pontoCerto.repository.*;
-import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
-import com.example.projetoPBD.pontoCerto.repository.FeriadoRepository;
-import com.example.projetoPBD.pontoCerto.repository.FuncionarioRepository;
-import com.example.projetoPBD.pontoCerto.repository.PontoFacultativoRepository;
-import jakarta.validation.Valid;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -28,26 +23,23 @@ public class DataSeeder implements CommandLineRunner {
     private final JornadaRepository jornadaRepository;
     private final EscalaRepository escalaRepository;
     private final RegimeTrabalhoRepository regimeTrabalhoRepository;
+    private final FeriadoRepository feriadoRepository;
+    private final PontoFacultativoRepository pontoFacultativoRepository;
 
     public DataSeeder(FuncionarioRepository funcionarioRepository,
                       PasswordEncoder passwordEncoder,
                       EmpresaRepository empresaRepository,
                       JornadaRepository jornadaRepository,
                       EscalaRepository escalaRepository,
-                      RegimeTrabalhoRepository regimeTrabalhoRepository) {
+                      RegimeTrabalhoRepository regimeTrabalhoRepository,
+                      FeriadoRepository feriadoRepository,
+                      PontoFacultativoRepository pontoFacultativoRepository) {
         this.funcionarioRepository = funcionarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.empresaRepository = empresaRepository;
         this.jornadaRepository = jornadaRepository;
         this.escalaRepository = escalaRepository;
         this.regimeTrabalhoRepository = regimeTrabalhoRepository;
-    private final FeriadoRepository feriadoRepository;
-    private final PontoFacultativoRepository pontoFacultativoRepository;
-
-    public DataSeeder(FuncionarioRepository funcionarioRepository, PasswordEncoder passwordEncoder, EmpresaRepository empresaRepository, FeriadoRepository feriadoRepository, PontoFacultativoRepository pontoFacultativoRepository) {
-        this.funcionarioRepository = funcionarioRepository;
-        this.passwordEncoder = passwordEncoder;
-        this.empresaRepository = empresaRepository;
         this.feriadoRepository = feriadoRepository;
         this.pontoFacultativoRepository = pontoFacultativoRepository;
     }
@@ -176,8 +168,6 @@ public class DataSeeder implements CommandLineRunner {
             regimeEscala.setDataInicioVigencia(LocalDate.now().minusMonths(1));
             regimeTrabalhoRepository.save(regimeEscala);
 
-            System.out.println(">>> Seed executado com sucesso! Dados de teste carregados:");
-            // 1. Feriado Nacional (Global do Sistema - sem empresa)
             Feriado natal = new Feriado();
             natal.setDescricao("Natal");
             natal.setData(LocalDate.of(2026, 12, 25));
@@ -185,7 +175,6 @@ public class DataSeeder implements CommandLineRunner {
             natal.setAtivo(true);
             feriadoRepository.save(natal);
 
-            // 2. Feriado Estadual (ex: PE)
             Feriado saoJoao = new Feriado();
             saoJoao.setDescricao("São João");
             saoJoao.setData(LocalDate.of(2026, 6, 24));
@@ -194,7 +183,6 @@ public class DataSeeder implements CommandLineRunner {
             saoJoao.setAtivo(true);
             feriadoRepository.save(saoJoao);
 
-            // 3. Feriado Municipal da Empresa
             Feriado municipal = new Feriado();
             municipal.setDescricao("Aniversário do Município");
             municipal.setData(LocalDate.of(2026, 5, 6));
@@ -205,11 +193,20 @@ public class DataSeeder implements CommandLineRunner {
             municipal.setAtivo(true);
             feriadoRepository.save(municipal);
 
-            System.out.println(">>> Seed executado com sucesso! Contas de teste prontas:");
+            PontoFacultativo carnaval = new PontoFacultativo();
+            carnaval.setDescricao("Carnaval");
+            carnaval.setData(LocalDate.of(2026, 2, 17));
+            carnaval.setAlcance(Alcance.NACIONAL);
+            carnaval.setAtivo(true);
+            pontoFacultativoRepository.save(carnaval);
+
+            System.out.println(">>> Seed executado com sucesso! Contas e dados de teste prontos:");
             System.out.println("    - RH:          admin.rh          | Senha: admin123");
             System.out.println("    - GESTOR:      gestor.teste      | Senha: gestor123");
             System.out.println("    - COLABORADOR: colaborador.teste | Senha: user123 (Regime: Jornada 40h)");
             System.out.println("    - COLABORADOR: plantonista.teste | Senha: user123 (Regime: Escala 12x36)");
+            System.out.println("    - FERIADOS:    Nacional (Natal), Estadual (São João - PE), Municipal (Serra Talhada - PE)");
+            System.out.println("    - FACULTATIVO: Carnaval (Nacional)");
         }
     }
 }
