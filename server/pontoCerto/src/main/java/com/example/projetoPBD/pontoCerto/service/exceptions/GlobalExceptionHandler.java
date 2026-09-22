@@ -90,6 +90,26 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex);
     }
 
+    @ExceptionHandler(JornadaNaoEncontradaException.class)
+    public ResponseEntity<String> handleException(JornadaNaoEncontradaException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex);
+    }
+
+    @ExceptionHandler(EscalaNaoEncontradaException.class)
+    public ResponseEntity<String> handleException(EscalaNaoEncontradaException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex);
+    }
+
+    @ExceptionHandler(RegimeTrabalhoConflitoException.class)
+    public ResponseEntity<String> handleException(RegimeTrabalhoConflitoException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex);
+    }
+
+    @ExceptionHandler(RegimeTrabalhoInvalidoException.class)
+    public ResponseEntity<String> handleException(RegimeTrabalhoInvalidoException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<String> handleException(RuntimeException ex) {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex);

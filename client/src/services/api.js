@@ -13,7 +13,11 @@ export async function request(endpoint, options = {}) {
     ...options.headers,
   };
 
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+  let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (cleanEndpoint.startsWith('/v1/')) {
+    cleanEndpoint = cleanEndpoint.substring(3);
+  }
+  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${cleanEndpoint}`;
 
   try {
     const response = await fetch(url, {

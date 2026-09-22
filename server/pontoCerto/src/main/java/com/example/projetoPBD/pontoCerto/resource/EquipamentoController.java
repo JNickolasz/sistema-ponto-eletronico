@@ -16,7 +16,6 @@ import java.util.UUID;
 
 @RestController
 @PreAuthorize("hasRole('RH')")
-// Pra n precisar botar em cada endpoint
 @RequestMapping({"/api/v1/equipamento", "/api/v1/equipamentos"})
 public class EquipamentoController {
 
@@ -38,7 +37,6 @@ public class EquipamentoController {
         return ResponseEntity.ok(equipamentos);
     }
 
-    // exemplo de uso "/api/v1/equipamentos/{id}/status?status=INATIVO"
     @PatchMapping("/{codigo}/status")
     public ResponseEntity<EquipamentoResponse> alterarStatus(
             @PathVariable String codigo,
