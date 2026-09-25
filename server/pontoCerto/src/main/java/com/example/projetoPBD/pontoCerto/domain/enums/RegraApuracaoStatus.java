@@ -1,7 +1,7 @@
 package com.example.projetoPBD.pontoCerto.domain.enums;
 
-public enum VigenciaStatus {
+public enum RegraApuracaoStatus {
+    AGENDADA,
     VIGENTE,
-    REVOGADO,
-    AGENDADO
+    ENCERRADA
 }

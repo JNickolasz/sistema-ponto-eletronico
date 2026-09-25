@@ -3,12 +3,16 @@ package com.example.projetoPBD.pontoCerto.domain;
 
 import com.example.projetoPBD.pontoCerto.domain.enums.VigenciaStatus;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.sql.Time;
-import java.time.LocalDate;
 import java.util.UUID;
 
+
+@Getter
+@Setter
 @Entity
 @Table(name = "regra_adicional_noturno")
 public class RegraAdicionalNoturno {
