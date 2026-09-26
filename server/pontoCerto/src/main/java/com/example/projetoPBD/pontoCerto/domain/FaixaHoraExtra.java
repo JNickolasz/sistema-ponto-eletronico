@@ -1,13 +1,11 @@
 package com.example.projetoPBD.pontoCerto.domain;
 
-import com.example.projetoPBD.pontoCerto.domain.enums.VigenciaStatus;
 import jakarta.persistence.*;
-import jakarta.validation.Constraint;
+import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.UUID;
 
 @Getter
@@ -32,6 +30,15 @@ public class FaixaHoraExtra {
     private Integer duracaoMinutos;
 
     @Column(precision = 5, scale = 2, nullable = false)
-    private BigDecimal porcentagem;
+    private BigDecimal percentual;
 
+
+    public FaixaHoraExtra() {
+    }
+
+    public FaixaHoraExtra(Integer ordem, Integer duracaoMinutos, BigDecimal percentual) {
+        this.ordem = ordem;
+        this.duracaoMinutos = duracaoMinutos;
+        this.percentual = percentual;
+    }
 }

@@ -2,20 +2,28 @@ package com.example.projetoPBD.pontoCerto.dto.domaindtos;
 
 import com.example.projetoPBD.pontoCerto.domain.FaixaHoraExtra;
 import com.example.projetoPBD.pontoCerto.domain.RegraAdicionalNoturno;
+import com.example.projetoPBD.pontoCerto.domain.RegraApuracao;
 import com.example.projetoPBD.pontoCerto.domain.enums.RegraApuracaoStatus;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public class RegraApuracaoDTO {
 
     public record Criar(
-
+            @NotNull
             LocalDate inicioVigencia,
 
+            @Positive
+            @NotNull
             Integer limiteDiarioExtraMinutos,
-            FaixaHoraExtra faixaHoraExtra,
-            RegraAdicionalNoturno regraAdicionalNoturno
+
+            List<FaixaHoraExtraDTO.Criar> faixaHoraExtra,
+            RegraAdicionalNoturnoDTO.Criar regraAdicionalNoturno
 
     ){}
 
@@ -26,14 +34,10 @@ public class RegraApuracaoDTO {
             RegraApuracaoStatus status,
 
             Integer limiteDiarioExtraMinutos,
-            FaixaHoraExtra faixaHoraExtra,
-            RegraAdicionalNoturno regraAdicionalNoturno
+            List<FaixaHoraExtraDTO.Response> faixaHoraExtra,
+            RegraAdicionalNoturnoDTO.Response regraAdicionalNoturno
 
-
-
-    ){
-
-    }
+    ){ }
 
 }
 

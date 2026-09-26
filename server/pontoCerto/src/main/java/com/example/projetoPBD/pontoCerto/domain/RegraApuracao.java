@@ -1,12 +1,16 @@
 package com.example.projetoPBD.pontoCerto.domain;
 
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.FaixaHoraExtraDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.RegraAdicionalNoturnoDTO;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Getter;
 import lombok.Setter;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 
@@ -15,6 +19,8 @@ import java.util.UUID;
 @Entity
 @Table(name = "regras_apuracao", uniqueConstraints = {@UniqueConstraint(columnNames = {"empresa_id","inicio_vigencia"})})
 public class RegraApuracao {
+
+    public RegraApuracao(){}
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -57,5 +63,20 @@ public class RegraApuracao {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "updated_by")
     private Funcionario updatedBy;
+
+
+    public void setFaixaHoraExtra(FaixaHoraExtra faixa) {
+        faixa.setRegraApuracao(this);
+        this.faixaHoraExtra.add(faixa);
+    }
+
+
+    public void setAdicionalNoturno(RegraAdicionalNoturno adicionalNoturno) {
+        this.adicionalNoturno = adicionalNoturno;
+
+        if (adicionalNoturno != null) {
+            adicionalNoturno.setRegraApuracao(this);
+        }
+    }
 
 }

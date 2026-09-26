@@ -1,7 +1,6 @@
 package com.example.projetoPBD.pontoCerto.domain;
 
 
-import com.example.projetoPBD.pontoCerto.domain.enums.VigenciaStatus;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -25,8 +24,8 @@ public class RegraAdicionalNoturno {
     @JoinColumn(name = "regra_apuracao_id", nullable = false, unique = true)
     private RegraApuracao regraApuracao;
 
-    @Column(name = "hora_inico", nullable = false)
-    private Time horaIncio;
+    @Column(name = "hora_inicio", nullable = false)
+    private Time horaInicio;
 
     @Column(name = "hora_fim", nullable = false)
     private Time horaFim;
@@ -37,4 +36,13 @@ public class RegraAdicionalNoturno {
     @Column(precision = 5, scale = 2, nullable = false)
     private BigDecimal percentual;
 
+    public RegraAdicionalNoturno() {
+    }
+
+    public RegraAdicionalNoturno(Time horaInicio, Time horaFim, Integer duracaoHoraNoturnaSegundos, BigDecimal percentual) {
+        this.horaInicio = horaInicio;
+        this.horaFim = horaFim;
+        this.duracaoHoraNoturnaSegundos = duracaoHoraNoturnaSegundos;
+        this.percentual = percentual;
+    }
 }
