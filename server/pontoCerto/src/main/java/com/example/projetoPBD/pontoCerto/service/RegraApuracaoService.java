@@ -5,6 +5,7 @@ import com.example.projetoPBD.pontoCerto.domain.FaixaHoraExtra;
 import com.example.projetoPBD.pontoCerto.domain.RegraAdicionalNoturno;
 import com.example.projetoPBD.pontoCerto.domain.RegraApuracao;
 import com.example.projetoPBD.pontoCerto.domain.enums.VigenciaStatus;
+import com.example.projetoPBD.pontoCerto.dto.RegraApuracaoConsultaDTO;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.RegraApuracaoDTO;
 import com.example.projetoPBD.pontoCerto.dto.projection.RegraApuracaoProjection;
 import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class RegraApuracaoService {
@@ -68,23 +70,23 @@ public class RegraApuracaoService {
 
 
     @Transactional
-    public List<RegraApuracaoDTO.Response> listar(){
+    public List<RegraApuracaoDTO.Response> listar() {
+        return regraApuracaoRepository
+                .findAllByEmpresaId(securityTenantContext.empresaAtual())
+                .stream()
+                .map(regra -> {
+                    // RegraApuracaoConsultaDTO regra = regraApuracaoRepository.listVigenciasAndRegraApuracaoStatus();
 
-        List<RegraApuracaoProjection> regras = regraApuracaoRepository.listAllRulesByEmpresaAndDiaRefeencia(securityTenantContext.empresaAtual(), LocalDate.now());
-
-        List<FaixaHoraExtra>
-
-        if(regras.isEmpty()) return List.of();
-
-        return regras.stream().map(regra -> new RegraApuracaoDTO.Response(
-                regra.getId(),
-                regra.getInicioVigencia(),
-                regra.getFimVigencia(),
-                regra.getStatus(),
-                regra.getLimiteDiarioExtraMinutos(),
-                faixaHoraExtraRepository.findByRegraApuracaoIdOrderByOrdem(regra.getId()).get(),
-                regraAdicionalNoturnoRepository.findByRegraApuracaoId(regra.getId()).get())).toList();
-
+                    return new RegraApuracaoDTO.Response(
+                            regra.getId(),
+                            regra.getInicioVigencia(),
+                            regra.getFimVigencia(),
+                            regra.getLimiteDiarioExtraMinutos(),
+                            consulta.getStatus(),
+                            regra.getFaixaHoraExtra()
+                    );
+                })
+                .toList();
     }
 
 }

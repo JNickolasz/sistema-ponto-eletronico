@@ -22,7 +22,7 @@ public class RegraAdicionalNoturno {
     private UUID id;
 
     @OneToOne
-    @JoinColumn(name = "regra_apuracao_id", nullable = false)
+    @JoinColumn(name = "regra_apuracao_id", nullable = false, unique = true)
     private RegraApuracao regraApuracao;
 
     @Column(name = "hora_inico", nullable = false)

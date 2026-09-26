@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.Setter;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 
@@ -28,6 +30,15 @@ public class RegraApuracao {
     @Column(name = "limite_diario_extra_em_minutos", nullable = false)
     private Integer limiteDiarioExtraMinutos;
 
+    @OneToMany(mappedBy = "regraApuracao", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<FaixaHoraExtra> faixaHoraExtra = new ArrayList<>();
+
+    @OneToOne(
+            mappedBy = "regraApuracao",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    private RegraAdicionalNoturno adicionalNoturno;
 
     // Precisa do AuditorAware para preenchimento automatico. True por enquanto.
     @Column(name = "created_at", nullable = true)

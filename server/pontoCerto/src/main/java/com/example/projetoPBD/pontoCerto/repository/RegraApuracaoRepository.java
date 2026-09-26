@@ -1,6 +1,7 @@
 package com.example.projetoPBD.pontoCerto.repository;
 
 import com.example.projetoPBD.pontoCerto.domain.RegraApuracao;
+import com.example.projetoPBD.pontoCerto.dto.RegraApuracaoConsultaDTO;
 import com.example.projetoPBD.pontoCerto.dto.projection.RegraApuracaoProjection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,18 +16,30 @@ public interface RegraApuracaoRepository extends JpaRepository<RegraApuracao, UU
 
     Optional<RegraApuracao> findFirstByEmpresaIdAndInicioVigenciaLessThanEqualOrderByInicioVigenciaDesc(UUID empresa, LocalDate inicioVigencia);
 
-    @Query(value = """ 
-                SELECT r.*,
-                       LEAD(inicio_vigencia) OVER (ORDER BY inicio_vigencia) - 1 AS fim_vigencia,
-                       CASE
-                         WHEN inicio_vigencia > :dataReferencia THEN 'AGENDADA'
-                         WHEN LEAD(inicio_vigencia) OVER (ORDER BY inicio_vigencia) <= :hoje THEN 'ENCERRADA'
-                         ELSE 'VIGENTE'
-                       END AS situacao
-                FROM regras_apuracao r
-                WHERE empresa_id = :empresaId
-                ORDER BY inicio_vigencia;
-""", nativeQuery = true)
-    List<RegraApuracaoProjection> listAllRulesByEmpresaAndDiaRefeencia(UUID empresaId, LocalDate dataReferencia);
+    @Query(value = """
+    SELECT new com.example.projetoPBD.pontoCerto.dto.RegraApuracaoConsultaDTO(
+        r,
+        LEAD(r.inicioVigencia) OVER (
+            ORDER BY r.inicioVigencia
+        ),
+        CASE
+            WHEN r.inicioVigencia > :dataReferencia
+                THEN 'AGENDADA'
 
+            WHEN LEAD(r.inicioVigencia) OVER (
+                ORDER BY r.inicioVigencia
+            ) <= :hoje
+                THEN 'ENCERRADA'
+
+            ELSE 'VIGENTE'
+        END
+    )
+    FROM RegraApuracao r
+    WHERE r.empresa.id = :empresaId
+    ORDER BY r.inicioVigencia
+""")
+    List<RegraApuracaoConsultaDTO> listVigenciasAndRegraApuracaoStatus(UUID empresaId, LocalDate dataReferencia);
+
+
+    List<RegraApuracao> findAllByEmpresaId(UUID empresaId);
 }
