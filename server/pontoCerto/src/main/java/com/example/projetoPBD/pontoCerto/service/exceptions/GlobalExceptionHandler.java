@@ -120,6 +120,16 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, ex);
     }
 
+    @ExceptionHandler(CadastroRegraApuracaoInvalidoException.class)
+    public ResponseEntity<String> handleException(CadastroRegraApuracaoInvalidoException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex);
+    }
+
+    @ExceptionHandler(RegraApuracaoNaoEncontradaException.class)
+    public ResponseEntity<String> handleException(RegraApuracaoNaoEncontradaException ex) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<String> handleValidationException(
             MethodArgumentNotValidException ex) {
