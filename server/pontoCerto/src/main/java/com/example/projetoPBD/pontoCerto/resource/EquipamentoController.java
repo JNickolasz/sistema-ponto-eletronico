@@ -4,7 +4,10 @@ import com.example.projetoPBD.pontoCerto.domain.enums.StatusEquipamento;
 import com.example.projetoPBD.pontoCerto.dto.EquipamentoFiltroDTO;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoDTO;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoResponse;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.temp.PairingCodeDTO;
 import com.example.projetoPBD.pontoCerto.service.EquipamentoService;
+import com.example.projetoPBD.pontoCerto.service.EstacaoService;
+import com.example.projetoPBD.pontoCerto.service.EstacaoSetupService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,7 +15,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @PreAuthorize("hasRole('RH')")
@@ -20,9 +22,13 @@ import java.util.UUID;
 public class EquipamentoController {
 
     private final EquipamentoService equipamentoService;
+    private final EstacaoService estacaoService;
+    private final EstacaoSetupService estacaoSetupService;
 
-    public EquipamentoController(EquipamentoService equipamentoService) {
+    public EquipamentoController(EquipamentoService equipamentoService, EstacaoService estacaoService, EstacaoSetupService estacaoSetupService) {
         this.equipamentoService = equipamentoService;
+        this.estacaoService = estacaoService;
+        this.estacaoSetupService = estacaoSetupService;
     }
 
     @PostMapping
@@ -44,4 +50,13 @@ public class EquipamentoController {
         EquipamentoResponse response = equipamentoService.alterarStatus(codigo, status);
         return ResponseEntity.ok(response);
     }
+
+    @GetMapping("/{codigo}/autorizar")
+    public ResponseEntity<PairingCodeDTO.Response> parearEstacao(
+            @PathVariable String codigo
+    ){
+        PairingCodeDTO.Response response = estacaoSetupService.autorizarEstacao(codigo);
+        return ResponseEntity.ok(response);
+    }
+
 }
