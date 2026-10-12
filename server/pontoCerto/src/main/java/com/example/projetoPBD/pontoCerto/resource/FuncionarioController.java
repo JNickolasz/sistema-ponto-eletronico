@@ -80,12 +80,12 @@ public class FuncionarioController {
 
         if(!funcionario.getId().equals(id)) {
             Map<String, Object> erro = new HashMap<>();
-            erro.put("message", "Acesso negado: Você só pode acessar seu próprio espselho de ponto");
+            erro.put("message", "Acesso negado: Você só pode acessar seu próprio espelho de ponto");
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(erro);
         }
 
         Map<String, Object> response = new HashMap<>();
-        response.put("message", "Acesso libetado ao seu espelho de ponto");
+        response.put("message", "Acesso liberado ao seu espelho de ponto");
         response.put("espelhoId", id);
         response.put("donoDoESpelho", funcionario.getUsuario());
 

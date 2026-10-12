@@ -14,10 +14,18 @@ export async function request(endpoint, options = {}) {
   };
 
   let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  if (cleanEndpoint.startsWith('/v1/')) {
-    cleanEndpoint = cleanEndpoint.substring(3);
+  let url;
+  if (endpoint.startsWith('http')) {
+    url = endpoint;
+  } else if (cleanEndpoint.startsWith('/v1/api/')) {
+    const backendRoot = API_BASE.replace(/\/api\/v1\/?$/, '');
+    url = `${backendRoot}${cleanEndpoint}`;
+  } else {
+    if (cleanEndpoint.startsWith('/v1/')) {
+      cleanEndpoint = cleanEndpoint.substring(3);
+    }
+    url = `${API_BASE}${cleanEndpoint}`;
   }
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${cleanEndpoint}`;
 
   try {
     const response = await fetch(url, {

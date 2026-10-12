@@ -20,7 +20,15 @@ export const rhService = {
    * Lista as empresas cadastradas
    */
   async listarEmpresas() {
-    return await api.get('/empresa');
+    try {
+      const res = await api.get('/v1/api/empresa');
+      if (Array.isArray(res) && res.length > 0) return res;
+    } catch (_) {}
+    try {
+      return await api.get('/empresa');
+    } catch (_) {
+      return [];
+    }
   },
 
   /**
@@ -75,6 +83,23 @@ export const rhService = {
   async buscarFuncionarios(empresaId, termo = '') {
     const query = termo ? `?empresaId=${empresaId}&termo=${encodeURIComponent(termo)}` : `?empresaId=${empresaId}`;
     return await api.get(`/rh/funcionarios${query}`);
+  },
+
+  /**
+   * Registra o desligamento de um funcionário
+   * @param {string} id UUID do funcionário
+   * @param {string} dataDesligamento Data no formato YYYY-MM-DD
+   */
+  async desligarFuncionario(id, dataDesligamento) {
+    return await api.patch(`/rh/funcionarios/${id}/desligar`, { dataDesligamento });
+  },
+
+  /**
+   * Exclui um funcionário que não possua marcações de ponto
+   * @param {string} id UUID do funcionário
+   */
+  async excluirFuncionario(id) {
+    return await api.delete(`/rh/funcionarios/${id}`);
   },
 
   async listarJornadas() {

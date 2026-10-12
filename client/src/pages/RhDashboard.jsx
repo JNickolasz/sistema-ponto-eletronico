@@ -2,11 +2,22 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import rhService from '../services/rhService';
 import equipamentoService from '../services/equipamentoService';
+import feriadoService from '../services/feriadoService';
+import {
+  validarPis,
+  gerarPisValido,
+  validarCpf,
+  gerarCpfValido,
+  formatarCpf,
+  formatarPis,
+} from '../utils/brazilianDocuments';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import {
   ShieldCheck,
   UserPlus,
+  UserMinus,
+  Trash2,
   CheckCircle2,
   AlertCircle,
   RefreshCw,
@@ -26,10 +37,11 @@ import {
   Filter,
   Calendar,
   CalendarDays,
+  CalendarCheck,
+  Flag,
   Check,
   Layers,
   Search,
-  ArrowRight,
 } from 'lucide-react';
 import { FormControl, Select, MenuItem } from '@mui/material';
 import toast from 'react-hot-toast';
@@ -79,12 +91,51 @@ export function RhDashboard() {
   const [enderecoNovo, setEnderecoNovo] = useState('');
   const [submittingEmpresa, setSubmittingEmpresa] = useState(false);
 
-  // Formulário de cadastro de funcionário
+  // Formulário de cadastro de funcionário (T01 - atualizado com PIS, CPF, Matrícula e vínculos)
   const [nomeCompleto, setNomeCompleto] = useState('');
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
+  const [pisPasep, setPisPasep] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [matricula, setMatricula] = useState('');
+  const [dataAdmissao, setDataAdmissao] = useState(new Date().toISOString().split('T')[0]);
+  const [localTrabalhoIdFuncionario, setLocalTrabalhoIdFuncionario] = useState('');
+  const [gestorIdFuncionario, setGestorIdFuncionario] = useState('');
   const [perfilAcesso, setPerfilAcesso] = useState('COLABORADOR');
   const [submitting, setSubmitting] = useState(false);
+
+  // Estados de gestão e busca de funcionários na empresa
+  const [termoBuscaFuncionario, setTermoBuscaFuncionario] = useState('');
+  const [modalDesligamentoAberto, setModalDesligamentoAberto] = useState(false);
+  const [funcionarioParaDesligar, setFuncionarioParaDesligar] = useState(null);
+  const [dataDesligamentoInput, setDataDesligamentoInput] = useState(new Date().toISOString().split('T')[0]);
+  const [submittingDesligar, setSubmittingDesligar] = useState(false);
+  const [excluindoFuncionarioId, setExcluindoFuncionarioId] = useState(null);
+
+  // Estados de Feriados e Pontos Facultativos (T05)
+  const [feriadosList, setFeriadosList] = useState([]);
+  const [loadingFeriados, setLoadingFeriados] = useState(false);
+  const [pontosFacultativosList, setPontosFacultativosList] = useState([]);
+  const [loadingPontosFacultativos, setLoadingPontosFacultativos] = useState(false);
+  const [anoCalendario, setAnoCalendario] = useState(new Date().getFullYear());
+  const [ufFiltro, setUfFiltro] = useState('SP');
+  const [municipioFiltro, setMunicipioFiltro] = useState('São Paulo');
+
+  // Formulário Feriado
+  const [descricaoFeriado, setDescricaoFeriado] = useState('');
+  const [dataFeriado, setDataFeriado] = useState(new Date().toISOString().split('T')[0]);
+  const [alcanceFeriado, setAlcanceFeriado] = useState('NACIONAL');
+  const [ufFeriado, setUfFeriado] = useState('SP');
+  const [municipioFeriado, setMunicipioFeriado] = useState('');
+  const [submittingFeriado, setSubmittingFeriado] = useState(false);
+
+  // Formulário Ponto Facultativo
+  const [descricaoPF, setDescricaoPF] = useState('');
+  const [dataPF, setDataPF] = useState(new Date().toISOString().split('T')[0]);
+  const [alcancePF, setAlcancePF] = useState('NACIONAL');
+  const [ufPF, setUfPF] = useState('SP');
+  const [municipioPF, setMunicipioPF] = useState('');
+  const [submittingPF, setSubmittingPF] = useState(false);
 
   // Histórico de cadastrados na sessão
   const [usuariosCadastrados, setUsuariosCadastrados] = useState(() => {
@@ -639,12 +690,22 @@ export function RhDashboard() {
     }
   };
 
-  // Cadastro de Funcionário (T01)
+  // Cadastro de Funcionário (T01 - com validação de PIS/PASEP e CPF)
   const handleCadastrar = async (e) => {
     e.preventDefault();
 
-    if (!nomeCompleto.trim() || !usuario.trim() || !senha.trim()) {
-      toast.error('Preencha todos os campos obrigatórios');
+    if (!nomeCompleto.trim() || !usuario.trim() || !senha.trim() || !pisPasep.trim() || !cpf.trim() || !matricula.trim()) {
+      toast.error('Preencha todos os campos obrigatórios (Nome, Usuário, Senha, PIS/PASEP, CPF e Matrícula)');
+      return;
+    }
+
+    if (!validarPis(pisPasep)) {
+      toast.error('PIS/PASEP inválido! O dígito verificador calculado não confere com a regra oficial.');
+      return;
+    }
+
+    if (!validarCpf(cpf)) {
+      toast.error('CPF inválido! Verifique a digitação do documento.');
       return;
     }
 
@@ -654,6 +715,12 @@ export function RhDashboard() {
         nomeCompleto: nomeCompleto.trim(),
         usuario: usuario.trim(),
         senha: senha.trim(),
+        pis_pasep: pisPasep.replace(/\D/g, ''),
+        cpf: cpf.replace(/\D/g, ''),
+        matricula: matricula.trim(),
+        dataAdmissao: dataAdmissao || undefined,
+        localTrabalhoId: localTrabalhoIdFuncionario || undefined,
+        gestorId: gestorIdFuncionario || undefined,
         perfilAcesso,
       };
 
@@ -668,6 +735,14 @@ export function RhDashboard() {
       setNomeCompleto('');
       setUsuario('');
       setSenha('');
+      setPisPasep('');
+      setCpf('');
+      setMatricula('');
+      setDataAdmissao(new Date().toISOString().split('T')[0]);
+
+      if (empresaIdSelecionada) {
+        carregarFuncionarios(empresaIdSelecionada);
+      }
     } catch (err) {
       toast.error(err.message || 'Erro ao cadastrar funcionário');
     } finally {
@@ -677,18 +752,210 @@ export function RhDashboard() {
 
   const handlePreencherExemplo = (tipo) => {
     const timestamp = Math.floor(Math.random() * 899 + 100);
+    const cpfValido = formatarCpf(gerarCpfValido());
+    const pisValido = formatarPis(gerarPisValido());
+
     if (tipo === 'COLABORADOR') {
       setNomeCompleto('João da Silva');
       setUsuario(`colaborador.${timestamp}`);
       setSenha('senha123');
       setPerfilAcesso('COLABORADOR');
+      setCpf(cpfValido);
+      setPisPasep(pisValido);
+      setMatricula(`COL-${timestamp}`);
+      setDataAdmissao(new Date().toISOString().split('T')[0]);
+      if (locaisTrabalho.length > 0 && !localTrabalhoIdFuncionario) {
+        setLocalTrabalhoIdFuncionario(locaisTrabalho[0].id);
+      }
+      const gestorExistente = funcionariosEmpresa.find((f) => f.perfilAcesso === 'GESTOR');
+      if (gestorExistente) {
+        setGestorIdFuncionario(gestorExistente.id);
+      }
     } else if (tipo === 'GESTOR') {
       setNomeCompleto('Mariana Costa');
       setUsuario(`gestor.${timestamp}`);
       setSenha('gestor123');
       setPerfilAcesso('GESTOR');
+      setCpf(cpfValido);
+      setPisPasep(pisValido);
+      setMatricula(`GES-${timestamp}`);
+      setDataAdmissao(new Date().toISOString().split('T')[0]);
+      if (locaisTrabalho.length > 0 && !localTrabalhoIdFuncionario) {
+        setLocalTrabalhoIdFuncionario(locaisTrabalho[0].id);
+      }
+      setGestorIdFuncionario('');
     }
-    toast('Exemplo preenchido no formulário!', { icon: '📝' });
+    toast('Exemplo com CPF e PIS válidos preenchido!', { icon: '📝' });
+  };
+
+  const handleAbrirDesligamento = (func) => {
+    setFuncionarioParaDesligar(func);
+    setDataDesligamentoInput(new Date().toISOString().split('T')[0]);
+    setModalDesligamentoAberto(true);
+  };
+
+  const handleConfirmarDesligamento = async (e) => {
+    e.preventDefault();
+    if (!funcionarioParaDesligar || !dataDesligamentoInput) {
+      toast.error('Informe a data de desligamento');
+      return;
+    }
+    try {
+      setSubmittingDesligar(true);
+      await rhService.desligarFuncionario(funcionarioParaDesligar.id, dataDesligamentoInput);
+      toast.success(`Colaborador ${funcionarioParaDesligar.nomeCompleto} desligado com sucesso!`);
+      setModalDesligamentoAberto(false);
+      setFuncionarioParaDesligar(null);
+      carregarFuncionarios(empresaIdSelecionada);
+    } catch (err) {
+      toast.error(err.message || 'Erro ao registrar desligamento');
+    } finally {
+      setSubmittingDesligar(false);
+    }
+  };
+
+  const handleExcluirFuncionario = async (func) => {
+    if (!window.confirm(`Deseja realmente excluir o colaborador ${func.nomeCompleto}? Atenção: só é permitido excluir se ele não possuir marcações de ponto.`)) {
+      return;
+    }
+    try {
+      setExcluindoFuncionarioId(func.id);
+      await rhService.excluirFuncionario(func.id);
+      toast.success(`Colaborador ${func.nomeCompleto} excluído com sucesso!`);
+      carregarFuncionarios(empresaIdSelecionada);
+    } catch (err) {
+      toast.error(err.message || 'Erro ao excluir colaborador');
+    } finally {
+      setExcluindoFuncionarioId(null);
+    }
+  };
+
+  const carregarCalendarioFeriados = async () => {
+    try {
+      setLoadingFeriados(true);
+      const lista = await feriadoService.buscarCalendarioFeriados({
+        ano: anoCalendario,
+        uf: ufFiltro,
+        municipio: municipioFiltro,
+        empresaId: empresaIdSelecionada || undefined,
+      });
+      setFeriadosList(Array.isArray(lista) ? lista : []);
+    } catch (err) {
+      console.error('Erro ao buscar feriados:', err);
+    } finally {
+      setLoadingFeriados(false);
+    }
+  };
+
+  const carregarCalendarioPF = async () => {
+    try {
+      setLoadingPontosFacultativos(true);
+      const lista = await feriadoService.buscarCalendarioPontosFacultativos({
+        ano: anoCalendario,
+        uf: ufFiltro,
+        municipio: municipioFiltro,
+      });
+      setPontosFacultativosList(Array.isArray(lista) ? lista : []);
+    } catch (err) {
+      console.error('Erro ao buscar pontos facultativos:', err);
+    } finally {
+      setLoadingPontosFacultativos(false);
+    }
+  };
+
+  const handleCadastrarFeriado = async (e) => {
+    e.preventDefault();
+    if (!descricaoFeriado.trim() || !dataFeriado) {
+      toast.error('Informe a descrição e a data do feriado');
+      return;
+    }
+    if (alcanceFeriado === 'ESTADUAL' && !ufFeriado.trim()) {
+      toast.error('UF é obrigatória para feriados estaduais');
+      return;
+    }
+    if (alcanceFeriado === 'MUNICIPAL' && (!ufFeriado.trim() || !municipioFeriado.trim())) {
+      toast.error('UF e Município são obrigatórios para feriados municipais');
+      return;
+    }
+
+    try {
+      setSubmittingFeriado(true);
+      const payload = {
+        descricao: descricaoFeriado.trim(),
+        data: dataFeriado,
+        alcance: alcanceFeriado,
+        uf: alcanceFeriado !== 'NACIONAL' ? ufFeriado.trim().toUpperCase() : null,
+        municipio: alcanceFeriado === 'MUNICIPAL' ? municipioFeriado.trim() : null,
+        empresaId: alcanceFeriado !== 'NACIONAL' && empresaIdSelecionada ? empresaIdSelecionada : null,
+      };
+      await feriadoService.cadastrarFeriado(payload);
+      toast.success('Feriado cadastrado com sucesso!');
+      setDescricaoFeriado('');
+      setMunicipioFeriado('');
+      carregarCalendarioFeriados();
+    } catch (err) {
+      toast.error(err.message || 'Erro ao cadastrar feriado');
+    } finally {
+      setSubmittingFeriado(false);
+    }
+  };
+
+  const handleInativarFeriado = async (id, descricao) => {
+    if (!window.confirm(`Deseja realmente inativar o feriado "${descricao}"?`)) return;
+    try {
+      await feriadoService.inativarFeriado(id);
+      toast.success('Feriado inativado com sucesso!');
+      carregarCalendarioFeriados();
+    } catch (err) {
+      toast.error(err.message || 'Erro ao inativar feriado');
+    }
+  };
+
+  const handleCadastrarPontoFacultativo = async (e) => {
+    e.preventDefault();
+    if (!descricaoPF.trim() || !dataPF) {
+      toast.error('Informe a descrição e a data do ponto facultativo');
+      return;
+    }
+    if (alcancePF === 'ESTADUAL' && !ufPF.trim()) {
+      toast.error('UF é obrigatória para pontos facultativos estaduais');
+      return;
+    }
+    if (alcancePF === 'MUNICIPAL' && (!ufPF.trim() || !municipioPF.trim())) {
+      toast.error('UF e Município são obrigatórios para pontos facultativos municipais');
+      return;
+    }
+
+    try {
+      setSubmittingPF(true);
+      const payload = {
+        descricao: descricaoPF.trim(),
+        data: dataPF,
+        alcance: alcancePF,
+        uf: alcancePF !== 'NACIONAL' ? ufPF.trim().toUpperCase() : null,
+        municipio: alcancePF === 'MUNICIPAL' ? municipioPF.trim() : null,
+      };
+      await feriadoService.cadastrarPontoFacultativo(payload);
+      toast.success('Ponto facultativo cadastrado com sucesso!');
+      setDescricaoPF('');
+      setMunicipioPF('');
+      carregarCalendarioPF();
+    } catch (err) {
+      toast.error(err.message || 'Erro ao cadastrar ponto facultativo');
+    } finally {
+      setSubmittingPF(false);
+    }
+  };
+
+  const handleInativarPF = async (id, descricao) => {
+    if (!window.confirm(`Deseja realmente inativar o ponto facultativo "${descricao}"?`)) return;
+    try {
+      await feriadoService.inativarPontoFacultativo(id);
+      toast.success('Ponto facultativo inativado com sucesso!');
+      carregarCalendarioPF();
+    } catch (err) {
+      toast.error(err.message || 'Erro ao inativar ponto facultativo');
+    }
   };
 
   const handleTestarLoginNovo = (usr) => {
@@ -860,6 +1127,27 @@ export function RhDashboard() {
             {(jornadas.length > 0 || escalas.length > 0) && (
               <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/20 text-emerald-300 font-mono">
                 {jornadas.length + escalas.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAbaAtiva('feriados');
+              carregarCalendarioFeriados();
+              carregarCalendarioPF();
+            }}
+            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              abaAtiva === 'feriados'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <CalendarCheck size={18} />
+            <span>Feriados & Facultativos (T05)</span>
+            {(feriadosList.length > 0 || pontosFacultativosList.length > 0) && (
+              <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-300 font-mono">
+                {feriadosList.length + pontosFacultativosList.length}
               </span>
             )}
           </button>
@@ -1599,9 +1887,10 @@ export function RhDashboard() {
 
         {/* Conteúdo da Aba 2: Usuários e Acessos (T01) */}
         {abaAtiva === 'usuarios' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Coluna do Formulário de Usuários */}
-            <div className="lg:col-span-7">
+          <div className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              {/* Coluna do Formulário de Usuários */}
+              <div className="lg:col-span-7">
               <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2.5">
@@ -1677,6 +1966,134 @@ export function RhDashboard() {
                         placeholder="••••••••"
                         className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                       />
+                    </div>
+                  </div>
+
+                  {/* Linha PIS/PASEP e CPF com geradores rápidos */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                          PIS / PASEP * (11 Dígitos)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setPisPasep(formatarPis(gerarPisValido()))}
+                          className="text-[10px] text-amber-400 hover:text-amber-300 underline cursor-pointer"
+                        >
+                          Gerar Válido
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={pisPasep}
+                        onChange={(e) => setPisPasep(e.target.value)}
+                        placeholder="000.00000.00-0"
+                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 font-mono placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                          CPF * (Receita Federal)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setCpf(formatarCpf(gerarCpfValido()))}
+                          className="text-[10px] text-amber-400 hover:text-amber-300 underline cursor-pointer"
+                        >
+                          Gerar Válido
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={cpf}
+                        onChange={(e) => setCpf(e.target.value)}
+                        placeholder="000.000.000-00"
+                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 font-mono placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Linha Matrícula e Data de Admissão */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                          Matrícula Única *
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setMatricula(`MAT-${Math.floor(1000 + Math.random() * 9000)}`)}
+                          className="text-[10px] text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                        >
+                          Gerar Código
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        required
+                        value={matricula}
+                        onChange={(e) => setMatricula(e.target.value)}
+                        placeholder="Ex: MAT-1024"
+                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 font-mono placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                        Data de Admissão
+                      </label>
+                      <input
+                        type="date"
+                        value={dataAdmissao}
+                        onChange={(e) => setDataAdmissao(e.target.value)}
+                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Vínculo de Local de Trabalho e Gestor */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                        Local de Trabalho Vinculado
+                      </label>
+                      <select
+                        value={localTrabalhoIdFuncionario}
+                        onChange={(e) => setLocalTrabalhoIdFuncionario(e.target.value)}
+                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                      >
+                        <option value="">Nenhum local selecionado</option>
+                        {locaisTrabalho.map((loc) => (
+                          <option key={loc.id} value={loc.id}>
+                            {loc.nome} ({loc.municipio || 'S/M'} - {loc.uf || 'S/UF'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                        Gestor Direto (Opcional)
+                      </label>
+                      <select
+                        value={gestorIdFuncionario}
+                        onChange={(e) => setGestorIdFuncionario(e.target.value)}
+                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                      >
+                        <option value="">Sem gestor imediato</option>
+                        {funcionariosEmpresa
+                          .filter((f) => f.perfilAcesso === 'GESTOR')
+                          .map((g) => (
+                            <option key={g.id} value={g.id}>
+                              {g.nomeCompleto} ({g.usuario})
+                            </option>
+                          ))}
+                      </select>
                     </div>
                   </div>
 
@@ -1797,9 +2214,651 @@ export function RhDashboard() {
               </div>
             </div>
           </div>
-        )}
 
-        {abaAtiva === 'jornadas' && (
+          {/* Seção Completa: Colaboradores da Empresa Cadastrados no Banco */}
+          <div className="mt-8 rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
+                  <Briefcase size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Colaboradores Cadastrados na Empresa
+                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
+                      {funcionariosEmpresa.length}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Gestão corporativa, desligamento e exclusão de colaboradores
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={termoBuscaFuncionario}
+                    onChange={(e) => setTermoBuscaFuncionario(e.target.value)}
+                    placeholder="Filtrar por nome, usuário, matrícula..."
+                    className="rounded-xl border border-slate-700 bg-slate-950/80 pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none w-64"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => carregarFuncionarios(empresaIdSelecionada || (empresas[0] && empresas[0].id))}
+                  disabled={loadingFuncionarios}
+                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                  title="Recarregar colaboradores"
+                >
+                  <RefreshCw size={14} className={loadingFuncionarios ? 'animate-spin' : ''} />
+                </button>
+              </div>
+            </div>
+
+            {loadingFuncionarios ? (
+              <div className="flex items-center justify-center py-12 text-slate-400 text-xs gap-2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+                Carregando colaboradores da empresa...
+              </div>
+            ) : funcionariosEmpresa.length === 0 ? (
+              <div className="text-center py-10 text-slate-500 text-xs">
+                Nenhum colaborador encontrado para a empresa selecionada. Cadastre o primeiro acima!
+              </div>
+            ) : (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-300">
+                  <thead className="bg-slate-950/60 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                    <tr>
+                      <th className="py-3 px-3">Colaborador</th>
+                      <th className="py-3 px-3">Perfil</th>
+                      <th className="py-3 px-3">CPF / PIS-PASEP</th>
+                      <th className="py-3 px-3">Matrícula</th>
+                      <th className="py-3 px-3">Admissão</th>
+                      <th className="py-3 px-3">Status</th>
+                      <th className="py-3 px-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60">
+                    {funcionariosEmpresa
+                      .filter((f) => {
+                        if (!termoBuscaFuncionario.trim()) return true;
+                        const t = termoBuscaFuncionario.toLowerCase();
+                        return (
+                          f.nomeCompleto?.toLowerCase().includes(t) ||
+                          f.usuario?.toLowerCase().includes(t) ||
+                          f.matricula?.toLowerCase().includes(t) ||
+                          f.cpf?.includes(t) ||
+                          f.pis_pasep?.includes(t)
+                        );
+                      })
+                      .map((f) => (
+                        <tr key={f.id} className="hover:bg-slate-800/30 transition-colors">
+                          <td className="py-3 px-3">
+                            <div className="font-semibold text-white">{f.nomeCompleto}</div>
+                            <div className="text-[11px] text-slate-400 font-mono">@{f.usuario}</div>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span
+                              className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                                f.perfilAcesso === 'COLABORADOR'
+                                  ? 'bg-emerald-500/20 text-emerald-400'
+                                  : f.perfilAcesso === 'GESTOR'
+                                  ? 'bg-blue-500/20 text-blue-400'
+                                  : 'bg-purple-500/20 text-purple-400'
+                              }`}
+                            >
+                              {f.perfilAcesso}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 font-mono text-[11px] text-slate-400">
+                            <div>CPF: {formatarCpf(f.cpf) || f.cpf || '—'}</div>
+                            <div>PIS: {formatarPis(f.pis_pasep) || f.pis_pasep || '—'}</div>
+                          </td>
+                          <td className="py-3 px-3 font-mono text-indigo-300 font-medium">
+                            {f.matricula || '—'}
+                          </td>
+                          <td className="py-3 px-3 text-slate-400">
+                            {f.dataAdmissao || '—'}
+                          </td>
+                          <td className="py-3 px-3">
+                            {f.dataDesligamento ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-950/60 text-red-400 border border-red-800/40">
+                                Desligado ({f.dataDesligamento})
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800/40">
+                                Ativo
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {!f.dataDesligamento && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleAbrirDesligamento(f)}
+                                  className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors cursor-pointer"
+                                  title="Registrar desligamento do colaborador"
+                                >
+                                  <UserMinus size={13} />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleExcluirFuncionario(f)}
+                                disabled={excluindoFuncionarioId === f.id}
+                                className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 transition-colors cursor-pointer disabled:opacity-50"
+                                title="Excluir colaborador (sem marcações)"
+                              >
+                                {excluindoFuncionarioId === f.id ? (
+                                  <div className="h-3 w-3 animate-spin rounded-full border border-red-400 border-t-transparent" />
+                                ) : (
+                                  <Trash2 size={13} />
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleTestarLoginNovo(f)}
+                                className="p-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-colors cursor-pointer"
+                                title="Testar login como este colaborador"
+                              >
+                                <KeyRound size={13} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Modal de Desligamento de Colaborador */}
+          {modalDesligamentoAberto && funcionarioParaDesligar && (
+            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <UserMinus size={20} className="text-amber-400" />
+                    <h3 className="text-base font-bold text-white">Desligar Colaborador</h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setModalDesligamentoAberto(false)}
+                    className="text-slate-400 hover:text-white"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+
+                <p className="text-xs text-slate-300">
+                  Confirmar desligamento de <strong>{funcionarioParaDesligar.nomeCompleto}</strong> (login: <code className="text-indigo-300">{funcionarioParaDesligar.usuario}</code>). Após o desligamento, novas batidas de ponto posteriores a esta data serão impedidas.
+                </p>
+
+                <form onSubmit={handleConfirmarDesligamento} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                      Data de Desligamento *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={dataDesligamentoInput}
+                      onChange={(e) => setDataDesligamentoInput(e.target.value)}
+                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setModalDesligamentoAberto(false)}
+                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submittingDesligar}
+                      className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white shadow-lg shadow-amber-600/30 cursor-pointer disabled:opacity-50"
+                    >
+                      {submittingDesligar ? 'Desligando...' : 'Confirmar Desligamento'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Conteúdo da Aba 5: Feriados & Pontos Facultativos (T05) */}
+      {abaAtiva === 'feriados' && (
+        <div className="space-y-8">
+          <div className="rounded-2xl bg-gradient-to-br from-amber-950/20 via-slate-900 to-slate-900 border border-amber-500/30 p-6 shadow-2xl backdrop-blur-xl">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-5">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                  <CalendarCheck size={22} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-bold text-white">
+                      Gestão de Feriados e Pontos Facultativos
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                      Tarefa T05
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Cadastro e consulta de feriados (Nacional, Estadual, Municipal) e pontos facultativos com impacto no cálculo da jornada
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    carregarCalendarioFeriados();
+                    carregarCalendarioPF();
+                  }}
+                  disabled={loadingFeriados || loadingPontosFacultativos}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer flex items-center gap-1.5 border border-slate-700"
+                >
+                  <RefreshCw size={13} className={loadingFeriados || loadingPontosFacultativos ? 'animate-spin' : ''} />
+                  <span>Recarregar Calendário</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Grid: Formulário Feriado / Ponto Facultativo + Calendário */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mt-6">
+              {/* Coluna 1: Formulários de Cadastro */}
+              <div className="lg:col-span-5 space-y-6">
+                {/* Card Feriado */}
+                <div className="rounded-2xl bg-slate-950/60 border border-slate-800 p-5">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Flag size={16} className="text-amber-400" />
+                      <h4 className="text-sm font-bold text-white">Cadastrar Novo Feriado</h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDescricaoFeriado('Dia da Proclamação da República');
+                        setDataFeriado('2026-11-15');
+                        setAlcanceFeriado('NACIONAL');
+                        toast('Exemplo de Feriado preenchido!', { icon: '🇧🇷' });
+                      }}
+                      className="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
+                    >
+                      Exemplo Nacional
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleCadastrarFeriado} className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                        Descrição do Feriado *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={descricaoFeriado}
+                        onChange={(e) => setDescricaoFeriado(e.target.value)}
+                        placeholder="Ex: Tiradentes / Aniversário da Cidade"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Data *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={dataFeriado}
+                          onChange={(e) => setDataFeriado(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Alcance *
+                        </label>
+                        <select
+                          value={alcanceFeriado}
+                          onChange={(e) => setAlcanceFeriado(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
+                        >
+                          <option value="NACIONAL">NACIONAL (Geral)</option>
+                          <option value="ESTADUAL">ESTADUAL (Exige UF)</option>
+                          <option value="MUNICIPAL">MUNICIPAL (UF + Município)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {alcanceFeriado !== 'NACIONAL' && (
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                            UF *
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={2}
+                            required
+                            value={ufFeriado}
+                            onChange={(e) => setUfFeriado(e.target.value.toUpperCase())}
+                            placeholder="SP"
+                            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none font-mono"
+                          />
+                        </div>
+
+                        {alcanceFeriado === 'MUNICIPAL' && (
+                          <div>
+                            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                              Município *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={municipioFeriado}
+                              onChange={(e) => setMunicipioFeriado(e.target.value)}
+                              placeholder="São Paulo"
+                              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={submittingFeriado}
+                      className="w-full mt-2 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-slate-950 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {submittingFeriado ? 'Cadastrando...' : '+ Cadastrar Feriado'}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Card Ponto Facultativo */}
+                <div className="rounded-2xl bg-slate-950/60 border border-slate-800 p-5">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Clock size={16} className="text-indigo-400" />
+                      <h4 className="text-sm font-bold text-white">Cadastrar Ponto Facultativo</h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDescricaoPF('Quarta-feira de Cinzas (até 14h)');
+                        setDataPF('2026-02-18');
+                        setAlcancePF('NACIONAL');
+                        toast('Exemplo de Ponto Facultativo preenchido!', { icon: '✨' });
+                      }}
+                      className="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
+                    >
+                      Exemplo
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleCadastrarPontoFacultativo} className="space-y-3">
+                    <div>
+                      <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                        Descrição *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={descricaoPF}
+                        onChange={(e) => setDescricaoPF(e.target.value)}
+                        placeholder="Ex: Carnaval / Corpus Christi"
+                        className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Data *
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          value={dataPF}
+                          onChange={(e) => setDataPF(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                          Alcance *
+                        </label>
+                        <select
+                          value={alcancePF}
+                          onChange={(e) => setAlcancePF(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                        >
+                          <option value="NACIONAL">NACIONAL</option>
+                          <option value="ESTADUAL">ESTADUAL</option>
+                          <option value="MUNICIPAL">MUNICIPAL</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {alcancePF !== 'NACIONAL' && (
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div>
+                          <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                            UF *
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={2}
+                            required
+                            value={ufPF}
+                            onChange={(e) => setUfPF(e.target.value.toUpperCase())}
+                            placeholder="SP"
+                            className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none font-mono"
+                          />
+                        </div>
+
+                        {alcancePF === 'MUNICIPAL' && (
+                          <div>
+                            <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-1">
+                              Município *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={municipioPF}
+                              onChange={(e) => setMunicipioPF(e.target.value)}
+                              placeholder="São Paulo"
+                              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={submittingPF}
+                      className="w-full mt-2 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {submittingPF ? 'Cadastrando...' : '+ Cadastrar Ponto Facultativo'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              {/* Coluna 2: Calendário e Listagem */}
+              <div className="lg:col-span-7 space-y-4">
+                {/* Filtro de Calendário */}
+                <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">Ano</label>
+                    <input
+                      type="number"
+                      min="2020"
+                      max="2035"
+                      value={anoCalendario}
+                      onChange={(e) => setAnoCalendario(Number(e.target.value))}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">UF (Filtro)</label>
+                    <input
+                      type="text"
+                      maxLength={2}
+                      value={ufFiltro}
+                      onChange={(e) => setUfFiltro(e.target.value.toUpperCase())}
+                      placeholder="SP"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">Município (Filtro)</label>
+                    <input
+                      type="text"
+                      value={municipioFiltro}
+                      onChange={(e) => setMunicipioFiltro(e.target.value)}
+                      placeholder="São Paulo"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        carregarCalendarioFeriados();
+                        carregarCalendarioPF();
+                      }}
+                      className="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white"
+                    >
+                      Filtrar
+                    </button>
+                  </div>
+                </div>
+
+                {/* Lista de Feriados */}
+                <div className="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                      <Flag size={14} /> Feriados Cadastrados ({feriadosList.length})
+                    </h4>
+                  </div>
+
+                  {loadingFeriados ? (
+                    <div className="py-6 text-center text-xs text-slate-400">Consultando feriados...</div>
+                  ) : feriadosList.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-500">Nenhum feriado localizado para os filtros informados.</div>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                      {feriadosList.map((f) => (
+                        <div
+                          key={f.id}
+                          className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div>
+                            <div className="font-semibold text-white flex items-center gap-2">
+                              <span>{f.descricao}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 font-mono">
+                                {f.alcance}
+                              </span>
+                              {f.uf && <span className="text-[10px] text-slate-400 font-mono">{f.uf}</span>}
+                              {f.municipio && <span className="text-[10px] text-slate-400 font-mono">- {f.municipio}</span>}
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5">Data: {f.data}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {f.ativo ? (
+                              <button
+                                type="button"
+                                onClick={() => handleInativarFeriado(f.id, f.descricao)}
+                                className="text-[10px] px-2 py-1 rounded-lg bg-red-950/60 border border-red-800/40 text-red-300 hover:bg-red-900/50 cursor-pointer"
+                                title="Inativar feriado"
+                              >
+                                Inativar
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 italic">Inativo</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Lista de Pontos Facultativos */}
+                <div className="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                  <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-800">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                      <Clock size={14} /> Pontos Facultativos ({pontosFacultativosList.length})
+                    </h4>
+                  </div>
+
+                  {loadingPontosFacultativos ? (
+                    <div className="py-6 text-center text-xs text-slate-400">Consultando pontos facultativos...</div>
+                  ) : pontosFacultativosList.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-slate-500">Nenhum ponto facultativo localizado.</div>
+                  ) : (
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                      {pontosFacultativosList.map((pf) => (
+                        <div
+                          key={pf.id}
+                          className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3 text-xs"
+                        >
+                          <div>
+                            <div className="font-semibold text-white flex items-center gap-2">
+                              <span>{pf.descricao}</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono">
+                                {pf.alcance}
+                              </span>
+                              {pf.uf && <span className="text-[10px] text-slate-400 font-mono">{pf.uf}</span>}
+                              {pf.municipio && <span className="text-[10px] text-slate-400 font-mono">- {pf.municipio}</span>}
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5">Data: {pf.data}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {pf.ativo ? (
+                              <button
+                                type="button"
+                                onClick={() => handleInativarPF(pf.id, pf.descricao)}
+                                className="text-[10px] px-2 py-1 rounded-lg bg-red-950/60 border border-red-800/40 text-red-300 hover:bg-red-900/50 cursor-pointer"
+                                title="Inativar ponto facultativo"
+                              >
+                                Inativar
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 italic">Inativo</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {abaAtiva === 'jornadas' && (
           <div className="space-y-8">
             <div className="rounded-2xl bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-500/30 p-6 shadow-2xl backdrop-blur-xl">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-5">

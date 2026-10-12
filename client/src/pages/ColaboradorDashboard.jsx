@@ -18,7 +18,6 @@ import {
   Award,
   Coffee,
   CalendarDays,
-  Briefcase,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -31,7 +30,7 @@ export function ColaboradorDashboard() {
 
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  const [espelhoIdInput, setEspelhoIdInput] = useState('1');
+  const [espelhoIdInput, setEspelhoIdInput] = useState('');
   const [espelhoResult, setEspelhoResult] = useState(null);
   const [loadingEspelho, setLoadingEspelho] = useState(false);
 
@@ -63,6 +62,7 @@ export function ColaboradorDashboard() {
       setPainelData(data);
       if (data?.funcionarioId) {
         setFuncionarioIdColab(data.funcionarioId);
+        setEspelhoIdInput((prev) => prev || data.funcionarioId);
         consultarHorarioSilencioso(data.funcionarioId, dataHorarioColab);
       }
     } catch (err) {
@@ -94,6 +94,7 @@ export function ColaboradorDashboard() {
           setPainelData(data);
           if (data?.funcionarioId) {
             setFuncionarioIdColab(data.funcionarioId);
+            setEspelhoIdInput(data.funcionarioId);
             jornadaService
               .obterHorarioPrevisto(data.funcionarioId, dataHorarioColab)
               .then((res) => {
@@ -360,62 +361,74 @@ export function ColaboradorDashboard() {
               </div>
 
               <p className="text-xs text-slate-400 mt-2">
-                O backend Spring Boot possui uma regra de segurança restrita: um colaborador <strong>só tem autorização para visualizar seu próprio espelho</strong>. Tentar consultar o ID de outro funcionário retornará <span className="text-amber-400 font-mono">403 Forbidden</span>.
+                O backend Spring Boot agora utiliza <strong>UUID</strong> para identificar os colaboradores e possui uma regra estrita de autorização: você <strong>só pode visualizar o seu próprio espelho de ponto</strong>. Tentar consultar o UUID de outro funcionário retornará <span className="text-amber-400 font-mono">403 Forbidden</span>.
               </p>
 
-              <div className="flex gap-2 mt-3">
+              <div className="flex flex-wrap gap-2 mt-3">
                 <button
                   type="button"
                   onClick={() => {
-                    setEspelhoIdInput('2');
-                    colaboradorService.getEspelho(2)
+                    const meuId = painelData?.funcionarioId || funcionarioIdColab;
+                    if (!meuId) {
+                      toast.error('Aguarde o carregamento do seu UUID pelo painel');
+                      return;
+                    }
+                    setEspelhoIdInput(meuId);
+                    setLoadingEspelho(true);
+                    setEspelhoResult(null);
+                    colaboradorService.getEspelho(meuId)
                       .then(data => {
                         setEspelhoResult({ success: true, data });
-                        toast.success('Espelho liberado para seu próprio ID!');
+                        toast.success('Espelho liberado para o seu próprio UUID!');
                       })
                       .catch(err => {
                         setEspelhoResult({ success: false, status: err.status || 403, error: err.message });
-                      });
+                        toast.error(err.message || 'Erro ao consultar espelho');
+                      })
+                      .finally(() => setLoadingEspelho(false));
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-800/40 text-emerald-300 text-xs hover:bg-emerald-900/50 transition-colors cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-emerald-950/60 border border-emerald-800/40 text-emerald-300 text-xs hover:bg-emerald-900/50 transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  ✓ Testar Meu ID (2) → 200 OK
+                  ✓ Meu UUID (Autorizado → 200 OK)
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setEspelhoIdInput('1');
-                    colaboradorService.getEspelho(1)
+                    const outroUuid = 'a0000000-0000-0000-0000-000000000000';
+                    setEspelhoIdInput(outroUuid);
+                    setLoadingEspelho(true);
+                    setEspelhoResult(null);
+                    colaboradorService.getEspelho(outroUuid)
                       .then(data => {
                         setEspelhoResult({ success: true, data });
                       })
                       .catch(err => {
                         setEspelhoResult({ success: false, status: err.status || 403, error: err.message });
                         toast.error('Bloqueado pelo Spring Boot: 403 Forbidden!');
-                      });
+                      })
+                      .finally(() => setLoadingEspelho(false));
                   }}
-                  className="px-2.5 py-1 rounded-lg bg-red-950/60 border border-red-800/40 text-red-300 text-xs hover:bg-red-900/50 transition-colors cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-lg bg-red-950/60 border border-red-800/40 text-red-300 text-xs hover:bg-red-900/50 transition-colors cursor-pointer flex items-center gap-1.5"
                 >
-                  ✕ Testar Outro ID (1) → 403 Forbidden
+                  ✕ Outro UUID (Simular 403 Forbidden)
                 </button>
               </div>
 
               <form onSubmit={handleTestarEspelho} className="mt-3 flex gap-2">
                 <div className="flex-1">
                   <input
-                    type="number"
-                    min="1"
+                    type="text"
                     required
                     value={espelhoIdInput}
-                    onChange={(e) => setEspelhoIdInput(e.target.value)}
-                    placeholder="Digite o ID do funcionário para testar"
-                    className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    onChange={(e) => setEspelhoIdInput(e.target.value.trim())}
+                    placeholder="Cole ou digite o UUID do funcionário (ex: 550e8400-e29b-41d4-a716-446655440000)"
+                    className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-xs sm:text-sm text-slate-100 placeholder-slate-500 font-mono focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
                   />
                 </div>
                 <button
                   type="submit"
-                  disabled={loadingEspelho}
-                  className="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  disabled={loadingEspelho || !espelhoIdInput}
+                  className="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2.5 text-xs font-semibold text-white shadow-md shadow-indigo-600/20 transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shrink-0"
                 >
                   {loadingEspelho ? (
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />

@@ -335,7 +335,6 @@ export function AdminDashboard() {
               )}
             </div>
 
-            {/* Dica para o teste da Issue 2 */}
             <div className="mt-4 pt-3 border-t border-slate-800/80 text-xs text-slate-400 flex items-center justify-between">
               <span>Pronto para vincular locais de trabalho?</span>
               <button

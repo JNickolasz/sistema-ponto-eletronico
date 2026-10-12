@@ -5,7 +5,15 @@ export const localTrabalhoService = {
    * Lista as empresas cadastradas no sistema
    */
   async listarEmpresas() {
-    return await api.get('/empresa');
+    try {
+      const res = await api.get('/v1/api/empresa');
+      if (Array.isArray(res) && res.length > 0) return res;
+    } catch (_) {}
+    try {
+      return await api.get('/empresa');
+    } catch (_) {
+      return [];
+    }
   },
 
   /**
