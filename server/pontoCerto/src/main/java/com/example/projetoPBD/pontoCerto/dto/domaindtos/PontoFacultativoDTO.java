@@ -1,6 +1,6 @@
 package com.example.projetoPBD.pontoCerto.dto.domaindtos;
 
-import com.example.projetoPBD.pontoCerto.domain.Alcance;
+import com.example.projetoPBD.pontoCerto.domain.enums.Alcance;
 import com.example.projetoPBD.pontoCerto.domain.PontoFacultativo;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

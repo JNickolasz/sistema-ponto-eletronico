@@ -1,6 +1,7 @@
 package com.example.projetoPBD.pontoCerto.seed;
 
 import com.example.projetoPBD.pontoCerto.domain.*;
+import com.example.projetoPBD.pontoCerto.domain.enums.Alcance;
 import com.example.projetoPBD.pontoCerto.domain.enums.DiaSemana;
 import com.example.projetoPBD.pontoCerto.domain.enums.PerfilAcesso;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoRegime;

@@ -8,20 +8,26 @@ export const authService = {
    * @returns {Promise<{token: string, tipo: string, usuario: string, perfil: string}>}
    */
   async login(usuario, senha) {
-    const trimmedUsuario = usuario.trim();
-    const trimmedSenha = senha.trim();
+    const trimmedUsuario = (usuario || '').trim();
+    const trimmedSenha = (senha || '').trim();
+
+    if (!trimmedUsuario || !trimmedSenha) {
+      throw new Error('Usuário e senha são obrigatórios');
+    }
 
     // Verificação de Acesso Admin da Plataforma via Chave Mestra
     if (trimmedUsuario.toLowerCase() === 'admin') {
       try {
-        const testRes = await fetch('http://localhost:8080/api/v1/admin/empresas', {
+        await api.get('/admin/empresas', {
           headers: { 'X-Admin-Key': trimmedSenha },
         });
-        if (testRes.status === 401) {
+      } catch (err) {
+        if (err?.status === 401) {
           throw new Error('Chave de Administrador inválida!');
         }
-      } catch (err) {
-        if (err.message === 'Chave de Administrador inválida!') throw err;
+        if (err?.message === 'Chave de Administrador inválida!') {
+          throw err;
+        }
         if (trimmedSenha !== 'admin123') {
           throw new Error('Chave de Administrador inválida!');
         }

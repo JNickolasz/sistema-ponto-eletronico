@@ -1,6 +1,6 @@
 package com.example.projetoPBD.pontoCerto.repository;
 
-import com.example.projetoPBD.pontoCerto.domain.Alcance;
+import com.example.projetoPBD.pontoCerto.domain.enums.Alcance;
 import com.example.projetoPBD.pontoCerto.domain.PontoFacultativo;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

@@ -143,22 +143,24 @@
 
 ---
 
-## PONTO
-**Descrição:** Armazena os registros brutos e individuais das batidas (entrada ou saída), incluindo informações de auditoria.
+## BATIDA
+**Descrição:** Armazena os registros brutos e individuais das batidas de ponto (entrada ou saída), incluindo auditoria e geração sequencial de NSR. **Regra Portaria 671:** Todos os campos desta entidade são estritamente imutáveis (`updatable = false`).
 
 | Coluna | Tipo | Descrição | Observações |
 | :--- | :--- | :--- | :--- |
-| `id` | UUID / Int | ID individual da batida. | PK |
-| `funcionario_id` | UUID / Int | Quem bateu. | FK, Not Null |
-| `data_hora` | Timestamp | Momento exato do registro. | Not Null |
-| `origem` | Enum | De onde veio a informação. | `ESTACAO`, `ARQUIVO_IMPORTADO`, `AJUSTE_MANUAL` |
-| `equipamento_id` | UUID / Int | Aparelho físico ou estação web utilizada. | FK, Nullable |
-| `arquivo_importado_id` | UUID / Int | De qual importação essa batida veio, se `origem = ARQUIVO_IMPORTADO`. | FK, Nullable |
-| `pedido_ajuste_id` | UUID / Int | Pedido que originou esta batida, se `origem = AJUSTE_MANUAL`. | FK, Nullable |
-| `foto_url` | String | URL do bucket, caso a estação exija foto. | Nullable |
-| `latitude_recebida` | Decimal | Registrado no momento via browser. | Nullable |
-| `longitude_recebida` | Decimal | Registrado no momento via browser. | Nullable |
-| `ip_recebido` | String | IP real no momento da requisição. | Nullable |
+| `id` | UUID | Identificador único da batida. | PK, `updatable = false` |
+| `nsr` | BigInt / Long | Número Sequencial de Registro (Portaria 671). | Not Null, Unique, gerado via sequence `seq_nsr_batida` (`insertable = false, updatable = false`) |
+| `funcionario_id` | UUID | Vínculo com o colaborador que realizou a batida. | FK, Not Null, `updatable = false` |
+| `data_hora` | Timestamp / OffsetDateTime | Momento exato do registro (gerado obrigatoriamente no servidor). | Not Null, `updatable = false` |
+| `tipo` | Enum | Tipo do registro. | `ENTRADA`, `SAIDA` (ou específico por intervalo), Nullable/Not Null, `updatable = false` |
+| `origem` | Enum | De onde veio a informação. | `ESTACAO`, `ARQUIVO_IMPORTADO`, `AJUSTE_MANUAL`, `APLICATIVO_WEB` | Not Null, `updatable = false` |
+| `equipamento_id` | UUID | Aparelho físico ou estação web utilizada (se aplicável). | FK, Nullable, `updatable = false` |
+| `arquivo_importado_id` | UUID | De qual importação essa batida veio, se `origem = ARQUIVO_IMPORTADO`. | FK, Nullable, `updatable = false` |
+| `pedido_ajuste_id` | UUID | Pedido que originou esta batida, se `origem = AJUSTE_MANUAL`. | FK, Nullable, `updatable = false` |
+| `foto_url` | String | URL do bucket, caso a estação exija foto biométrica. | Nullable, `updatable = false` |
+| `latitude_recebida` | Decimal | Coordenada Y registrada no momento via browser/app. | Nullable, `updatable = false` |
+| `longitude_recebida` | Decimal | Coordenada X registrada no momento via browser/app. | Nullable, `updatable = false` |
+| `ip_recebido` | String | IP real do cliente no momento da requisição. | Nullable, `updatable = false` |
 
 ---
 

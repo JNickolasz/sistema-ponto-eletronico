@@ -5,6 +5,8 @@ import { Clock, Lock, User, Eye, EyeOff, ArrowRight, Server, Sparkles } from 'lu
 import toast from 'react-hot-toast';
 
 
+import { API_BASE } from '../services/api';
+
 export function LoginPage() {
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
@@ -28,7 +30,8 @@ export function LoginPage() {
   useEffect(() => {
     const checkBackend = async () => {
       try {
-        const res = await fetch('http://localhost:8080/api/v1/auth/login', {
+        const loginUrl = `${API_BASE}/auth/login`;
+        const res = await fetch(loginUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ usuario: '', senha: '' }),

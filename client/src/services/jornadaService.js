@@ -10,7 +10,8 @@ export const jornadaService = {
   },
 
   async buscarJornadaPorId(id) {
-    return await api.get(`/jornadas/${id}`);
+    if (!id) return null;
+    return await api.get(`/jornadas/${encodeURIComponent(id)}`);
   },
 
   async listarEscalas() {
@@ -22,19 +23,32 @@ export const jornadaService = {
   },
 
   async buscarEscalaPorId(id) {
-    return await api.get(`/escalas/${id}`);
+    if (!id) return null;
+    return await api.get(`/escalas/${encodeURIComponent(id)}`);
   },
 
   async vincularRegime(dados) {
-    return await api.post('/regimes-trabalho/vincular', dados);
+    const payload = {
+      funcionarioId: dados.funcionarioId?.trim(),
+      tipoRegime: dados.tipoRegime,
+      jornadaId: dados.tipoRegime === 'JORNADA' && dados.jornadaId ? dados.jornadaId : null,
+      escalaId: dados.tipoRegime === 'ESCALA' && dados.escalaId ? dados.escalaId : null,
+      dataInicioVigencia: dados.dataInicioVigencia,
+      dataFimVigencia: dados.dataFimVigencia ? dados.dataFimVigencia : null,
+    };
+    return await api.post('/regimes-trabalho/vincular', payload);
   },
 
   async listarRegimesFuncionario(funcionarioId) {
-    return await api.get(`/regimes-trabalho/funcionario/${funcionarioId}`);
+    if (!funcionarioId || String(funcionarioId).trim() === '') return [];
+    return await api.get(`/regimes-trabalho/funcionario/${encodeURIComponent(funcionarioId)}`);
   },
 
   async obterHorarioPrevisto(funcionarioId, data) {
-    const query = data ? `?funcionarioId=${funcionarioId}&data=${data}` : `?funcionarioId=${funcionarioId}`;
+    if (!funcionarioId || String(funcionarioId).trim() === '') return null;
+    const query = data
+      ? `?funcionarioId=${encodeURIComponent(funcionarioId)}&data=${encodeURIComponent(data)}`
+      : `?funcionarioId=${encodeURIComponent(funcionarioId)}`;
     return await api.get(`/regimes-trabalho/horario-previsto${query}`);
   },
 };

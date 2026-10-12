@@ -13,7 +13,14 @@ export const adminService = {
    * @param {{razaoSocial: string, subdominio: string, cnpj: string, endereco: string, logoUrl?: string}} dados
    */
   async cadastrarEmpresa(dados) {
-    return await api.post('/admin/empresas', dados);
+    const payload = {
+      razaoSocial: dados.razaoSocial?.trim(),
+      subdominio: dados.subdominio?.trim()?.toLowerCase(),
+      cnpj: dados.cnpj?.trim(),
+      endereco: dados.endereco?.trim(),
+      logoUrl: dados.logoUrl?.trim() || undefined,
+    };
+    return await api.post('/admin/empresas', payload);
   },
 };
 
