@@ -1,7 +1,7 @@
 package com.example.projetoPBD.pontoCerto.service;
 
 
-import com.example.projetoPBD.pontoCerto.domain.Alcance;
+import com.example.projetoPBD.pontoCerto.domain.enums.Alcance;
 import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.Feriado;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.FeriadoDTO;

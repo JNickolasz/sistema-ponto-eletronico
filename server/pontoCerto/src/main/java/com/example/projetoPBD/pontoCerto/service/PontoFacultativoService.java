@@ -1,6 +1,6 @@
 package com.example.projetoPBD.pontoCerto.service;
 
-import com.example.projetoPBD.pontoCerto.domain.Alcance;
+import com.example.projetoPBD.pontoCerto.domain.enums.Alcance;
 import com.example.projetoPBD.pontoCerto.domain.PontoFacultativo;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.PontoFacultativoDTO;
 import com.example.projetoPBD.pontoCerto.repository.PontoFacultativoRepository;

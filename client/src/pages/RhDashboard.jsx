@@ -66,6 +66,7 @@ export function RhDashboard() {
   const [localTrabalhoIdEquipamento, setLocalTrabalhoIdEquipamento] = useState('');
   const [tipoEquipamento, setTipoEquipamento] = useState('RELOGIO');
   const [identificacaoEquipamento, setIdentificacaoEquipamento] = useState('');
+  const [codigoEquipamento, setCodigoEquipamento] = useState('');
   const [numFabricacaoEquipamento, setNumFabricacaoEquipamento] = useState('');
   const [submittingEquipamento, setSubmittingEquipamento] = useState(false);
   const [filtroLocalEquipamento, setFiltroLocalEquipamento] = useState('');
@@ -579,7 +580,12 @@ export function RhDashboard() {
 
     try {
       setSubmittingEquipamento(true);
+      const codigo = codigoEquipamento.trim() ||
+        (tipoEquipamento === 'RELOGIO' && numFabricacaoEquipamento ? numFabricacaoEquipamento.trim() : null) ||
+        `EQ-${Math.floor(100000 + Math.random() * 900000)}`;
+
       const payload = {
+        codigo,
         localTrabalhoId: localTrabalhoIdEquipamento,
         tipo: tipoEquipamento,
         identificacao: identificacaoEquipamento.trim(),
@@ -587,9 +593,10 @@ export function RhDashboard() {
       };
 
       const novo = await equipamentoService.cadastrarEquipamento(payload);
-      toast.success(`Equipamento "${novo.identificacao}" cadastrado com sucesso!`);
+      toast.success(`Equipamento "${novo.identificacao || novo.codigo}" cadastrado com sucesso!`);
 
       // Limpa formulário
+      setCodigoEquipamento('');
       setIdentificacaoEquipamento('');
       setNumFabricacaoEquipamento('');
 
@@ -606,15 +613,20 @@ export function RhDashboard() {
   // Desativação Lógica / Alteração de Status de Equipamento (Issue #17)
   const handleAlternarStatusEquipamento = async (equipamento) => {
     const novoStatus = equipamento.status === 'ATIVO' ? 'INATIVO' : 'ATIVO';
+    const identificador = equipamento.codigo || equipamento.id;
     try {
-      const atualizado = await equipamentoService.alterarStatus(equipamento.id, novoStatus);
+      const atualizado = await equipamentoService.alterarStatus(identificador, novoStatus);
       toast.success(
         novoStatus === 'INATIVO'
-          ? `Equipamento "${equipamento.identificacao}" desativado (marcações preservadas)!`
-          : `Equipamento "${equipamento.identificacao}" reativado!`
+          ? `Equipamento "${equipamento.identificacao || identificador}" desativado (marcações preservadas)!`
+          : `Equipamento "${equipamento.identificacao || identificador}" reativado!`
       );
       setEquipamentos((prev) =>
-        prev.map((eq) => (eq.id === equipamento.id ? { ...eq, status: atualizado.status } : eq))
+        prev.map((eq) =>
+          eq.id === equipamento.id || eq.codigo === equipamento.codigo
+            ? { ...eq, status: atualizado.status }
+            : eq
+        )
       );
     } catch (err) {
       toast.error(err.message || 'Erro ao alterar status do equipamento');
@@ -625,11 +637,13 @@ export function RhDashboard() {
     const randomNum = Math.floor(100000 + Math.random() * 900000);
     if (tipo === 'RELOGIO') {
       setTipoEquipamento('RELOGIO');
+      setCodigoEquipamento(`REP-${randomNum}`);
       setIdentificacaoEquipamento(`Relógio Biometria Portaria #${Math.floor(Math.random() * 9 + 1)}`);
       setNumFabricacaoEquipamento(`REP-${randomNum}`);
       toast('Exemplo de Relógio físico preenchido!', { icon: '⏰' });
     } else {
       setTipoEquipamento('ESTACAO');
+      setCodigoEquipamento(`EST-${randomNum}`);
       setIdentificacaoEquipamento(`Estação Tablet Corredor #${Math.floor(Math.random() * 9 + 1)}`);
       setNumFabricacaoEquipamento('');
       toast('Exemplo de Estação Web preenchido!', { icon: '💻' });
@@ -1336,6 +1350,25 @@ export function RhDashboard() {
                         </div>
                       </button>
                     </div>
+                  </div>
+
+                  {/* Código Único do Equipamento */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
+                        Código do Equipamento
+                      </label>
+                      <span className="text-[11px] text-slate-400">
+                        Opcional (gerado automaticamente se vazio)
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={codigoEquipamento}
+                      onChange={(e) => setCodigoEquipamento(e.target.value)}
+                      placeholder="Ex: EQ-01, REP-10023, EST-05"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/60 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono"
+                    />
                   </div>
 
                   {/* Identificação do Equipamento */}

@@ -1,5 +1,6 @@
 package com.example.projetoPBD.pontoCerto.domain;
 
+import com.example.projetoPBD.pontoCerto.domain.enums.Alcance;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
