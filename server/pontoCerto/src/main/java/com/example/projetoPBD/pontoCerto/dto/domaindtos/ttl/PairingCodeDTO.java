@@ -1,8 +1,6 @@
-package com.example.projetoPBD.pontoCerto.dto.domaindtos.temp;
+package com.example.projetoPBD.pontoCerto.dto.domaindtos.ttl;
 
-import com.example.projetoPBD.pontoCerto.domain.Estacao;
 import com.example.projetoPBD.pontoCerto.domain.enums.StatusPairingCode;
-import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoDTO;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EstacaoDTO;
 
 import java.time.Instant;

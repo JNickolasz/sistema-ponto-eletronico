@@ -4,7 +4,7 @@ import com.example.projetoPBD.pontoCerto.domain.enums.StatusEquipamento;
 import com.example.projetoPBD.pontoCerto.dto.EquipamentoFiltroDTO;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoDTO;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EquipamentoResponse;
-import com.example.projetoPBD.pontoCerto.dto.domaindtos.temp.PairingCodeDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.ttl.PairingCodeDTO;
 import com.example.projetoPBD.pontoCerto.service.EquipamentoService;
 import com.example.projetoPBD.pontoCerto.service.EstacaoService;
 import com.example.projetoPBD.pontoCerto.service.EstacaoSetupService;

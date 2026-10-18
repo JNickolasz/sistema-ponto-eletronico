@@ -6,7 +6,7 @@ import com.example.projetoPBD.pontoCerto.domain.Estacao;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoEquipamento;
 import com.example.projetoPBD.pontoCerto.domain.temp.PairingCode;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EstacaoDTO;
-import com.example.projetoPBD.pontoCerto.dto.domaindtos.temp.PairingCodeDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.ttl.PairingCodeDTO;
 import com.example.projetoPBD.pontoCerto.repository.EquipamentoRepository;
 import com.example.projetoPBD.pontoCerto.repository.PairingCodeRepository;
 import com.example.projetoPBD.pontoCerto.security.SecurityTenantContext;
