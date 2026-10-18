@@ -16,7 +16,7 @@ import java.sql.Timestamp;
 public class Estacao extends Equipamento{
 
     public Estacao(){
-        super(TipoEquipamento.ESTACAO, StatusEquipamento.INATIVO);
+        super(TipoEquipamento.ESTACAO, StatusEquipamento.ATIVO);
     }
 
     @Column(name = "credential_id")
