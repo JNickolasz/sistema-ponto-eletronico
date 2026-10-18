@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 
 /**
  * Cliente HTTP unificado para chamadas ao backend Spring Boot
@@ -6,8 +6,10 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 export async function request(endpoint, options = {}) {
   const token = localStorage.getItem('token');
   const adminKey = localStorage.getItem('adminKey');
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+
   const headers = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token && token !== 'admin-session-token' ? { Authorization: `Bearer ${token}` } : {}),
     ...(adminKey ? { 'X-Admin-Key': adminKey } : {}),
     ...options.headers,
@@ -44,6 +46,7 @@ export async function request(endpoint, options = {}) {
 
     if (!response.ok) {
       const errorMessage =
+        (typeof data === 'string' && data.trim() ? data.trim() : null) ||
         (typeof data === 'object' && (data?.message || data?.mensagem || data?.error)) ||
         response.statusText ||
         'Erro na requisição';
@@ -69,7 +72,13 @@ export const api = {
     request(endpoint, {
       ...options,
       method: 'POST',
-      body: JSON.stringify(body),
+      body: typeof FormData !== 'undefined' && body instanceof FormData ? body : JSON.stringify(body),
+    }),
+  postFormData: (endpoint, formData, options = {}) =>
+    request(endpoint, {
+      ...options,
+      method: 'POST',
+      body: formData,
     }),
   put: (endpoint, body, options = {}) =>
     request(endpoint, {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
+import ImportacaoPosicionalSection from '../components/ImportacaoPosicionalSection';
 import rhService from '../services/rhService';
 import equipamentoService from '../services/equipamentoService';
 import feriadoService from '../services/feriadoService';
@@ -42,6 +43,8 @@ import {
   Check,
   Layers,
   Search,
+  Upload,
+  History,
 } from 'lucide-react';
 import { FormControl, Select, MenuItem } from '@mui/material';
 import toast from 'react-hot-toast';
@@ -223,6 +226,7 @@ export function RhDashboard() {
       setEmpresas(arrayEmpresas);
       if (arrayEmpresas.length > 0 && !empresaIdSelecionada) {
         setEmpresaIdSelecionada(arrayEmpresas[0].id);
+        carregarFuncionarios(arrayEmpresas[0].id);
       }
       setLocaisTrabalho(arrayLocais);
       if (arrayLocais.length > 0 && !localTrabalhoIdEquipamento) {
@@ -1164,6 +1168,30 @@ export function RhDashboard() {
                 {feriadosList.length + pontosFacultativosList.length}
               </span>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva('importacao')}
+            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              abaAtiva === 'importacao'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Upload size={18} />
+            <span>Importação AFD (T09)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva('historico-importacao')}
+            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              abaAtiva === 'historico-importacao'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <History size={18} />
+            <span>Histórico de Importações</span>
           </button>
         </div>
 
@@ -3655,6 +3683,19 @@ export function RhDashboard() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Conteúdo da Aba Importação Posicional AFD e Histórico (T09) */}
+        {(abaAtiva === 'importacao' || abaAtiva === 'historico-importacao') && (
+          <ImportacaoPosicionalSection
+            equipamentos={equipamentos}
+            funcionarios={funcionariosEmpresa}
+            modoInicial={abaAtiva === 'historico-importacao' ? 'historico' : 'wizard'}
+            onIrParaEquipamentos={() => setAbaAtiva('equipamentos')}
+            onImportacaoConcluida={() => {
+              carregarEquipamentos();
+            }}
+          />
         )}
 
         {/* Modal de Cadastro de Nova Empresa (Admin) */}
