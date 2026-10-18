@@ -26,6 +26,8 @@ public class DataSeeder implements CommandLineRunner {
     private final RegimeTrabalhoRepository regimeTrabalhoRepository;
     private final FeriadoRepository feriadoRepository;
     private final PontoFacultativoRepository pontoFacultativoRepository;
+    private final LocalDeTrabalhoRepository localDeTrabalhoRepository;
+    private final EquipamentoRepository equipamentoRepository;
 
     public DataSeeder(FuncionarioRepository funcionarioRepository,
                       PasswordEncoder passwordEncoder,
@@ -34,7 +36,9 @@ public class DataSeeder implements CommandLineRunner {
                       EscalaRepository escalaRepository,
                       RegimeTrabalhoRepository regimeTrabalhoRepository,
                       FeriadoRepository feriadoRepository,
-                      PontoFacultativoRepository pontoFacultativoRepository) {
+                      PontoFacultativoRepository pontoFacultativoRepository,
+                      LocalDeTrabalhoRepository localDeTrabalhoRepository,
+                      EquipamentoRepository equipamentoRepository) {
         this.funcionarioRepository = funcionarioRepository;
         this.passwordEncoder = passwordEncoder;
         this.empresaRepository = empresaRepository;
@@ -43,6 +47,8 @@ public class DataSeeder implements CommandLineRunner {
         this.regimeTrabalhoRepository = regimeTrabalhoRepository;
         this.feriadoRepository = feriadoRepository;
         this.pontoFacultativoRepository = pontoFacultativoRepository;
+        this.localDeTrabalhoRepository = localDeTrabalhoRepository;
+        this.equipamentoRepository = equipamentoRepository;
     }
 
     @Override
@@ -208,6 +214,31 @@ public class DataSeeder implements CommandLineRunner {
             System.out.println("    - COLABORADOR: plantonista.teste | Senha: user123 (Regime: Escala 12x36)");
             System.out.println("    - FERIADOS:    Nacional (Natal), Estadual (São João - PE), Municipal (Serra Talhada - PE)");
             System.out.println("    - FACULTATIVO: Carnaval (Nacional)");
+        }
+
+        if (equipamentoRepository.count() == 0) {
+            empresaRepository.findAll().stream().findFirst().ifPresent(emp -> {
+                LocalDeTrabalho local = localDeTrabalhoRepository.findByEmpresaId(emp.getId()).stream()
+                        .findFirst()
+                        .orElseGet(() -> {
+                            LocalDeTrabalho novoLocal = new LocalDeTrabalho();
+                            novoLocal.setEmpresa(emp);
+                            novoLocal.setNome("Matriz Central");
+                            novoLocal.setEndereco("Av. Principal, 100 - Centro");
+                            novoLocal.setMunicipio("Serra Talhada");
+                            novoLocal.setUf("PE");
+                            return localDeTrabalhoRepository.save(novoLocal);
+                        });
+
+                Relogio relogio = new Relogio();
+                relogio.setEmpresa(emp);
+                relogio.setLocalTrabalho(local);
+                relogio.setCodigo("REP-001");
+                relogio.setIdentificacao("Relógio Portaria Principal (AFD)");
+                relogio.setNumFabricante("REP-FAB-0001");
+                relogio.setLinhasImportadas(0L);
+                equipamentoRepository.save(relogio);
+            });
         }
     }
 }

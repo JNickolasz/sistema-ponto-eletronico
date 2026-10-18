@@ -130,6 +130,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.NOT_FOUND, ex);
     }
 
+    @ExceptionHandler(ArquivoImportacaoInvalidoException.class)
+    public ResponseEntity<String> handleException(ArquivoImportacaoInvalidoException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<String> handleValidationException(
             MethodArgumentNotValidException ex) {
