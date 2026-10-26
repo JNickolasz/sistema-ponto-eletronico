@@ -23,6 +23,17 @@ body {
   animation: fadeIn 0.15s ease-out forwards;
 }
 
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgba(2, 6, 23, 0.8);
+  backdrop-filter: blur(4px);
+}
+
 @media print {
   body {
     background-color: #ffffff !important;

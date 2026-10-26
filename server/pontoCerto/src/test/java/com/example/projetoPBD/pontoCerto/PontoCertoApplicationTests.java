@@ -1,7 +1,9 @@
 package com.example.projetoPBD.pontoCerto;
 
+import com.example.projetoPBD.pontoCerto.domain.Batida;
 import com.example.projetoPBD.pontoCerto.domain.Equipamento;
 import com.example.projetoPBD.pontoCerto.domain.Funcionario;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusBatida;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoRegistro;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.BatidaDTO;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.ImportacaoDTO;
@@ -236,7 +238,29 @@ class PontoCertoApplicationTests {
 		assertEquals(1, historico.totalValidas());
 		assertEquals(1, historico.totalRepetidas());
 		assertEquals(1, historico.totalRecusadas());
-		assertEquals(1, batidaRepository.count(), "Apenas a batida válida deve ser persistida!");
+		assertEquals(2, batidaRepository.count(), "A batida válida e a batida órfã devem ser persistidas sem descartar!");
 		assertEquals(1, historicoImportacaoRepository.count(), "O registro de histórico deve ser salvo!");
+
+		Batida batidaOrfa = batidaRepository.findByEmpresaIdAndStatusBatidaOrderByDataHoraDesc(
+				equipamento.getEmpresa().getId(), StatusBatida.ORFA_PENDENTE
+		).stream().findFirst().orElseThrow();
+
+		assertNull(batidaOrfa.getFuncionario());
+		assertEquals("99999999999", batidaOrfa.getIdentificadorOriginal());
+		assertEquals(StatusBatida.ORFA_PENDENTE, batidaOrfa.getStatusBatida());
+
+		Funcionario colaborador = funcionarioRepository.findByEmpresaId(equipamento.getEmpresa().getId())
+				.stream().findFirst().orElseThrow();
+
+		BatidaDTO.BatidaOrfaResponse vinculada = batidaService.vincularOrfa(
+				batidaOrfa.getId(),
+				new BatidaDTO.VincularOrfaRequest(colaborador.getId(), "Colaborador recém-admitido")
+		);
+
+		assertEquals(StatusBatida.VINCULADA, vinculada.statusBatida());
+		assertEquals(colaborador.getNomeCompleto(), vinculada.nomeFuncionarioVinculado());
+		assertEquals("Colaborador recém-admitido", vinculada.motivoVinculo());
+		assertNotNull(vinculada.dataVinculo());
+		assertNotNull(vinculada.vinculadoPor());
 	}
 }

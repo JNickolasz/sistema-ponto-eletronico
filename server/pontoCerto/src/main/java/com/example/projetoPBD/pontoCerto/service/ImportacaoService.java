@@ -6,6 +6,7 @@ import com.example.projetoPBD.pontoCerto.domain.Funcionario;
 import com.example.projetoPBD.pontoCerto.domain.FuncionarioUserDetails;
 import com.example.projetoPBD.pontoCerto.domain.HistoricoImportacao;
 import com.example.projetoPBD.pontoCerto.domain.Relogio;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusBatida;
 import com.example.projetoPBD.pontoCerto.domain.enums.StatusImportacao;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoOrigem;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoRegistro;
@@ -69,16 +70,32 @@ public class ImportacaoService {
         Set<String> chavesNoArquivo = new HashSet<>();
 
         for (ProcessadorArquivoPosicional.RegistroBatidaLinha reg : resultado.registro()) {
-            Optional<Funcionario> funcOpt = buscarFuncionario(reg.pis(), empresaId);
+            String identificadorLimpo = reg.pis() != null ? reg.pis().trim() : "";
+            Optional<Funcionario> funcOpt = buscarFuncionario(identificadorLimpo, empresaId);
 
             if (funcOpt.isEmpty()) {
-                recusadas.add(new ImportacaoDTO.ItemPreview(
-                        reg.numeroLinha(),
-                        reg.pis(),
-                        null,
-                        reg.dataHora(),
-                        "Funcionário não encontrado com este PIS/PASEP na empresa"
-                ));
+                String chaveOrfa = "ORFA_" + identificadorLimpo + "_" + reg.dataHora();
+                boolean orfaJaExiste = batidaRepository.existsOrfaByIdentificadorAndDataHoraAndEmpresaId(
+                        identificadorLimpo, reg.dataHora(), empresaId
+                );
+
+                if (orfaJaExiste || !chavesNoArquivo.add(chaveOrfa)) {
+                    repetidas.add(new ImportacaoDTO.ItemPreview(
+                            reg.numeroLinha(),
+                            identificadorLimpo,
+                            null,
+                            reg.dataHora(),
+                            "Batida órfã já registrada anteriormente para este identificador e horário"
+                    ));
+                } else {
+                    recusadas.add(new ImportacaoDTO.ItemPreview(
+                            reg.numeroLinha(),
+                            identificadorLimpo,
+                            null,
+                            reg.dataHora(),
+                            "Colaborador não encontrado — será gravada como Batida Órfã (Pendente de Vínculo)"
+                    ));
+                }
                 continue;
             }
 
@@ -89,7 +106,7 @@ public class ImportacaoService {
             if (jaExisteNoBanco || !chavesNoArquivo.add(chaveUnica)) {
                 repetidas.add(new ImportacaoDTO.ItemPreview(
                         reg.numeroLinha(),
-                        reg.pis(),
+                        identificadorLimpo,
                         funcionario.getNomeCompleto(),
                         reg.dataHora(),
                         "Batida já cadastrada no sistema para esta data e hora"
@@ -97,7 +114,7 @@ public class ImportacaoService {
             } else {
                 validas.add(new ImportacaoDTO.ItemPreview(
                         reg.numeroLinha(),
-                        reg.pis(),
+                        identificadorLimpo,
                         funcionario.getNomeCompleto(),
                         reg.dataHora(),
                         "Válida para gravação"
@@ -128,6 +145,7 @@ public class ImportacaoService {
 
         HistoricoImportacao historico = new HistoricoImportacao();
         historico.setNomeArquivo(arquivo.getOriginalFilename() != null ? arquivo.getOriginalFilename() : "importacao.txt");
+        historico.setConteudoArquivo(String.join("\n", linhas));
         historico.setEquipamento(equipamento);
         historico.setAutor(obterFuncionarioLogado(empresaId));
         historico.setStatus(StatusImportacao.PENDENTE);
@@ -135,6 +153,7 @@ public class ImportacaoService {
 
         List<Batida> batidasSalvas = new ArrayList<>();
         Set<String> chavesNoArquivo = new HashSet<>();
+        int validasCount = 0;
         int repetidasCount = 0;
         int recusadasCount = 0;
         int totalLidas = 0;
@@ -145,10 +164,33 @@ public class ImportacaoService {
             totalLidas++;
 
             ProcessadorArquivoPosicional.RegistroBatidaLinha reg = processador.extrairRegistroBatida(numeroLinha, linha);
-            Optional<Funcionario> funcOpt = buscarFuncionario(reg.pis(), empresaId);
+            String identificadorLimpo = reg.pis() != null ? reg.pis().trim() : "";
+            Optional<Funcionario> funcOpt = buscarFuncionario(identificadorLimpo, empresaId);
 
             if (funcOpt.isEmpty()) {
-                recusadasCount++;
+                String chaveOrfa = "ORFA_" + identificadorLimpo + "_" + reg.dataHora();
+                boolean orfaJaExiste = batidaRepository.existsOrfaByIdentificadorAndDataHoraAndEmpresaId(
+                        identificadorLimpo, reg.dataHora(), empresaId
+                );
+
+                if (orfaJaExiste || !chavesNoArquivo.add(chaveOrfa)) {
+                    repetidasCount++;
+                } else {
+                    Batida batidaOrfa = new Batida();
+                    batidaOrfa.setFuncionario(null);
+                    batidaOrfa.setIdentificadorOriginal(identificadorLimpo);
+                    batidaOrfa.setStatusBatida(StatusBatida.ORFA_PENDENTE);
+                    batidaOrfa.setEquipamento(equipamento);
+                    batidaOrfa.setDataHora(reg.dataHora());
+                    batidaOrfa.setTipoRegistro(TipoRegistro.ENTRADA);
+                    batidaOrfa.setTipoOrigem(TipoOrigem.ARQUIVO_IMPORTADO);
+                    batidaOrfa.setArquivoImportadoId(historico.getId());
+
+                    List<Batida> salvas = batidaRepository.saveAll(List.of(batidaOrfa));
+                    batidaRepository.flush();
+                    batidasSalvas.addAll(salvas);
+                    recusadasCount++;
+                }
                 continue;
             }
 
@@ -161,6 +203,8 @@ public class ImportacaoService {
             } else {
                 Batida batida = new Batida();
                 batida.setFuncionario(funcionario);
+                batida.setIdentificadorOriginal(identificadorLimpo);
+                batida.setStatusBatida(StatusBatida.NORMAL);
                 batida.setEquipamento(equipamento);
                 batida.setDataHora(reg.dataHora());
                 batida.setTipoRegistro(TipoRegistro.ENTRADA);
@@ -170,11 +214,12 @@ public class ImportacaoService {
                 List<Batida> salvas = batidaRepository.saveAll(List.of(batida));
                 batidaRepository.flush();
                 batidasSalvas.addAll(salvas);
+                validasCount++;
             }
         }
 
         historico.setTotalLidas(totalLidas);
-        historico.setTotalValidas(batidasSalvas.size());
+        historico.setTotalValidas(validasCount);
         historico.setTotalRepetidas(repetidasCount);
         historico.setTotalRecusadas(recusadasCount);
         historico.setStatus(StatusImportacao.CONCLUIDA);
@@ -199,15 +244,45 @@ public class ImportacaoService {
     }
 
     private Optional<Funcionario> buscarFuncionario(String identificador, UUID empresaId) {
-        if (identificador == null) {
+        if (identificador == null || identificador.isBlank()) {
             return Optional.empty();
         }
         String limpo = identificador.trim();
+        String apenasDigitos = limpo.replaceAll("\\D", "");
+
         Optional<Funcionario> porPis = funcionarioRepository.findByPisPasepAndEmpresaId(limpo, empresaId);
         if (porPis.isPresent()) {
             return porPis;
         }
-        return funcionarioRepository.findByMatriculaAndEmpresaId(limpo, empresaId);
+        if (!apenasDigitos.isEmpty() && !apenasDigitos.equals(limpo)) {
+            porPis = funcionarioRepository.findByPisPasepAndEmpresaId(apenasDigitos, empresaId);
+            if (porPis.isPresent()) {
+                return porPis;
+            }
+        }
+
+        Optional<Funcionario> porCpf = funcionarioRepository.findByCpfAndEmpresaId(limpo, empresaId);
+        if (porCpf.isPresent()) {
+            return porCpf;
+        }
+        if (!apenasDigitos.isEmpty() && !apenasDigitos.equals(limpo)) {
+            porCpf = funcionarioRepository.findByCpfAndEmpresaId(apenasDigitos, empresaId);
+            if (porCpf.isPresent()) {
+                return porCpf;
+            }
+        }
+
+        Optional<Funcionario> porMatricula = funcionarioRepository.findByMatriculaAndEmpresaId(limpo, empresaId);
+        if (porMatricula.isPresent()) {
+            return porMatricula;
+        }
+
+        String semZerosEsquerda = limpo.replaceFirst("^0+(?!$)", "");
+        if (!semZerosEsquerda.equals(limpo)) {
+            return funcionarioRepository.findByMatriculaAndEmpresaId(semZerosEsquerda, empresaId);
+        }
+
+        return Optional.empty();
     }
 
     private Equipamento validarEquipamento(UUID equipamentoId) {

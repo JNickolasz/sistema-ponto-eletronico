@@ -110,6 +110,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.BAD_REQUEST, ex);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<String> handleException(IllegalArgumentException ex) {
+        return buildResponse(HttpStatus.BAD_REQUEST, ex);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<String> handleException(RuntimeException ex) {
         return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex);

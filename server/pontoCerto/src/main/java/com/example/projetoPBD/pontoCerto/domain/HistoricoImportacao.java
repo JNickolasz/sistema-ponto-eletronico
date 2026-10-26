@@ -36,6 +36,9 @@ public class HistoricoImportacao {
     @Column(name = "nome_arquivo", nullable = false)
     private String nomeArquivo;
 
+    @Column(name = "conteudo_arquivo", columnDefinition = "TEXT")
+    private String conteudoArquivo;
+
     @Column(name = "total_lidas")
     private Integer totalLidas = 0;
 

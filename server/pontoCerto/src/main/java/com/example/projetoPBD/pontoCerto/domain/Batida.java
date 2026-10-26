@@ -1,5 +1,6 @@
 package com.example.projetoPBD.pontoCerto.domain;
 
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusBatida;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoOrigem;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoRegistro;
 import jakarta.persistence.*;
@@ -36,8 +37,11 @@ public class Batida {
     private Long nsr;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "funcionario_id", nullable = false, updatable = false)
+    @JoinColumn(name = "funcionario_id", nullable = true)
     private Funcionario funcionario;
+
+    @Column(name = "identificador_original", nullable = true, updatable = false)
+    private String identificadorOriginal;
 
     @Column(name = "data_hora", nullable = false, updatable = false)
     private LocalDateTime dataHora;
@@ -47,8 +51,21 @@ public class Batida {
     private TipoRegistro tipoRegistro;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status_batida", nullable = false, columnDefinition = "varchar(30) default 'NORMAL'")
+    private StatusBatida statusBatida = StatusBatida.NORMAL;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "tipo_origem", nullable = false, updatable = false)
     private TipoOrigem tipoOrigem;
+
+    @Column(name = "vinculado_por", nullable = true)
+    private String vinculadoPor;
+
+    @Column(name = "data_vinculo", nullable = true)
+    private LocalDateTime dataVinculo;
+
+    @Column(name = "motivo_vinculo", nullable = true)
+    private String motivoVinculo;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "equipamento_id", nullable = true, updatable = false)
