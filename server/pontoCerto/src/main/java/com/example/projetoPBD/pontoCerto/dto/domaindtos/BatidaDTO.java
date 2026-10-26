@@ -1,8 +1,10 @@
 package com.example.projetoPBD.pontoCerto.dto.domaindtos;
 
 import com.example.projetoPBD.pontoCerto.domain.Batida;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusBatida;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoOrigem;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoRegistro;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
@@ -48,6 +50,52 @@ public class BatidaDTO {
                     batida.getTipoRegistro(),
                     batida.getTipoOrigem()
             );
+        }
+    }
+
+    public record VincularOrfaRequest(
+            @NotNull(message = "ID do funcionário é obrigatório")
+            UUID funcionarioId,
+
+            @NotBlank(message = "O motivo do vínculo é obrigatório")
+            String motivo
+    ) {}
+
+    public record BatidaOrfaResponse(
+            UUID id,
+            Long nsr,
+            String identificadorOriginal,
+            LocalDateTime dataHora,
+            String identificacaoEquipamento,
+            String codigoEquipamento,
+            String nomeArquivo,
+            String conteudoArquivo,
+            StatusBatida statusBatida,
+            String nomeFuncionarioVinculado,
+            String vinculadoPor,
+            LocalDateTime dataVinculo,
+            String motivoVinculo
+    ) {
+        public BatidaOrfaResponse(Batida batida, String nomeArquivo, String conteudoArquivo) {
+            this(
+                    batida.getId(),
+                    batida.getNsr(),
+                    batida.getIdentificadorOriginal(),
+                    batida.getDataHora(),
+                    batida.getEquipamento() != null ? batida.getEquipamento().getIdentificacao() : "N/A",
+                    batida.getEquipamento() != null ? batida.getEquipamento().getCodigo() : "N/A",
+                    nomeArquivo,
+                    conteudoArquivo,
+                    batida.getStatusBatida(),
+                    batida.getFuncionario() != null ? batida.getFuncionario().getNomeCompleto() : null,
+                    batida.getVinculadoPor(),
+                    batida.getDataVinculo(),
+                    batida.getMotivoVinculo()
+            );
+        }
+
+        public BatidaOrfaResponse(Batida batida, String nomeArquivo) {
+            this(batida, nomeArquivo, null);
         }
     }
 }

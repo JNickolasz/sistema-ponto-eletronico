@@ -78,6 +78,27 @@ export const batidaService = {
       throw err;
     }
   },
+
+  async listarBatidasOrfas(status = 'ORFA_PENDENTE') {
+    const query = status ? `?status=${encodeURIComponent(status)}` : '';
+    return await api.get(`/batidas/orfas${query}`);
+  },
+
+  async vincularBatidaOrfa(batidaId, { funcionarioId, motivo }) {
+    if (!batidaId) {
+      throw new Error('ID da batida órfã é obrigatório');
+    }
+    if (!funcionarioId) {
+      throw new Error('Selecione um colaborador para vincular');
+    }
+    if (!motivo || !motivo.trim()) {
+      throw new Error('O motivo do vínculo é obrigatório');
+    }
+    return await api.post(`/batidas/${encodeURIComponent(batidaId)}/vincular`, {
+      funcionarioId,
+      motivo: motivo.trim(),
+    });
+  },
 };
 
 export default batidaService;

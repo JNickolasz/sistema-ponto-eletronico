@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import ImportacaoPosicionalSection from '../components/ImportacaoPosicionalSection';
+import BatidasOrfasSection from '../components/BatidasOrfasSection';
 import rhService from '../services/rhService';
+import batidaService from '../services/batidaService';
 import equipamentoService from '../services/equipamentoService';
 import feriadoService from '../services/feriadoService';
 import {
@@ -194,6 +196,20 @@ export function RhDashboard() {
   const [horarioPrevistoResultado, setHorarioPrevistoResultado] = useState(null);
   const [loadingHorarioPrevisto, setLoadingHorarioPrevisto] = useState(false);
   const [regimesColaborador, setRegimesColaborador] = useState([]);
+  const [orfasPendentesCount, setOrfasPendentesCount] = useState(0);
+
+  const carregarContagemOrfas = async () => {
+    try {
+      const lista = await batidaService.listarBatidasOrfas('ORFA_PENDENTE');
+      setOrfasPendentesCount(Array.isArray(lista) ? lista.length : 0);
+    } catch {
+      setOrfasPendentesCount(0);
+    }
+  };
+
+  useEffect(() => {
+    carregarContagemOrfas();
+  }, []);
 
   const recarregarPainel = async () => {
     try {
@@ -1192,6 +1208,26 @@ export function RhDashboard() {
           >
             <History size={18} />
             <span>Histórico de Importações</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setAbaAtiva('batidas-orfas');
+              carregarContagemOrfas();
+            }}
+            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              abaAtiva === 'batidas-orfas'
+                ? 'border-amber-500 text-amber-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <AlertCircle size={18} />
+            <span>Batidas Órfãs (T10)</span>
+            {orfasPendentesCount > 0 && (
+              <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-300 font-mono">
+                {orfasPendentesCount}
+              </span>
+            )}
           </button>
         </div>
 
@@ -3692,9 +3728,24 @@ export function RhDashboard() {
             funcionarios={funcionariosEmpresa}
             modoInicial={abaAtiva === 'historico-importacao' ? 'historico' : 'wizard'}
             onIrParaEquipamentos={() => setAbaAtiva('equipamentos')}
+            onIrParaBatidasOrfas={() => {
+              carregarContagemOrfas();
+              setAbaAtiva('batidas-orfas');
+            }}
             onImportacaoConcluida={() => {
               carregarEquipamentos();
+              carregarContagemOrfas();
             }}
+          />
+        )}
+
+        {abaAtiva === 'batidas-orfas' && (
+          <BatidasOrfasSection
+            funcionarios={funcionariosEmpresa}
+            onVinculoConcluido={() => {
+              carregarContagemOrfas();
+            }}
+            onIrParaImportacao={() => setAbaAtiva('importacao')}
           />
         )}
 

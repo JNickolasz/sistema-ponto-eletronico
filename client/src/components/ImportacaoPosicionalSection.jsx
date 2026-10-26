@@ -25,6 +25,7 @@ export default function ImportacaoPosicionalSection({
   funcionarios = [],
   modoInicial = 'wizard', // 'wizard' | 'historico'
   onIrParaEquipamentos,
+  onIrParaBatidasOrfas,
   onImportacaoConcluida,
 }) {
   // Sub-aba ativa: 'wizard' (Etapa 1 Upload / Etapa 2 Preview) ou 'historico'
@@ -184,6 +185,20 @@ export default function ImportacaoPosicionalSection({
     URL.revokeObjectURL(url);
   };
 
+  const handleBaixarArquivoHistorico = (itemHistorico) => {
+    if (!itemHistorico?.conteudoArquivo) {
+      toast.error('O conteúdo deste arquivo não está disponível para download.');
+      return;
+    }
+    const blob = new Blob([itemHistorico.conteudoArquivo], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = itemHistorico.nomeArquivo || 'importacao_afd.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   // Etapa 1: Enviar para POST /api/v1/importacao/preview
   const handleEnviarParaPreview = async (e) => {
     e.preventDefault();
@@ -239,8 +254,12 @@ export default function ImportacaoPosicionalSection({
     try {
       setLoadingConfirmacao(true);
       const historicoSalvo = await importacaoService.confirmarImportacao(arquivoSelecionado, equipamentoId);
+      const msgOrfas =
+        historicoSalvo.totalRecusadas > 0
+          ? ` e ${historicoSalvo.totalRecusadas} batida(s) órfã(s) guardada(s) para vínculo`
+          : '';
       toast.success(
-        `Importação concluída com sucesso! ${historicoSalvo.totalValidas} batida(s) gravada(s) no banco.`
+        `Importação concluída com sucesso! ${historicoSalvo.totalValidas} batida(s) válida(s)${msgOrfas}.`
       );
 
       // Limpa estados do wizard, atualiza histórico e abre a aba de histórico
@@ -684,13 +703,13 @@ export default function ImportacaoPosicionalSection({
                 <div className="rounded-2xl bg-rose-950/30 border border-rose-500/40 p-5 flex items-center justify-between">
                   <div>
                     <span className="text-xs font-bold uppercase tracking-wider text-rose-400">
-                      Recusadas (Com Falha)
+                      Órfãs (Sem Colaborador)
                     </span>
                     <div className="text-3xl font-extrabold text-rose-300 font-mono mt-1">
                       {previewData.totalRecusadas}
                     </div>
                     <p className="text-[11px] text-rose-200/70 mt-1">
-                      Funcionário não encontrado na empresa
+                      Gravadas como órfãs p/ vínculo posterior (T10)
                     </p>
                   </div>
                   <div className="p-3 rounded-2xl bg-rose-500/20 text-rose-400">
@@ -798,7 +817,7 @@ export default function ImportacaoPosicionalSection({
                               )}
                               {item.categoria === 'RECUSADA' && (
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                                  <XCircle size={11} /> RECUSADA
+                                  <XCircle size={11} /> ÓRFÃ (PENDENTE)
                                 </span>
                               )}
                             </td>
@@ -824,7 +843,13 @@ export default function ImportacaoPosicionalSection({
                   />
                   <span className="text-xs text-slate-200">
                     Conferi os totais e motivos acima e <strong>autorizo a gravação definitiva</strong> das{' '}
-                    <strong className="text-emerald-400">{previewData.totalValidas} batida(s) válida(s)</strong> no banco de dados.
+                    <strong className="text-emerald-400">{previewData.totalValidas} batida(s) válida(s)</strong>
+                    {previewData.totalRecusadas > 0 && (
+                      <>
+                        {' '}e <strong className="text-rose-400">{previewData.totalRecusadas} batida(s) órfã(s)</strong>
+                      </>
+                    )}{' '}
+                    no banco de dados.
                   </span>
                 </label>
 
@@ -883,6 +908,16 @@ export default function ImportacaoPosicionalSection({
             </div>
 
             <div className="flex items-center gap-2">
+              {onIrParaBatidasOrfas && (
+                <button
+                  type="button"
+                  onClick={onIrParaBatidasOrfas}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-xs font-semibold text-amber-300 transition-colors cursor-pointer"
+                >
+                  <AlertTriangle size={13} />
+                  <span>Tratar Batidas Órfãs (T10)</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={carregarHistorico}
@@ -930,7 +965,7 @@ export default function ImportacaoPosicionalSection({
                     <th className="py-3.5 px-4 font-semibold text-center">Lidas</th>
                     <th className="py-3.5 px-4 font-semibold text-center text-emerald-400">Válidas</th>
                     <th className="py-3.5 px-4 font-semibold text-center text-amber-400">Repetidas</th>
-                    <th className="py-3.5 px-4 font-semibold text-center text-rose-400">Recusadas</th>
+                    <th className="py-3.5 px-4 font-semibold text-center text-rose-400">Órfãs</th>
                     <th className="py-3.5 px-4 font-semibold text-center">Status</th>
                   </tr>
                 </thead>
@@ -953,7 +988,20 @@ export default function ImportacaoPosicionalSection({
                         {h.identificacaoEquipamento || '—'}
                       </td>
                       <td className="py-3.5 px-4 font-mono text-indigo-300">
-                        {h.nomeArquivo}
+                        <div className="flex items-center gap-2">
+                          <span>{h.nomeArquivo}</span>
+                          {h.conteudoArquivo && (
+                            <button
+                              type="button"
+                              onClick={() => handleBaixarArquivoHistorico(h)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-[11px] font-sans font-semibold text-indigo-300 transition-colors cursor-pointer"
+                              title="Baixar arquivo .txt original"
+                            >
+                              <Download size={12} />
+                              <span>Baixar .txt</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="py-3.5 px-4 font-mono text-center text-slate-300">
                         {h.totalLidas}
