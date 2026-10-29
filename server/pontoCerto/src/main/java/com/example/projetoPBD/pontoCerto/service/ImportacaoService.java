@@ -69,9 +69,30 @@ public class ImportacaoService {
         List<ImportacaoDTO.ItemPreview> recusadas = new ArrayList<>();
         Set<String> chavesNoArquivo = new HashSet<>();
 
+        List<Long> nsrsDoArquivo = resultado.registro().stream()
+                .map(ProcessadorArquivoPosicional.RegistroBatidaLinha::nsr)
+                .toList();
+        Set<Long> nsrsJaExistentesNoBanco = nsrsDoArquivo.isEmpty()
+                ? Set.of()
+                : new HashSet<>(batidaRepository.findNsrsByEquipamentoIdAndNsrIn(equipamento.getId(), nsrsDoArquivo));
+        Set<Long> nsrsNoArquivo = new HashSet<>();
+
         for (ProcessadorArquivoPosicional.RegistroBatidaLinha reg : resultado.registro()) {
             String identificadorLimpo = reg.pis() != null ? reg.pis().trim() : "";
             Optional<Funcionario> funcOpt = buscarFuncionario(identificadorLimpo, empresaId);
+
+            boolean nsrRepetido = nsrsJaExistentesNoBanco.contains(reg.nsr()) || !nsrsNoArquivo.add(reg.nsr());
+            if (nsrRepetido) {
+                repetidas.add(new ImportacaoDTO.ItemPreview(
+                        reg.numeroLinha(),
+                        reg.nsr(),
+                        identificadorLimpo,
+                        funcOpt.map(Funcionario::getNomeCompleto).orElse(null),
+                        reg.dataHora(),
+                        "Marcação já existente para este equipamento e NSR (" + reg.nsr() + ")"
+                ));
+                continue;
+            }
 
             if (funcOpt.isEmpty()) {
                 String chaveOrfa = "ORFA_" + identificadorLimpo + "_" + reg.dataHora();
@@ -82,6 +103,7 @@ public class ImportacaoService {
                 if (orfaJaExiste || !chavesNoArquivo.add(chaveOrfa)) {
                     repetidas.add(new ImportacaoDTO.ItemPreview(
                             reg.numeroLinha(),
+                            reg.nsr(),
                             identificadorLimpo,
                             null,
                             reg.dataHora(),
@@ -90,6 +112,7 @@ public class ImportacaoService {
                 } else {
                     recusadas.add(new ImportacaoDTO.ItemPreview(
                             reg.numeroLinha(),
+                            reg.nsr(),
                             identificadorLimpo,
                             null,
                             reg.dataHora(),
@@ -106,6 +129,7 @@ public class ImportacaoService {
             if (jaExisteNoBanco || !chavesNoArquivo.add(chaveUnica)) {
                 repetidas.add(new ImportacaoDTO.ItemPreview(
                         reg.numeroLinha(),
+                        reg.nsr(),
                         identificadorLimpo,
                         funcionario.getNomeCompleto(),
                         reg.dataHora(),
@@ -114,6 +138,7 @@ public class ImportacaoService {
             } else {
                 validas.add(new ImportacaoDTO.ItemPreview(
                         reg.numeroLinha(),
+                        reg.nsr(),
                         identificadorLimpo,
                         funcionario.getNomeCompleto(),
                         reg.dataHora(),
@@ -138,7 +163,7 @@ public class ImportacaoService {
 
     @Transactional(rollbackFor = Exception.class)
     public ImportacaoDTO.HistoricoResponse confirmarImportacao(MultipartFile arquivo, UUID equipamentoId) {
-        Equipamento equipamento = validarEquipamento(equipamentoId);
+        Equipamento equipamento = validarEquipamentoParaGravacao(equipamentoId);
         UUID empresaId = equipamento.getEmpresa().getId();
 
         List<String> linhas = lerLinhasEstrutura(arquivo);
@@ -153,6 +178,7 @@ public class ImportacaoService {
 
         List<Batida> batidasSalvas = new ArrayList<>();
         Set<String> chavesNoArquivo = new HashSet<>();
+        Set<Long> nsrsNoArquivo = new HashSet<>();
         int validasCount = 0;
         int repetidasCount = 0;
         int recusadasCount = 0;
@@ -165,6 +191,13 @@ public class ImportacaoService {
 
             ProcessadorArquivoPosicional.RegistroBatidaLinha reg = processador.extrairRegistroBatida(numeroLinha, linha);
             String identificadorLimpo = reg.pis() != null ? reg.pis().trim() : "";
+
+            boolean nsrJaExiste = batidaRepository.existsByEquipamentoIdAndNsr(equipamento.getId(), reg.nsr());
+            if (nsrJaExiste || !nsrsNoArquivo.add(reg.nsr())) {
+                repetidasCount++;
+                continue;
+            }
+
             Optional<Funcionario> funcOpt = buscarFuncionario(identificadorLimpo, empresaId);
 
             if (funcOpt.isEmpty()) {
@@ -177,6 +210,7 @@ public class ImportacaoService {
                     repetidasCount++;
                 } else {
                     Batida batidaOrfa = new Batida();
+                    batidaOrfa.setNsr(reg.nsr());
                     batidaOrfa.setFuncionario(null);
                     batidaOrfa.setIdentificadorOriginal(identificadorLimpo);
                     batidaOrfa.setStatusBatida(StatusBatida.ORFA_PENDENTE);
@@ -202,6 +236,7 @@ public class ImportacaoService {
                 repetidasCount++;
             } else {
                 Batida batida = new Batida();
+                batida.setNsr(reg.nsr());
                 batida.setFuncionario(funcionario);
                 batida.setIdentificadorOriginal(identificadorLimpo);
                 batida.setStatusBatida(StatusBatida.NORMAL);
@@ -286,10 +321,21 @@ public class ImportacaoService {
     }
 
     private Equipamento validarEquipamento(UUID equipamentoId) {
+        return buscarEValidarEquipamento(equipamentoId, false);
+    }
+
+    private Equipamento validarEquipamentoParaGravacao(UUID equipamentoId) {
+        return buscarEValidarEquipamento(equipamentoId, true);
+    }
+
+    private Equipamento buscarEValidarEquipamento(UUID equipamentoId, boolean bloquearParaAtualizacao) {
         if (equipamentoId == null) {
             throw new EquipamentoNaoEncontradoException("Equipamento não encontrado");
         }
-        Equipamento equipamento = equipamentoRepository.findById(equipamentoId)
+        Optional<Equipamento> equipamentoOpt = bloquearParaAtualizacao
+                ? equipamentoRepository.findByIdForUpdate(equipamentoId)
+                : equipamentoRepository.findById(equipamentoId);
+        Equipamento equipamento = equipamentoOpt
                 .orElseThrow(() -> new EquipamentoNaoEncontradoException("Equipamento não encontrado"));
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

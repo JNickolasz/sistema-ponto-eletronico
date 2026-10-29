@@ -15,7 +15,7 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "batida", uniqueConstraints = {
-        @UniqueConstraint(columnNames = {"nsr"})
+        @UniqueConstraint(name = "uk_batida_equipamento_nsr", columnNames = {"equipamento_id", "nsr"})
 })
 @SequenceGenerator(name = "seq_nsr_batida", sequenceName = "seq_nsr_batida", allocationSize = 1)
 public class Batida {
@@ -29,10 +29,8 @@ public class Batida {
             name = "nsr",
             nullable = false,
             updatable = false,
-            insertable = false,
             columnDefinition = "BIGINT DEFAULT nextval('seq_nsr_batida')"
     )
-    @org.hibernate.annotations.Generated
 
     private Long nsr;
 

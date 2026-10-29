@@ -128,6 +128,7 @@ class PontoCertoApplicationTests {
 				processadorArquivoPosicional.extrairRegistroBatida(2, linhaSimulada);
 
 		assertEquals(2, registro.numeroLinha());
+		assertNotNull(registro.nsr());
 		assertEquals("11111111111", registro.pis());
 		assertEquals(LocalDateTime.of(2026, 10, 18, 8, 30), registro.dataHora());
 	}
@@ -262,5 +263,95 @@ class PontoCertoApplicationTests {
 		assertEquals("Colaborador recém-admitido", vinculada.motivoVinculo());
 		assertNotNull(vinculada.dataVinculo());
 		assertNotNull(vinculada.vinculadoPor());
+	}
+
+	@Test
+	@DisplayName("T11 - Idempotência na Reimportação: Reimportar o mesmo arquivo conta todas como repetidas e não duplica no banco")
+	void testReimportacaoMesmoArquivoNaoDuplica() {
+		batidaRepository.deleteAll();
+		historicoImportacaoRepository.deleteAll();
+
+		Equipamento equipamento = equipamentoRepository.findAll().stream().findFirst()
+				.orElseThrow(() -> new IllegalStateException("Nenhum equipamento encontrado para o teste."));
+
+		String conteudo = String.join("\n",
+				"1000000000CABECALHO",
+				"300000010115102026080011111111111",
+				"300000010215102026120011111111111",
+				"300000010315102026130011111111111",
+				"300000010415102026170011111111111",
+				"300000010516102026080011111111111",
+				"9000000005TRAILER"
+		);
+
+		MockMultipartFile arquivo = new MockMultipartFile(
+				"arquivo", "afd_lote_5.txt", "text/plain", conteudo.getBytes(StandardCharsets.UTF_8)
+		);
+
+		// 1ª Importação: grava as 5 batidas
+		ImportacaoDTO.HistoricoResponse primeira = importacaoService.confirmarImportacao(arquivo, equipamento.getId());
+		assertEquals(5, primeira.totalValidas());
+		assertEquals(0, primeira.totalRepetidas());
+		assertEquals(5, batidaRepository.count());
+
+		// Preview da 2ª Importação (mesmo arquivo e mesmo equipamento): 5 repetidas e 0 válidas
+		ImportacaoDTO.PreviewResponse previewSegunda = importacaoService.gerarPreview(arquivo, equipamento.getId());
+		assertEquals(0, previewSegunda.totalValidas());
+		assertEquals(5, previewSegunda.totalRepetidas());
+
+		// Confirmação da 2ª Importação: não duplica nada no banco
+		ImportacaoDTO.HistoricoResponse segunda = importacaoService.confirmarImportacao(arquivo, equipamento.getId());
+		assertEquals(0, segunda.totalValidas());
+		assertEquals(5, segunda.totalRepetidas());
+		assertEquals(5, batidaRepository.count(), "Nenhuma batida duplicada deve ser criada ao reimportar o arquivo!");
+	}
+
+	@Test
+	@DisplayName("T11 - Constraint de Unicidade no Banco: Duas gravações simultâneas com mesmo Equipamento + NSR não geram duplicidade")
+	void testConcorrenciaMesmoEquipamentoENsrBloqueiaDuplicidade() throws InterruptedException {
+		batidaRepository.deleteAll();
+
+		Equipamento equipamento = equipamentoRepository.findAll().stream().findFirst()
+				.orElseThrow(() -> new IllegalStateException("Nenhum equipamento encontrado para o teste."));
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst()
+				.orElseThrow(() -> new IllegalStateException("Nenhum funcionário encontrado para o teste."));
+
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		CountDownLatch largada = new CountDownLatch(1);
+
+		Callable<Boolean> inserirMesmoNsr = () -> {
+			largada.await();
+			try {
+				Batida b = new Batida();
+				b.setEquipamento(equipamento);
+				b.setNsr(99999L);
+				b.setFuncionario(funcionario);
+				b.setDataHora(LocalDateTime.of(2026, 10, 20, 8, 0));
+				b.setTipoRegistro(TipoRegistro.ENTRADA);
+				b.setTipoOrigem(com.example.projetoPBD.pontoCerto.domain.enums.TipoOrigem.ARQUIVO_IMPORTADO);
+				b.setStatusBatida(StatusBatida.NORMAL);
+				batidaRepository.saveAndFlush(b);
+				return true;
+			} catch (Exception e) {
+				return false;
+			}
+		};
+
+		Future<Boolean> f1 = executor.submit(inserirMesmoNsr);
+		Future<Boolean> f2 = executor.submit(inserirMesmoNsr);
+		largada.countDown();
+
+		try {
+			boolean r1 = f1.get();
+			boolean r2 = f2.get();
+			// Apenas uma das duas threads pode ter sucesso; a outra deve bater na constraint uk_batida_equipamento_nsr
+			assertTrue(r1 ^ r2, "Exatamente uma inserção deve funcionar e a outra deve ser barrada pela constraint única!");
+		} catch (ExecutionException e) {
+			fail("Erro inesperado na execução concorrente: " + e.getMessage());
+		} finally {
+			executor.shutdown();
+		}
+
+		assertEquals(1, batidaRepository.count(), "O banco deve conter exatamente 1 registro para o par (equipamento, nsr)!");
 	}
 }

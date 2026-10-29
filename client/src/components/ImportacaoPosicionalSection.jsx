@@ -126,29 +126,29 @@ export default function ImportacaoPosicionalSection({
 
     let linhas = [];
     if (tipo === 'MISTO') {
-      // Cabeçalho (1), 2 válidas, 1 repetida, 1 recusada (PIS não encontrado), Trailer (9)
+      // Cabeçalho (1), 3 válidas, 1 repetida (mesmo NSR 101), 1 recusada (PIS não encontrado), Trailer (9)
       linhas = [
         `1000000000CABECALHOAFDPONTOCERTO${dataPosicional}`,
-        `3${dataPosicional}0800${pisColaborador1}`,
-        `3${dataPosicional}1200${pisColaborador1}`,
-        `3${dataPosicional}1300${pisColaborador2}`,
-        `3${dataPosicional}0800${pisColaborador1}`, // Repetida (mesmo PIS e data/hora da linha 2)
-        `3${dataPosicional}180099999999999`, // Recusada (PIS inexistente no banco)
+        `3000000101${dataPosicional}0800${pisColaborador1}`,
+        `3000000102${dataPosicional}1200${pisColaborador1}`,
+        `3000000103${dataPosicional}1300${pisColaborador2}`,
+        `3000000101${dataPosicional}0800${pisColaborador1}`, // Repetida (mesmo equipamento + NSR 101)
+        `3000000104${dataPosicional}180099999999999`, // Recusada (PIS inexistente no banco)
         `9000000005TRAILERAFD`,
       ];
     } else if (tipo === 'SOMENTE_VALIDAS') {
       linhas = [
         `1000000000CABECALHOAFDPONTOCERTO${dataPosicional}`,
-        `3${dataPosicional}0805${pisColaborador1}`,
-        `3${dataPosicional}1205${pisColaborador1}`,
-        `3${dataPosicional}1305${pisColaborador1}`,
-        `3${dataPosicional}1705${pisColaborador1}`,
+        `3000000201${dataPosicional}0805${pisColaborador1}`,
+        `3000000202${dataPosicional}1205${pisColaborador1}`,
+        `3000000203${dataPosicional}1305${pisColaborador1}`,
+        `3000000204${dataPosicional}1705${pisColaborador1}`,
         `9000000004TRAILERAFD`,
       ];
     } else if (tipo === 'INVALIDO_SEM_TRAILER') {
       linhas = [
         `1000000000CABECALHOAFDPONTOCERTO${dataPosicional}`,
-        `3${dataPosicional}0800${pisColaborador1}`,
+        `3000000301${dataPosicional}0800${pisColaborador1}`,
       ];
     }
 
@@ -254,12 +254,16 @@ export default function ImportacaoPosicionalSection({
     try {
       setLoadingConfirmacao(true);
       const historicoSalvo = await importacaoService.confirmarImportacao(arquivoSelecionado, equipamentoId);
+      const msgRepetidas =
+        historicoSalvo.totalRepetidas > 0
+          ? `, ${historicoSalvo.totalRepetidas} repetida(s) ignorada(s)`
+          : '';
       const msgOrfas =
         historicoSalvo.totalRecusadas > 0
           ? ` e ${historicoSalvo.totalRecusadas} batida(s) órfã(s) guardada(s) para vínculo`
           : '';
       toast.success(
-        `Importação concluída com sucesso! ${historicoSalvo.totalValidas} batida(s) válida(s)${msgOrfas}.`
+        `Importação concluída! ${historicoSalvo.totalValidas} válida(s) gravada(s)${msgRepetidas}${msgOrfas}.`
       );
 
       // Limpa estados do wizard, atualiza histórico e abre a aba de histórico
@@ -332,6 +336,12 @@ export default function ImportacaoPosicionalSection({
 
   const linhasTabela = obterLinhasPreviewFiltradas();
   const totalProblemas = (previewData?.totalRepetidas || 0) + (previewData?.totalRecusadas || 0);
+  const possuiNovasParaGravar =
+    (previewData?.totalValidas || 0) + (previewData?.totalRecusadas || 0) > 0;
+  const todasRepetidas =
+    previewData &&
+    !possuiNovasParaGravar &&
+    (previewData.totalRepetidas || 0) > 0;
 
   return (
     <div className="space-y-6">
@@ -718,6 +728,15 @@ export default function ImportacaoPosicionalSection({
                 </div>
               </div>
 
+              {todasRepetidas && (
+                <div className="rounded-xl bg-amber-500/10 border border-amber-500/40 p-4 flex items-center gap-3 text-amber-300 text-xs font-medium">
+                  <AlertTriangle size={18} className="text-amber-400 shrink-0" />
+                  <span>
+                    Todas as marcações deste arquivo já foram importadas anteriormente. Se confirmar a importação, nenhuma batida nova será criada e todas serão contabilizadas como repetidas no relatório.
+                  </span>
+                </div>
+              )}
+
               {/* Filtros e Tabela de Linhas e Motivos */}
               <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -768,6 +787,7 @@ export default function ImportacaoPosicionalSection({
                     <thead>
                       <tr className="border-b border-slate-800 bg-slate-900/90 text-slate-400 uppercase tracking-wider text-[11px]">
                         <th className="py-3 px-4 font-semibold">Linha</th>
+                        <th className="py-3 px-4 font-semibold">NSR</th>
                         <th className="py-3 px-4 font-semibold">PIS / Matrícula</th>
                         <th className="py-3 px-4 font-semibold">Colaborador</th>
                         <th className="py-3 px-4 font-semibold">Data e Hora</th>
@@ -778,7 +798,7 @@ export default function ImportacaoPosicionalSection({
                     <tbody className="divide-y divide-slate-800/70">
                       {linhasTabela.length === 0 ? (
                         <tr>
-                          <td colSpan={6} className="py-8 text-center text-slate-400">
+                          <td colSpan={7} className="py-8 text-center text-slate-400">
                             {filtroTabelaPreview === 'PROBLEMAS'
                               ? 'Nenhuma linha com problema (repetida ou recusada) foi encontrada neste arquivo!'
                               : 'Nenhum registro para exibir neste filtro.'}
@@ -792,6 +812,9 @@ export default function ImportacaoPosicionalSection({
                           >
                             <td className="py-3 px-4 font-mono text-slate-300">
                               #{item.numeroLinha}
+                            </td>
+                            <td className="py-3 px-4 font-mono text-indigo-300">
+                              {item.nsr ?? '—'}
                             </td>
                             <td className="py-3 px-4 font-mono text-slate-200">
                               {item.pis}

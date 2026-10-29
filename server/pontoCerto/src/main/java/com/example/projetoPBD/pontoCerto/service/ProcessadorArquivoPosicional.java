@@ -21,7 +21,12 @@ public class ProcessadorArquivoPosicional {
     private static final DateTimeFormatter DATA_FORMATER = DateTimeFormatter.ofPattern("ddMMyyyy");
     private static final DateTimeFormatter HORA_FORMATER = DateTimeFormatter.ofPattern("HHmm");
 
-    public record RegistroBatidaLinha(int numeroLinha, String pis, LocalDateTime dataHora) {}
+    public record RegistroBatidaLinha(
+            int numeroLinha,
+            Long nsr,
+            String pis,
+            LocalDateTime dataHora
+    ) {}
     public record ResultadoLeitura(List<RegistroBatidaLinha> registro, int totalLinhasBatidas) {}
 
     public List<String> lerEValidarEstrutura(InputStream inputStream) {
@@ -85,14 +90,28 @@ public class ProcessadorArquivoPosicional {
         }
 
         try {
-            String dataStr = linha.substring(1, 9);
-            String horaStr = linha.substring(9, 13);
-            String pis = linha.substring(13, 24);
+            Long nsr;
+            String dataStr;
+            String horaStr;
+            String pis;
+
+            if (linha.length() >= 33) {
+                nsr = Long.parseLong(linha.substring(1, 10).trim());
+                dataStr = linha.substring(10, 18);
+                horaStr = linha.substring(18, 22);
+                pis = linha.substring(22, 33);
+            } else {
+                dataStr = linha.substring(1, 9);
+                horaStr = linha.substring(9, 13);
+                pis = linha.substring(13, 24);
+                nsr = (long) numeroLinha;
+            }
 
             LocalDate data = LocalDate.parse(dataStr, DATA_FORMATER);
             LocalTime hora = LocalTime.parse(horaStr, HORA_FORMATER);
             LocalDateTime dataHora = LocalDateTime.of(data, hora);
-            return new RegistroBatidaLinha(numeroLinha, pis, dataHora);
+
+            return new RegistroBatidaLinha(numeroLinha, nsr, pis, dataHora);
         } catch (Exception e) {
             throw new ArquivoImportacaoInvalidoException(
                     String.format("Erro ao decodificar dados na linha %d: %s", numeroLinha, e.getMessage())

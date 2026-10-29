@@ -11,6 +11,7 @@ public class ImportacaoDTO {
 
     public record ItemPreview(
             int numeroLinha,
+            Long nsr,
             String pis,
             String nomeFuncionario,
             LocalDateTime dataHora,
