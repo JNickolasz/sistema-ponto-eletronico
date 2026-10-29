@@ -77,13 +77,13 @@ public class BatidaService {
         batida.setLongitudeRecebida(dto.longitude());
         batida.setIpRecebido(dto.ip());
 
-        batida = batidaRepository.saveAndFlush(batida);
-
         // só por segurança, antes de dar o return faz uma verificação
         // e caso o nsr seja == null ele tenta criar novamente
         if (batida.getNsr() == null) {
-            entityManager.refresh(batida);
+            Long novoNsr = batidaRepository.proximoNsrSequence();
+            batida.setNsr(novoNsr);
         }
+        batida = batidaRepository.saveAndFlush(batida);
 
         return new BatidaDTO.ComprovanteResponse(batida);
     }

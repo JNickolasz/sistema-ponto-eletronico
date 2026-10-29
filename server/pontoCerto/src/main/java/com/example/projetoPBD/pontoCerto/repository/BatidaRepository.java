@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,6 +23,8 @@ public interface BatidaRepository extends JpaRepository<Batida, UUID> {
     long countDistinctNsr();
 
     boolean existsByFuncionarioIdAndDataHora(UUID funcionarioId, LocalDateTime dataHora);
+
+    boolean existsByEquipamentoIdAndNsr(UUID equipamentoId, Long nsr);
 
     @Query("SELECT CASE WHEN COUNT(b) > 0 THEN true ELSE false END FROM Batida b " +
             "WHERE b.identificadorOriginal = :identificadorOriginal " +
@@ -42,5 +45,17 @@ public interface BatidaRepository extends JpaRepository<Batida, UUID> {
     List<Batida> findByEmpresaIdAndStatusBatidaOrderByDataHoraDesc(
             @Param("empresaId") UUID empresaId,
             @Param("status") StatusBatida status
+    );
+
+    @Query(
+            value = "SELECT nextval('seq_nsr_batida')",
+            nativeQuery = true
+    )
+    Long proximoNsrSequence();
+
+    @Query("SELECT b.nsr FROM Batida b WHERE b.equipamento.id = :equipamentoId AND b.nsr IN :nsrs")
+    List<Long> findNsrsByEquipamentoIdAndNsrIn(
+            @Param("equipamentoId") UUID equipamentoId,
+            @Param("nsrs") List<Long> nsrs
     );
 }
