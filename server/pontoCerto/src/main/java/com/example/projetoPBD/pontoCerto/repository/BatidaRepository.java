@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -16,6 +17,7 @@ public interface BatidaRepository extends JpaRepository<Batida, UUID> {
     @Query("SELECT b FROM Batida b " +
             "WHERE b.funcionario.id = :funcionarioId " +
             "AND (b.statusBatida IS NULL OR b.statusBatida <> com.example.projetoPBD.pontoCerto.domain.enums.StatusBatida.ORFA_PENDENTE) " +
+            "AND (b.statusBatida IS NULL OR b.statusBatida <> com.example.projetoPBD.pontoCerto.domain.enums.StatusBatida.DESCARTADA) " +
             "ORDER BY b.dataHora DESC")
     List<Batida> findByFuncionarioIdOrderByDataHoraDesc(@Param("funcionarioId") UUID funcionarioId);
 
@@ -57,5 +59,19 @@ public interface BatidaRepository extends JpaRepository<Batida, UUID> {
     List<Long> findNsrsByEquipamentoIdAndNsrIn(
             @Param("equipamentoId") UUID equipamentoId,
             @Param("nsrs") List<Long> nsrs
+    );
+
+    @Query("SELECT b FROM Batida b " +
+            "LEFT JOIN FETCH b.equipamento e " +
+            "WHERE b.funcionario.id = :funcionarioId " +
+            "AND b.dataHora BETWEEN :inicio AND :fim " +
+            "AND (b.statusBatida IS NULL OR (b.statusBatida <> com.example.projetoPBD.pontoCerto.domain.enums.StatusBatida.ORFA_PENDENTE " +
+            "AND b.statusBatida <> com.example.projetoPBD.pontoCerto.domain.enums.StatusBatida.DESCARTADA)) " +
+            "ORDER BY b.dataHora ASC, b.nsr ASC"
+    )
+    List<Batida> findAtivasByFuncionarioIdAndDataHoraBetweenOrderByDataHoraAsc(
+            @Param("funcionarioId") UUID funcionarioId,
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fim") LocalDateTime fim
     );
 }

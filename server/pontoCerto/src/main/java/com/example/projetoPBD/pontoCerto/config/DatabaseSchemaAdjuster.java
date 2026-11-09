@@ -18,6 +18,7 @@ public class DatabaseSchemaAdjuster implements ApplicationRunner {
     public void run(ApplicationArguments args) {
         jdbcTemplate.execute("ALTER TABLE batida ALTER COLUMN funcionario_id DROP NOT NULL");
         jdbcTemplate.execute("UPDATE batida SET status_batida = 'NORMAL' WHERE status_batida IS NULL");
+        jdbcTemplate.execute("ALTER TABLE batida DROP CONSTRAINT IF EXISTS batida_status_batida_check");
 
         jdbcTemplate.execute("""                                                                                                                          
                     DO $$                                                                                                                                         

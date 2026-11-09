@@ -144,19 +144,24 @@
 ---
 
 ## BATIDA
-**Descrição:** Armazena os registros brutos e individuais das batidas de ponto (entrada ou saída), incluindo auditoria e geração sequencial de NSR. **Regra Portaria 671:** Todos os campos desta entidade são estritamente imutáveis (`updatable = false`).
+**Descrição:** Armazena os registros brutos e individuais das batidas de ponto (entrada ou saída), incluindo auditoria, tratamento de órfãs/duplicadas e geração sequencial de NSR. **Regra Portaria 671:** Os campos originais da marcação são estritamente imutáveis (`updatable = false`), permitindo apenas atualização dos metadados de vínculo/descarte auditado pelo RH.
 
 | Coluna | Tipo | Descrição | Observações |
 | :--- | :--- | :--- | :--- |
 | `id` | UUID | Identificador único da batida. | PK, `updatable = false` |
-| `nsr` | BigInt / Long | Número Sequencial de Registro (Portaria 671). | Not Null, Unique, gerado via sequence `seq_nsr_batida` (`insertable = false, updatable = false`) |
-| `funcionario_id` | UUID | Vínculo com o colaborador que realizou a batida. | FK, Not Null, `updatable = false` |
-| `data_hora` | Timestamp / OffsetDateTime | Momento exato do registro (gerado obrigatoriamente no servidor). | Not Null, `updatable = false` |
-| `tipo` | Enum | Tipo do registro. | `ENTRADA`, `SAIDA` (ou específico por intervalo), Nullable/Not Null, `updatable = false` |
-| `origem` | Enum | De onde veio a informação. | `ESTACAO`, `ARQUIVO_IMPORTADO`, `AJUSTE_MANUAL`, `APLICATIVO_WEB` | Not Null, `updatable = false` |
+| `nsr` | BigInt / Long | Número Sequencial de Registro (Portaria 671). | Not Null, gerado via sequence `seq_nsr_batida`, Unique composto `(equipamento_id, nsr)` |
+| `funcionario_id` | UUID | Vínculo com o colaborador que realizou a batida. | FK, **Nullable** (nulo enquanto `ORFA_PENDENTE`) |
+| `identificador_original` | String | Número bruto lido no arquivo AFD (PIS, CPF ou Matrícula). | Nullable, `updatable = false` |
+| `data_hora` | Timestamp | Momento exato do registro. | Not Null, `updatable = false` |
+| `tipo_registro` | Enum | Tipo do registro. | `ENTRADA`, `SAIDA`, Not Null, `updatable = false` |
+| `status_batida` | Enum | Estado da marcação para apuração. | `NORMAL`, `ORFA_PENDENTE`, `VINCULADA`, `DESCARTADA` |
+| `tipo_origem` | Enum | De onde veio a informação. | `ESTACAO`, `ARQUIVO_IMPORTADO`, `AJUSTE_MANUAL`, `APLICATIVO_WEB` | Not Null, `updatable = false` |
+| `vinculado_por` | String | Autor do RH que vinculou ou descartou a batida. | Nullable |
+| `data_vinculo` | Timestamp | Data/hora do tratamento manual na batida. | Nullable |
+| `motivo_vinculo` | String | Justificativa auditável do vínculo ou descarte. | Nullable |
 | `equipamento_id` | UUID | Aparelho físico ou estação web utilizada (se aplicável). | FK, Nullable, `updatable = false` |
-| `arquivo_importado_id` | UUID | De qual importação essa batida veio, se `origem = ARQUIVO_IMPORTADO`. | FK, Nullable, `updatable = false` |
-| `pedido_ajuste_id` | UUID | Pedido que originou esta batida, se `origem = AJUSTE_MANUAL`. | FK, Nullable, `updatable = false` |
+| `arquivo_importado_id` | UUID | De qual importação essa batida veio, se `tipo_origem = ARQUIVO_IMPORTADO`. | FK lógica (`historico_importacao.id`), Nullable, `updatable = false` |
+| `pedido_ajuste_id` | UUID | Pedido que originou esta batida, se `tipo_origem = AJUSTE_MANUAL`. | FK lógica, Nullable, `updatable = false` |
 | `foto_url` | String | URL do bucket, caso a estação exija foto biométrica. | Nullable, `updatable = false` |
 | `latitude_recebida` | Decimal | Coordenada Y registrada no momento via browser/app. | Nullable, `updatable = false` |
 | `longitude_recebida` | Decimal | Coordenada X registrada no momento via browser/app. | Nullable, `updatable = false` |
@@ -202,34 +207,52 @@
 
 ---
 
-## ARQUIVO_IMPORTADO
-**Descrição:** Histórico de auditoria e controle do processamento de arquivos AFD do relógio de ponto.
+## HISTORICO_IMPORTACAO (ARQUIVO_IMPORTADO)
+**Descrição:** Histórico de auditoria e controle do processamento de arquivos posicionais AFD do relógio de ponto (T09/T11).
 
 | Coluna | Tipo | Descrição | Observações |
 | :--- | :--- | :--- | :--- |
-| `id` | UUID / Int | Registro de upload de AFD do relógio. | PK |
-| `empresa_id` | UUID / Int | Empresa pertinente. | FK, Not Null |
+| `id` | UUID | Registro de upload de AFD do relógio. | PK |
+| `data_importacao` | Timestamp | Data/hora em que a importação foi processada. | Not Null, `updatable = false` |
+| `autor_id` | UUID | Funcionário (RH) que subiu o arquivo. | FK (`funcionario.id`), Nullable |
+| `equipamento_id` | UUID | Equipamento de origem selecionado para o lote. | FK (`equipamento.id`), Not Null |
 | `nome_arquivo` | String | Nome original do `.txt`. | Not Null |
-| `hash_arquivo` | String | MD5/SHA256 para evitar importação duplicada. | Not Null, Unique |
-| `importado_por` | UUID / Int | Funcionário (RH) que subiu o arquivo. | FK, Not Null |
-| `qtd_linhas_lidas` | Int | Estatística de processamento. | Default: `0` |
-| `qtd_linhas_rejeitadas` | Int | Estatística de erros do arquivo. | Default: `0` |
+| `conteudo_arquivo` | Text | Conteúdo bruto integral do arquivo importado para re-download/auditoria. | Nullable |
+| `total_lidas` | Int | Total de linhas de marcação (tipo `3`) lidas no arquivo. | Default: `0` |
+| `total_validas` | Int | Total de batidas inéditas de colaboradores identificados. | Not Null, Default: `0` |
+| `total_repetidas` | Int | Total de batidas ignoradas por duplicidade de `(equipamento, nsr)` ou mesmo horário. | Not Null, Default: `0` |
+| `total_recusadas` | Int | Total de batidas sem colaborador identificado (gravadas como `ORFA_PENDENTE`). | Not Null, Default: `0` |
+| `status` | Enum | Status do processamento transacional. | `PENDENTE`, `CONCLUIDA`, `FALHA` |
 
 ---
 
 ## INCONSISTENCIA
-**Descrição:** Alertas gerados **automaticamente** pelo sistema — nunca criados por um funcionário — indicando anomalias nos pontos.
+**Descrição:** Fila de pendências geradas **automaticamente** pelo sistema toda vez que algo não fecha (T12). Nada é resolvido em silêncio: cada tratamento exige ação registrada (`VINCULAR`, `INCLUIR_MARCACAO_AJUSTE`, `DESCARTAR_DUPLICADA` ou `ABONAR_DIA`), gravando autor, data/hora e motivo, e mantendo a pendência resolvida consultável no histórico.
 
 | Coluna | Tipo | Descrição | Observações |
 | :--- | :--- | :--- | :--- |
-| `id` | UUID / Int | Gerada automaticamente pelo sistema. | PK |
-| `funcionario_id` | UUID / Int | Afetado pela inconsistência. | FK, Not Null |
-| `par_ponto_id` | UUID / Int | A qual par a engine achou erro. | FK, Nullable |
-| `tipo` | Enum | O motivo do alerta. | `DUPLICIDADE`, `BATIDA_ORFA`, `IMPAR`, `IP_DIVERGENTE`, `GEO_DIVERGENTE` |
-| `status` | Enum | Estado da pendência. | `PENDENTE`, `RESOLVIDA` |
-| `pedido_ajuste_id` | UUID / Int | Preenchido só se a resolução passou por um pedido de ajuste aprovado. | FK, Nullable |
-| `tratado_por` | UUID / Int | Quem no RH corrigiu. | FK, Nullable |
-| `tratado_em` | Timestamp | Quando foi corrigido. | Nullable |
+| `id` | UUID | Identificador único da pendência gerada pelo sistema. | PK |
+| `empresa_id` | UUID | Empresa à qual a pendência pertence (Multi-tenant). | FK (`empresa.id`), Not Null |
+| `tipo` | Enum | Tipo da inconsistência detectada (`TipoInconsistencia`). | `ORFA`, `DIA_IMPAR`, `DUPLICADA_MINUTO`, `FORA_DA_JORNADA`, `SEQUENCIA_INVALIDA`, `EQUIPAMENTO_DESCONHECIDO` |
+| `situacao` | Enum | Situação atual na fila (`StatusInconsistencia`). | `ABERTA`, `RESOLVIDA` (Default: `ABERTA`) |
+| `funcionario_id` | UUID | Colaborador afetado pela pendência. | FK (`funcionario.id`), **Nullable** (nulo quando `ORFA` ainda não vinculada ou `EQUIPAMENTO_DESCONHECIDO`) |
+| `equipamento_id` | UUID | Equipamento relacionado à inconsistência (se conhecido). | FK (`equipamento.id`), Nullable |
+| `batida_origem_id` | UUID | Marcação que originou a pendência (ex: batida órfã, entrada sem saída, saída sem entrada). | Referência lógica (`batida.id`), Nullable |
+| `batida_secundaria_id` | UUID | Segunda marcação envolvida (ex: batida duplicada no minuto ou marcação de ajuste criada na resolução). | Referência lógica (`batida.id`), Nullable |
+| `arquivo_importado_id` | UUID | Histórico da importação AFD que originou a pendência (se aplicável). | Referência lógica (`historico_importacao.id`), Nullable |
+| `nome_arquivo` | String | Nome do arquivo `.txt` de relógio que originou a pendência (inclusive para `EQUIPAMENTO_DESCONHECIDO`). | Nullable |
+| `identificador_recebido` | String | Identificador bruto não reconhecido (PIS/CPF/Matrícula na `ORFA` ou serial/código no `EQUIPAMENTO_DESCONHECIDO`). | Nullable |
+| `data_referencia` | Date | Data de competência/ocorrência para filtro por período e validação de fechamento. | Not Null |
+| `data_hora_origem` | Timestamp | Data e hora exatas do evento que originou a pendência. | Not Null |
+| `descricao_origem` | Text | Explicação detalhada do que aconteceu e originou a pendência. | Not Null |
+| `chave_deduplicacao` | String | Chave lógica para evitar criação duplicada da mesma pendência aberta. | Nullable |
+| `criado_em` | Timestamp | Momento em que o sistema detectou e criou a pendência. | Not Null, `updatable = false` |
+| `acao_tomada` | Enum | Ação executada pelo RH para resolver (`AcaoTratamento`). | `VINCULAR`, `INCLUIR_MARCACAO_AJUSTE`, `DESCARTAR_DUPLICADA`, `ABONAR_DIA` (Nullable enquanto `ABERTA`) |
+| `tratado_por` | String | Identificação nominal/login do usuário de RH que resolveu a pendência. | Nullable |
+| `tratado_por_id` | UUID | ID do funcionário do RH que realizou o tratamento. | FK lógica (`funcionario.id`), Nullable |
+| `tratado_em` | Timestamp | Data e hora exatas em que o tratamento foi registrado. | Nullable |
+| `motivo_tratamento` | Text | Justificativa obrigatória informada pelo RH ao resolver a pendência. | Nullable |
+| `detalhe_resolucao` | Text | Resumo do efeito prático da resolução (ex: colaborador vinculado, NSR do ajuste criado, batida descartada ou dia abonado). | Nullable |
 
 ---
 
@@ -281,13 +304,18 @@
 ---
 
 ## FECHAMENTO_PERIODO
-**Descrição:** Registra o encerramento do ciclo de competência, impedindo modificações em dados antigos.
+**Descrição:** Registra o encerramento do ciclo de competência. Não permite fechar o período com pendência aberta na fila sem ciência do RH — ou bloqueia o fechamento, ou fecha mediante confirmação gravando o aviso detalhado das pendências que ficaram abertas (T12).
 
 | Coluna | Tipo | Descrição | Observações |
 | :--- | :--- | :--- | :--- |
-| `id` | UUID / Int | Tranca o mês. | PK |
-| `empresa_id` | UUID / Int | Empresa sendo fechada. | FK, Not Null |
-| `mes_referencia` | String | Formato YYYY-MM. | Not Null |
-| `data_fechamento` | Timestamp | Data exata da ação. | Not Null |
-| `fechado_por` | UUID / Int | Qual RH executou. | FK, Not Null |
-| `status` | Enum | Evita alteração de pontos antigos. | `EM_ANDAMENTO`, `CONCLUIDO` |
+| `id` | UUID | Identificador único do fechamento. | PK |
+| `empresa_id` | UUID | Empresa sendo fechada. | FK (`empresa.id`), Not Null |
+| `mes_referencia` | String | Competência no formato `YYYY-MM`. | Not Null |
+| `data_inicio` | Date | Data inicial do período apurado. | Not Null |
+| `data_fim` | Date | Data final do período apurado. | Not Null |
+| `data_fechamento` | Timestamp | Data e hora exatas da execução do fechamento. | Not Null |
+| `fechado_por` | String | Identificação do usuário de RH que executou o fechamento. | Not Null |
+| `fechado_por_id` | UUID | ID do funcionário do RH que executou o fechamento. | FK lógica (`funcionario.id`), Nullable |
+| `status` | Enum | Resultado do fechamento (`StatusFechamentoPeriodo`). | `EM_ANDAMENTO`, `CONCLUIDO`, `CONCLUIDO_COM_PENDENCIAS` |
+| `pendencias_abertas_no_fechamento` | Int | Quantidade de inconsistências que estavam abertas no período no ato do fechamento. | Not Null, Default: `0` |
+| `aviso_pendencias` | Text | Aviso registrado detalhando o que ficou pendente por tipo quando o RH opta por fechar com ressalva. | Nullable |
