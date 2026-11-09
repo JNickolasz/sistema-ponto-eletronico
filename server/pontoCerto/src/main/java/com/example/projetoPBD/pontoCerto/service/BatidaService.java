@@ -22,6 +22,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.example.projetoPBD.pontoCerto.domain.Inconsistencia;
+import com.example.projetoPBD.pontoCerto.domain.enums.AcaoTratamento;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusInconsistencia;
+import com.example.projetoPBD.pontoCerto.domain.enums.TipoInconsistencia;
+import com.example.projetoPBD.pontoCerto.repository.InconsistenciaRepository;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -36,6 +41,8 @@ public class BatidaService {
     private final FuncionarioRepository funcionarioRepository;
     private final EquipamentoRepository equipamentoReposity;
     private final HistoricoImportacaoRepository historicoImportacaoRepository;
+    private final InconsistenciaRepository inconsistenciaRepository;
+    private final InconsistenciaService inconsistenciaService;
     private final SecurityTenantContext securityTenantContext;
 
     @PersistenceContext
@@ -46,12 +53,16 @@ public class BatidaService {
             FuncionarioRepository funcionarioRepository,
             EquipamentoRepository equipamentoReposity,
             HistoricoImportacaoRepository historicoImportacaoRepository,
+            InconsistenciaRepository inconsistenciaRepository,
+            InconsistenciaService inconsistenciaService,
             SecurityTenantContext securityTenantContext
     ) {
         this.batidaRepository = batidaRepository;
         this.funcionarioRepository = funcionarioRepository;
         this.equipamentoReposity = equipamentoReposity;
         this.historicoImportacaoRepository = historicoImportacaoRepository;
+        this.inconsistenciaRepository = inconsistenciaRepository;
+        this.inconsistenciaService = inconsistenciaService;
         this.securityTenantContext = securityTenantContext;
     }
 
@@ -69,7 +80,7 @@ public class BatidaService {
         Batida batida = new Batida();
         batida.setFuncionario(funcionario);
         batida.setEquipamento(equipamento);
-        batida.setDataHora(LocalDateTime.now());
+        batida.setDataHora(dto.dataHoraOpcional() != null ? dto.dataHoraOpcional() : LocalDateTime.now());
         batida.setTipoRegistro(dto.tipoRegistro());
         batida.setStatusBatida(StatusBatida.NORMAL);
         batida.setTipoOrigem(equipamento != null ? TipoOrigem.ESTACAO : TipoOrigem.APLICATIVO_WEB);
@@ -84,6 +95,10 @@ public class BatidaService {
             batida.setNsr(novoNsr);
         }
         batida = batidaRepository.saveAndFlush(batida);
+        try {
+            inconsistenciaService.analisarDiaColaborador(funcionario, batida.getDataHora().toLocalDate());
+        } catch (Exception ignored) {
+        }
 
         return new BatidaDTO.ComprovanteResponse(batida);
     }
@@ -164,6 +179,21 @@ public class BatidaService {
         batida.setMotivoVinculo(dto.motivo().trim());
 
         batida = batidaRepository.saveAndFlush(batida);
+        Batida batidaSalva = batida;
+        inconsistenciaRepository.findFirstByBatidaOrigemIdAndTipoAndSituacao(
+                batidaSalva.getId(),
+                TipoInconsistencia.ORFA,
+                StatusInconsistencia.ABERTA
+        ).ifPresent(inc -> {
+            inc.setFuncionario(funcionario);
+            inc.setSituacao(StatusInconsistencia.RESOLVIDA);
+            inc.setAcaoTomada(AcaoTratamento.VINCULAR);
+            inc.setTratadoPor(autorVinculo);
+            inc.setTratadoEm(batidaSalva.getDataVinculo());
+            inc.setMotivoTratamento(batidaSalva.getMotivoVinculo());
+            inc.setDetalheResolucao("Batida órfã vinculada ao colaborador " + funcionario.getNomeCompleto() + ".");
+            inconsistenciaRepository.saveAndFlush(inc);
+        });
 
         HistoricoImportacao historico = batida.getArquivoImportadoId() != null
                 ? historicoImportacaoRepository.findById(batida.getArquivoImportadoId()).orElse(null)

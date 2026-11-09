@@ -155,6 +155,11 @@ public class GlobalExceptionHandler {
                 .body(message);
     }
 
+    @ExceptionHandler(FechamentoComPendenciasException.class)
+    public ResponseEntity<String> handleException(FechamentoComPendenciasException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex);
+    }
+
 
     private ResponseEntity<String> buildResponse(
             HttpStatus status,

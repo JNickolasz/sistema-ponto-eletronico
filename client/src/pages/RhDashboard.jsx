@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import ImportacaoPosicionalSection from '../components/ImportacaoPosicionalSection';
 import BatidasOrfasSection from '../components/BatidasOrfasSection';
+import FilaInconsistenciasSection from '../components/FilaInconsistenciasSection';
 import rhService from '../services/rhService';
 import batidaService from '../services/batidaService';
 import equipamentoService from '../services/equipamentoService';
@@ -1228,6 +1229,18 @@ export function RhDashboard() {
                 {orfasPendentesCount}
               </span>
             )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva('inconsistencias')}
+            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              abaAtiva === 'inconsistencias'
+                ? 'border-rose-500 text-rose-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Layers size={18} />
+            <span>Inconsistências & Fechamento (T12)</span>
           </button>
         </div>
 
@@ -3746,6 +3759,16 @@ export function RhDashboard() {
               carregarContagemOrfas();
             }}
             onIrParaImportacao={() => setAbaAtiva('importacao')}
+          />
+        )}
+
+        {abaAtiva === 'inconsistencias' && (
+          <FilaInconsistenciasSection
+            funcionarios={funcionariosEmpresa}
+            equipamentos={equipamentos}
+            onAtualizado={() => {
+              carregarContagemOrfas();
+            }}
           />
         )}
 

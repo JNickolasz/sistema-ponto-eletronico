@@ -25,9 +25,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -41,6 +45,7 @@ public class ImportacaoService {
     private final BatidaRepository batidaRepository;
     private final HistoricoImportacaoRepository historicoRepository;
     private final SecurityTenantContext securityTenantContext;
+    private final InconsistenciaService inconsistenciaService;
 
     public ImportacaoService(
             ProcessadorArquivoPosicional processador,
@@ -48,7 +53,8 @@ public class ImportacaoService {
             FuncionarioRepository funcionarioRepository,
             BatidaRepository batidaRepository,
             HistoricoImportacaoRepository historicoRepository,
-            SecurityTenantContext securityTenantContext
+            SecurityTenantContext securityTenantContext,
+            InconsistenciaService inconsistenciaService
     ) {
         this.processador = processador;
         this.equipamentoRepository = equipamentoRepository;
@@ -56,11 +62,12 @@ public class ImportacaoService {
         this.batidaRepository = batidaRepository;
         this.historicoRepository = historicoRepository;
         this.securityTenantContext = securityTenantContext;
+        this.inconsistenciaService = inconsistenciaService;
     }
 
     @Transactional(readOnly = true)
     public ImportacaoDTO.PreviewResponse gerarPreview(MultipartFile arquivo, UUID equipamentoId) {
-        Equipamento equipamento = validarEquipamento(equipamentoId);
+        Equipamento equipamento = validarEquipamento(equipamentoId, arquivo);
         UUID empresaId = equipamento.getEmpresa().getId();
 
         ProcessadorArquivoPosicional.ResultadoLeitura resultado = lerArquivo(arquivo);
@@ -163,7 +170,7 @@ public class ImportacaoService {
 
     @Transactional(rollbackFor = Exception.class)
     public ImportacaoDTO.HistoricoResponse confirmarImportacao(MultipartFile arquivo, UUID equipamentoId) {
-        Equipamento equipamento = validarEquipamentoParaGravacao(equipamentoId);
+        Equipamento equipamento = validarEquipamentoParaGravacao(equipamentoId, arquivo);
         UUID empresaId = equipamento.getEmpresa().getId();
 
         List<String> linhas = lerLinhasEstrutura(arquivo);
@@ -179,6 +186,9 @@ public class ImportacaoService {
         List<Batida> batidasSalvas = new ArrayList<>();
         Set<String> chavesNoArquivo = new HashSet<>();
         Set<Long> nsrsNoArquivo = new HashSet<>();
+        Map<String, Integer> contagemNoDiaPorFunc = new HashMap<>();
+        Map<String, Funcionario> funcParaAnalisar = new LinkedHashMap<>();
+        Map<String, LocalDate> dataParaAnalisar = new LinkedHashMap<>();
         int validasCount = 0;
         int repetidasCount = 0;
         int recusadasCount = 0;
@@ -224,6 +234,8 @@ public class ImportacaoService {
                     batidaRepository.flush();
                     batidasSalvas.addAll(salvas);
                     recusadasCount++;
+
+                    inconsistenciaService.registrarInconsistenciaOrfa(salvas.get(0), historico.getNomeArquivo());
                 }
                 continue;
             }
@@ -234,7 +246,24 @@ public class ImportacaoService {
 
             if (jaExisteNoBanco || !chavesNoArquivo.add(chaveUnica)) {
                 repetidasCount++;
+                inconsistenciaService.registrarDuplicadaNoMinuto(
+                        funcionario,
+                        reg.dataHora(),
+                        reg.nsr(),
+                        equipamento,
+                        historico.getNomeArquivo(),
+                        null,
+                        null
+                );
             } else {
+                LocalDate dataBatida = reg.dataHora().toLocalDate();
+                String chaveFuncDia = funcionario.getId() + "_" + dataBatida;
+                int qtdNoDia = contagemNoDiaPorFunc.getOrDefault(chaveFuncDia, 0);
+                TipoRegistro tipoCalc = (qtdNoDia % 2 == 0) ? TipoRegistro.ENTRADA : TipoRegistro.SAIDA;
+                contagemNoDiaPorFunc.put(chaveFuncDia, qtdNoDia + 1);
+                funcParaAnalisar.put(chaveFuncDia, funcionario);
+                dataParaAnalisar.put(chaveFuncDia, dataBatida);
+
                 Batida batida = new Batida();
                 batida.setNsr(reg.nsr());
                 batida.setFuncionario(funcionario);
@@ -242,7 +271,7 @@ public class ImportacaoService {
                 batida.setStatusBatida(StatusBatida.NORMAL);
                 batida.setEquipamento(equipamento);
                 batida.setDataHora(reg.dataHora());
-                batida.setTipoRegistro(TipoRegistro.ENTRADA);
+                batida.setTipoRegistro(tipoCalc);
                 batida.setTipoOrigem(TipoOrigem.ARQUIVO_IMPORTADO);
                 batida.setArquivoImportadoId(historico.getId());
 
@@ -251,6 +280,13 @@ public class ImportacaoService {
                 batidasSalvas.addAll(salvas);
                 validasCount++;
             }
+        }
+
+        for (String chaveFuncDia : funcParaAnalisar.keySet()) {
+            inconsistenciaService.analisarDiaColaborador(
+                    funcParaAnalisar.get(chaveFuncDia),
+                    dataParaAnalisar.get(chaveFuncDia)
+            );
         }
 
         historico.setTotalLidas(totalLidas);
@@ -320,23 +356,32 @@ public class ImportacaoService {
         return Optional.empty();
     }
 
-    private Equipamento validarEquipamento(UUID equipamentoId) {
-        return buscarEValidarEquipamento(equipamentoId, false);
+    private Equipamento validarEquipamento(UUID equipamentoId, MultipartFile arquivo) {
+        String nomeArquivo = (arquivo != null && arquivo.getOriginalFilename() != null)
+                ? arquivo.getOriginalFilename()
+                : "importacao.txt";
+        return buscarEValidarEquipamento(equipamentoId, false, nomeArquivo);
     }
 
-    private Equipamento validarEquipamentoParaGravacao(UUID equipamentoId) {
-        return buscarEValidarEquipamento(equipamentoId, true);
+    private Equipamento validarEquipamentoParaGravacao(UUID equipamentoId, MultipartFile arquivo) {
+        String nomeArquivo = (arquivo != null && arquivo.getOriginalFilename() != null)
+                ? arquivo.getOriginalFilename()
+                : "importacao.txt";
+        return buscarEValidarEquipamento(equipamentoId, true, nomeArquivo);
     }
 
-    private Equipamento buscarEValidarEquipamento(UUID equipamentoId, boolean bloquearParaAtualizacao) {
+    private Equipamento buscarEValidarEquipamento(UUID equipamentoId, boolean bloquearParaAtualizacao, String nomeArquivo) {
         if (equipamentoId == null) {
+            registrarEquipamentoDesconhecidoContexto(nomeArquivo, "NULO");
             throw new EquipamentoNaoEncontradoException("Equipamento não encontrado");
         }
         Optional<Equipamento> equipamentoOpt = bloquearParaAtualizacao
                 ? equipamentoRepository.findByIdForUpdate(equipamentoId)
                 : equipamentoRepository.findById(equipamentoId);
-        Equipamento equipamento = equipamentoOpt
-                .orElseThrow(() -> new EquipamentoNaoEncontradoException("Equipamento não encontrado"));
+        Equipamento equipamento = equipamentoOpt.orElseGet(() -> {
+            registrarEquipamentoDesconhecidoContexto(nomeArquivo, equipamentoId.toString());
+            throw new EquipamentoNaoEncontradoException("Equipamento não encontrado");
+        });
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof FuncionarioUserDetails) {
@@ -347,6 +392,25 @@ public class ImportacaoService {
         }
 
         return equipamento;
+    }
+
+    private void registrarEquipamentoDesconhecidoContexto(String nomeArquivo, String identificadorEquipamento) {
+        try {
+            UUID empresaId;
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof FuncionarioUserDetails) {
+                empresaId = securityTenantContext.empresaAtual();
+            } else {
+                empresaId = funcionarioRepository.findAll().stream()
+                        .map(f -> f.getEmpresa().getId())
+                        .findFirst()
+                        .orElse(null);
+            }
+            if (empresaId != null) {
+                inconsistenciaService.registrarEquipamentoDesconhecido(empresaId, nomeArquivo, identificadorEquipamento);
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private ProcessadorArquivoPosicional.ResultadoLeitura lerArquivo(MultipartFile arquivo) {

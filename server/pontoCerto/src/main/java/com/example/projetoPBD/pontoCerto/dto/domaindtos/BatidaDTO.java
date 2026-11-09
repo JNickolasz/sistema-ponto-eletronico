@@ -20,12 +20,22 @@ public class BatidaDTO {
             @NotNull(message = "Tipo de registro é obrigatório")
             TipoRegistro tipoRegistro,
 
-            // n vai receber datahora pra evitar fraude
+            // n vai receber datahora pra evitar fraude | att: vai ser opcional agr
             UUID equipamentoId,
             BigDecimal latitude,
             BigDecimal longitude,
-            String ip
-    ) {}
+            String ip,
+            LocalDateTime dataHoraOpcional
+    ) {
+        public Request(
+                UUID funcionarioId,
+                TipoRegistro tipoRegistro,
+                UUID equipamentoId,
+                BigDecimal latitude,
+                BigDecimal longitude,
+                String ip
+        ) {this(funcionarioId, tipoRegistro, equipamentoId, latitude, longitude, ip, null);}
+    }
 
     public record ComprovanteResponse(
             UUID id,
