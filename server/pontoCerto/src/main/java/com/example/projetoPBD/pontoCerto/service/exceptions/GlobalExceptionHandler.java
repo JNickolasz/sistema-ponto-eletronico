@@ -160,6 +160,10 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex);
     }
 
+    @ExceptionHandler(PeriodoFechadoException.class)
+    public ResponseEntity<String> handleException(PeriodoFechadoException ex) {
+        return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex);
+    }
 
     private ResponseEntity<String> buildResponse(
             HttpStatus status,

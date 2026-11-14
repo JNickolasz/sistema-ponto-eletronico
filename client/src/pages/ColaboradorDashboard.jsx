@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import colaboradorService from '../services/colaboradorService';
 import jornadaService from '../services/jornadaService';
+import SolicitarAjusteModal from '../components/SolicitarAjusteModal';
+import MinhasSolicitacoesSection from '../components/MinhasSolicitacoesSection';
 import { useAuth } from '../hooks/useAuth';
 import {
   Clock,
@@ -38,6 +40,8 @@ export function ColaboradorDashboard() {
   const [loadingHorarioColab, setLoadingHorarioColab] = useState(false);
   const [dataHorarioColab, setDataHorarioColab] = useState(new Date().toISOString().split('T')[0]);
   const [funcionarioIdColab, setFuncionarioIdColab] = useState('');
+  const [isModalAjusteOpen, setIsModalAjusteOpen] = useState(false);
+  const [solicitacoesRefreshKey, setSolicitacoesRefreshKey] = useState(0);
 
   // Histórico de batidas simuladas do dia
   const [pontosHoje, setPontosHoje] = useState([
@@ -201,6 +205,13 @@ export function ColaboradorDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsModalAjusteOpen(true)}
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-emerald-900/30 transition-all cursor-pointer"
+            >
+              <FileSpreadsheet size={14} />
+              Solicitar Ajuste de Ponto
+            </button>
             <button
               onClick={recarregarPainel}
               disabled={loadingPainel}
@@ -641,7 +652,20 @@ export function ColaboradorDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Minhas Solicitações de Ajuste (T13) */}
+        <MinhasSolicitacoesSection
+          key={solicitacoesRefreshKey}
+          onAbrirModal={() => setIsModalAjusteOpen(true)}
+        />
       </main>
+
+      {/* Modal de Abertura de Solicitação de Ajuste (T13) */}
+      <SolicitarAjusteModal
+        isOpen={isModalAjusteOpen}
+        onClose={() => setIsModalAjusteOpen(false)}
+        onSuccess={() => setSolicitacoesRefreshKey((prev) => prev + 1)}
+      />
     </div>
   );
 }

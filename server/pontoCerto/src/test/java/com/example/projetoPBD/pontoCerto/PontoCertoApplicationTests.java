@@ -28,6 +28,15 @@ import com.example.projetoPBD.pontoCerto.service.ProcessadorArquivoPosicional;
 import com.example.projetoPBD.pontoCerto.service.exceptions.ArquivoImportacaoInvalidoException;
 import com.example.projetoPBD.pontoCerto.service.exceptions.EquipamentoNaoEncontradoException;
 import com.example.projetoPBD.pontoCerto.service.exceptions.FechamentoComPendenciasException;
+import com.example.projetoPBD.pontoCerto.domain.FechamentoPeriodo;
+import com.example.projetoPBD.pontoCerto.domain.SolicitacaoAjuste;
+import com.example.projetoPBD.pontoCerto.domain.enums.PerfilAcesso;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusSolicitacaoAjuste;
+import com.example.projetoPBD.pontoCerto.domain.enums.TipoOrigem;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.SolicitacaoAjusteDTO;
+import com.example.projetoPBD.pontoCerto.repository.SolicitacaoAjusteRepository;
+import com.example.projetoPBD.pontoCerto.service.SolicitacaoAjusteService;
+import com.example.projetoPBD.pontoCerto.service.exceptions.PeriodoFechadoException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -85,6 +94,12 @@ class PontoCertoApplicationTests {
 
 	@Autowired
 	private FeriadoRepository feriadoRepository;
+
+	@Autowired
+	private SolicitacaoAjusteService solicitacaoAjusteService;
+
+	@Autowired
+	private SolicitacaoAjusteRepository solicitacaoAjusteRepository;
 
 	@Test
 	void contextLoads() {
@@ -622,5 +637,149 @@ class PontoCertoApplicationTests {
 		assertEquals(StatusFechamentoPeriodo.CONCLUIDO, fechamentoLimpo.status());
 		assertFalse(fechamentoLimpo.fechadoComRessalva());
 		assertEquals(0, fechamentoLimpo.pendenciasAbertasNoFechamento());
+	}
+
+	@Test
+	@DisplayName("T13 - Imutabilidade: exclusão de batida física (estação ou importada) é estritamente barrada pela Portaria 671")
+	void testT13_ImutabilidadeBatidasFiscais() {
+		Batida batidaEstacao = new Batida();
+		batidaEstacao.setTipoOrigem(TipoOrigem.ESTACAO);
+		batidaEstacao.setDataHora(LocalDateTime.of(2026, 11, 10, 8, 0));
+		batidaEstacao.setTipoRegistro(TipoRegistro.ENTRADA);
+
+		assertThrows(IllegalStateException.class, batidaEstacao::validarImutabilidadeAoRemover,
+				"Deveria lançar IllegalStateException impedindo exclusão de batida de estação");
+
+		Batida batidaArquivo = new Batida();
+		batidaArquivo.setTipoOrigem(TipoOrigem.ARQUIVO_IMPORTADO);
+		batidaArquivo.setDataHora(LocalDateTime.of(2026, 11, 10, 12, 0));
+		batidaArquivo.setTipoRegistro(TipoRegistro.SAIDA);
+
+		assertThrows(IllegalStateException.class, batidaArquivo::validarImutabilidadeAoRemover,
+				"Deveria lançar IllegalStateException impedindo exclusão de batida de arquivo AFD");
+	}
+
+	@Test
+	@DisplayName("T13 - Período Fechado: bloqueia abertura de solicitação de ajuste para competência já encerrada")
+	void testT13_RecusaEmPeriodoFechado() {
+		fechamentoPeriodoRepository.deleteAll();
+
+		Funcionario colaborador = funcionarioRepository.findAll().stream().findFirst()
+				.orElseThrow(() -> new IllegalStateException("Nenhum funcionário encontrado"));
+
+		FechamentoPeriodo fechamento = new FechamentoPeriodo();
+		fechamento.setEmpresa(colaborador.getEmpresa());
+		fechamento.setMesReferencia("2026-08");
+		fechamento.setDataInicio(LocalDate.of(2026, 8, 1));
+		fechamento.setDataFim(LocalDate.of(2026, 8, 31));
+		fechamento.setDataFechamento(LocalDateTime.now());
+		fechamento.setFechadoPor("RH Teste");
+		fechamento.setStatus(StatusFechamentoPeriodo.CONCLUIDO);
+		fechamentoPeriodoRepository.save(fechamento);
+
+		// Tentar solicitar ajuste para 15/08/2026 deve ser recusado com PeriodoFechadoException
+		SolicitacaoAjusteDTO.CriarRequest request = new SolicitacaoAjusteDTO.CriarRequest(
+				LocalDate.of(2026, 8, 15),
+				LocalTime.of(8, 30),
+				TipoRegistro.ENTRADA,
+				"Esqueci de bater entrada neste dia"
+		);
+
+		assertThrows(PeriodoFechadoException.class, () ->
+				solicitacaoAjusteService.abrirSolicitacao(colaborador, request)
+		);
+	}
+
+	@Test
+	@DisplayName("T13 - Deferimento: gestor aprova solicitação com justificativa e gera nova batida de ajuste com NSR sequencial")
+	void testT13_DeferimentoGeraBatidaENsr() {
+		Funcionario gestor = funcionarioRepository.findAll().stream()
+				.filter(f -> f.getPerfilAcesso() == PerfilAcesso.GESTOR || f.getPerfilAcesso() == PerfilAcesso.RH)
+				.findFirst()
+				.orElseThrow(() -> new IllegalStateException("Nenhum gestor encontrado"));
+
+		Funcionario colaborador = funcionarioRepository.findAll().stream()
+				.filter(f -> !f.getId().equals(gestor.getId()))
+				.findFirst()
+				.orElseThrow(() -> new IllegalStateException("Nenhum colaborador encontrado"));
+
+		colaborador.setGestor(gestor);
+		colaborador = funcionarioRepository.save(colaborador);
+
+		// 1. Colaborador abre solicitação
+		SolicitacaoAjusteDTO.CriarRequest criarReq = new SolicitacaoAjusteDTO.CriarRequest(
+				LocalDate.of(2026, 11, 5),
+				LocalTime.of(9, 0),
+				TipoRegistro.ENTRADA,
+				"Falta de conexão com a estação"
+		);
+		SolicitacaoAjusteDTO.Response solicitacaoAberta = solicitacaoAjusteService.abrirSolicitacao(colaborador, criarReq);
+		assertEquals(StatusSolicitacaoAjuste.PENDENTE, solicitacaoAberta.status());
+		assertNull(solicitacaoAberta.batidaCriadaId());
+
+		// 2. Gestor defere com justificativa
+		SolicitacaoAjusteDTO.AnalisarRequest analisarReq = new SolicitacaoAjusteDTO.AnalisarRequest(
+				StatusSolicitacaoAjuste.DEFERIDO,
+				"Atesto que o colaborador compareceu presencialmente às 09:00"
+		);
+		SolicitacaoAjusteDTO.Response deferida = solicitacaoAjusteService.analisarSolicitacao(
+				solicitacaoAberta.id(),
+				gestor,
+				analisarReq
+		);
+
+		assertEquals(StatusSolicitacaoAjuste.DEFERIDO, deferida.status());
+		assertEquals("Atesto que o colaborador compareceu presencialmente às 09:00", deferida.justificativaGestor());
+		assertNotNull(deferida.batidaCriadaId(), "Deve gerar a batida de ajuste associada");
+
+		// 3. Valida no banco a Batida criada
+		Batida batida = batidaRepository.findById(deferida.batidaCriadaId()).orElseThrow();
+		assertEquals(TipoOrigem.AJUSTE_MANUAL, batida.getTipoOrigem());
+		assertEquals(TipoRegistro.ENTRADA, batida.getTipoRegistro());
+		assertNotNull(batida.getNsr(), "NSR deve ser preenchido pela sequence");
+		assertEquals(solicitacaoAberta.id(), batida.getSolicitacaoAjusteId());
+		assertNotNull(batida.getAutorAjuste());
+	}
+
+	@Test
+	@DisplayName("T13 - Indeferimento: gestor recusa solicitação com justificativa e nenhuma batida é criada")
+	void testT13_IndeferimentoSemGerarBatida() {
+		Funcionario gestor = funcionarioRepository.findAll().stream()
+				.filter(f -> f.getPerfilAcesso() == PerfilAcesso.GESTOR || f.getPerfilAcesso() == PerfilAcesso.RH)
+				.findFirst()
+				.orElseThrow();
+
+		Funcionario colaborador = funcionarioRepository.findAll().stream()
+				.filter(f -> !f.getId().equals(gestor.getId()))
+				.findFirst()
+				.orElseThrow();
+
+		colaborador.setGestor(gestor);
+		colaborador = funcionarioRepository.save(colaborador);
+
+		SolicitacaoAjusteDTO.CriarRequest criarReq = new SolicitacaoAjusteDTO.CriarRequest(
+				LocalDate.of(2026, 11, 6),
+				LocalTime.of(18, 0),
+				TipoRegistro.SAIDA,
+				"Esqueci de bater saída"
+		);
+		SolicitacaoAjusteDTO.Response solicitacaoAberta = solicitacaoAjusteService.abrirSolicitacao(colaborador, criarReq);
+
+		long totalBatidasAntes = batidaRepository.count();
+
+		SolicitacaoAjusteDTO.AnalisarRequest analisarReq = new SolicitacaoAjusteDTO.AnalisarRequest(
+				StatusSolicitacaoAjuste.INDEFERIDO,
+				"Imagens da câmera não confirmam permanência no posto até as 18:00"
+		);
+		SolicitacaoAjusteDTO.Response indeferida = solicitacaoAjusteService.analisarSolicitacao(
+				solicitacaoAberta.id(),
+				gestor,
+				analisarReq
+		);
+
+		assertEquals(StatusSolicitacaoAjuste.INDEFERIDO, indeferida.status());
+		assertNull(indeferida.batidaCriadaId());
+		assertEquals("Imagens da câmera não confirmam permanência no posto até as 18:00", indeferida.justificativaGestor());
+		assertEquals(totalBatidasAntes, batidaRepository.count(), "Nenhuma batida nova deve ter sido criada no indeferimento");
 	}
 }

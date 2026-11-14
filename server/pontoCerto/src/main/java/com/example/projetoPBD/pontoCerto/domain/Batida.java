@@ -81,6 +81,15 @@ public class Batida {
     @Column(name = "pedido_ajuste_id", nullable = true, updatable = false) // mudar pra false dps
     private UUID pedidoAjusteId;
 
+    @Column(name = "solicitacao_ajuste_id", nullable = true, updatable = false)
+    private UUID solicitacaoAjusteId;
+
+    @Column(name = "autor_ajuste", nullable = true, updatable = false)
+    private String autorAjuste;
+
+    @Column(name = "motivo_ajuste", columnDefinition = "TEXT", nullable = true, updatable = false)
+    private String motivoAjuste;
+
     @Column(name = "foto_url", nullable = true, updatable = false) // para teste, false, mas só por hora
     private String fotoUrl;
 
@@ -92,4 +101,11 @@ public class Batida {
 
     @Column(name = "ip_recebido", nullable = true, updatable = false) // mesma coisa
     private String ipRecebido;
+
+    @PreRemove
+    public void validarImutabilidadeAoRemover() {
+        if (this.tipoOrigem == TipoOrigem.ESTACAO || this.tipoOrigem == TipoOrigem.ARQUIVO_IMPORTADO) {
+            throw new IllegalStateException("Marcações originadas de relógio ou estação não podem ser excluídas (Portaria 671).");
+        }
+    }
 }
