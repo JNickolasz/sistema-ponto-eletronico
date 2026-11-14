@@ -37,11 +37,22 @@ import com.example.projetoPBD.pontoCerto.dto.domaindtos.SolicitacaoAjusteDTO;
 import com.example.projetoPBD.pontoCerto.repository.SolicitacaoAjusteRepository;
 import com.example.projetoPBD.pontoCerto.service.SolicitacaoAjusteService;
 import com.example.projetoPBD.pontoCerto.service.exceptions.PeriodoFechadoException;
+import com.example.projetoPBD.pontoCerto.domain.ApuracaoDiaria;
+import com.example.projetoPBD.pontoCerto.domain.FaixaHoraExtra;
+import com.example.projetoPBD.pontoCerto.domain.RegraApuracao;
+import com.example.projetoPBD.pontoCerto.domain.RegraAdicionalNoturno;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusApuracaoDiaria;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.ApuracaoDiariaDTO;
+import com.example.projetoPBD.pontoCerto.repository.ApuracaoDiariaRepository;
+import com.example.projetoPBD.pontoCerto.repository.RegraApuracaoRepository;
+import com.example.projetoPBD.pontoCerto.service.ApuracaoDiariaService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.mock.web.MockMultipartFile;
+import java.math.BigDecimal;
+import java.sql.Time;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -100,6 +111,15 @@ class PontoCertoApplicationTests {
 
 	@Autowired
 	private SolicitacaoAjusteRepository solicitacaoAjusteRepository;
+
+	@Autowired
+	private ApuracaoDiariaService apuracaoDiariaService;
+
+	@Autowired
+	private ApuracaoDiariaRepository apuracaoDiariaRepository;
+
+	@Autowired
+	private RegraApuracaoRepository regraApuracaoRepository;
 
 	@Test
 	void contextLoads() {
@@ -781,5 +801,177 @@ class PontoCertoApplicationTests {
 		assertNull(indeferida.batidaCriadaId());
 		assertEquals("Imagens da câmera não confirmam permanência no posto até as 18:00", indeferida.justificativaGestor());
 		assertEquals(totalBatidasAntes, batidaRepository.count(), "Nenhuma batida nova deve ter sido criada no indeferimento");
+	}
+
+	@Test
+	@DisplayName("T14 - Pareamento Normal: 4 batidas no dia (08:00, 12:00, 13:00, 17:00) geram 2 pares, 480m trabalhados e 60m intervalo")
+	void testT14_PareamentoNormalQuatroBatidas() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		LocalDate data = LocalDate.of(2026, 11, 10);
+
+		// Limpa batidas e apurações anteriores da data de teste
+		apuracaoDiariaRepository.deleteByFuncionarioIdAndDataReferencia(funcionario.getId(), data);
+
+		Batida b1 = criarBatidaTeste(funcionario, data.atTime(8, 0), TipoRegistro.ENTRADA);
+		Batida b2 = criarBatidaTeste(funcionario, data.atTime(12, 0), TipoRegistro.SAIDA);
+		Batida b3 = criarBatidaTeste(funcionario, data.atTime(13, 0), TipoRegistro.ENTRADA);
+		Batida b4 = criarBatidaTeste(funcionario, data.atTime(17, 0), TipoRegistro.SAIDA);
+		batidaRepository.saveAll(List.of(b1, b2, b3, b4));
+
+		ApuracaoDiaria apuracao = apuracaoDiariaService.apurarDia(funcionario, data);
+
+		assertNotNull(apuracao);
+		assertEquals(StatusApuracaoDiaria.APURADO, apuracao.getStatus());
+		assertEquals(480, apuracao.getMinutosTrabalhados(), "Deve ter 480 minutos trabalhados (8h)");
+		assertEquals(60, apuracao.getMinutosIntervalo(), "Deve ter 60 minutos de intervalo (12h às 13h)");
+		assertEquals(0, apuracao.getMinutosAtraso());
+		assertEquals(0, apuracao.getMinutosFalta());
+		assertNotNull(apuracao.getParesJson());
+		assertTrue(apuracao.getParesJson().contains("08:00"));
+		assertTrue(apuracao.getParesJson().contains("17:00"));
+	}
+
+	@Test
+	@DisplayName("T14 - Dia Ímpar: 3 batidas geram status PENDENTE_INCONSISTENCIA, horas zeradas e pendência DIA_IMPAR")
+	void testT14_DiaImparPendenteInconsistenciaSemInventarHorario() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		LocalDate data = LocalDate.of(2026, 11, 11);
+
+		apuracaoDiariaRepository.deleteByFuncionarioIdAndDataReferencia(funcionario.getId(), data);
+
+		Batida b1 = criarBatidaTeste(funcionario, data.atTime(8, 0), TipoRegistro.ENTRADA);
+		Batida b2 = criarBatidaTeste(funcionario, data.atTime(12, 0), TipoRegistro.SAIDA);
+		Batida b3 = criarBatidaTeste(funcionario, data.atTime(13, 0), TipoRegistro.ENTRADA);
+		batidaRepository.saveAll(List.of(b1, b2, b3));
+
+		ApuracaoDiaria apuracao = apuracaoDiariaService.apurarDia(funcionario, data);
+
+		assertNotNull(apuracao);
+		assertEquals(StatusApuracaoDiaria.PENDENTE_INCONSISTENCIA, apuracao.getStatus());
+		assertEquals(0, apuracao.getMinutosTrabalhados(), "Não deve computar horas inventadas em dia ímpar");
+		assertEquals(0, apuracao.getMinutosHoraExtraTotal());
+
+		// Confirma que pendência DIA_IMPAR foi registrada ou verificada no InconsistenciaService
+		boolean temInconsistenciaImpar = inconsistenciaRepository
+				.findByEmpresaIdAndFuncionarioIdAndDataReferenciaAndTipoAndSituacao(
+						funcionario.getEmpresa().getId(),
+						funcionario.getId(),
+						data,
+						TipoInconsistencia.DIA_IMPAR,
+						StatusInconsistencia.ABERTA
+				).size() > 0;
+		assertTrue(temInconsistenciaImpar, "Deve haver inconsistência DIA_IMPAR aberta para o dia ímpar");
+	}
+
+	@Test
+	@DisplayName("T14 - Tolerância CLT Art. 58 §1: Atraso de 4 minutos dentro do limite não desconta atraso")
+	void testT14_ToleranciaCltAtraso() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		LocalDate data = LocalDate.of(2026, 11, 12);
+
+		apuracaoDiariaRepository.deleteByFuncionarioIdAndDataReferencia(funcionario.getId(), data);
+
+		// Entrada com 4 minutos de atraso (08:04), saída pontual 17:00 (intervalo 12:00 às 13:00)
+		Batida b1 = criarBatidaTeste(funcionario, data.atTime(8, 4), TipoRegistro.ENTRADA);
+		Batida b2 = criarBatidaTeste(funcionario, data.atTime(12, 0), TipoRegistro.SAIDA);
+		Batida b3 = criarBatidaTeste(funcionario, data.atTime(13, 0), TipoRegistro.ENTRADA);
+		Batida b4 = criarBatidaTeste(funcionario, data.atTime(17, 0), TipoRegistro.SAIDA);
+		batidaRepository.saveAll(List.of(b1, b2, b3, b4));
+
+		ApuracaoDiaria apuracao = apuracaoDiariaService.apurarDia(funcionario, data);
+
+		assertNotNull(apuracao);
+		assertEquals(StatusApuracaoDiaria.APURADO, apuracao.getStatus());
+		assertEquals(0, apuracao.getMinutosAtraso(), "Atraso de 4 minutos deve ser absorvido pela tolerância CLT");
+		assertEquals(0, apuracao.getMinutosSaidaAntecipada());
+	}
+
+	@Test
+	@DisplayName("T14 - Faixas de Horas Extras: Excedente rateado conforme faixas configuradas (ex: 2h a 50% e restante a 100%)")
+	void testT14_HorasExtrasComFaixas() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		LocalDate data = LocalDate.of(2026, 11, 13); // Sexta-feira
+
+		apuracaoDiariaRepository.deleteByFuncionarioIdAndDataReferencia(funcionario.getId(), data);
+
+		// Criar regra com faixas para a empresa: 120 min a 50%, e excedente a 100%
+		RegraApuracao regra = new RegraApuracao();
+		regra.setEmpresa(funcionario.getEmpresa());
+		regra.setInicioVigencia(data.minusDays(10));
+		regra.setLimiteDiarioExtraMinutos(120);
+
+		FaixaHoraExtra f1 = new FaixaHoraExtra(1, 120, new BigDecimal("50.00"));
+		FaixaHoraExtra f2 = new FaixaHoraExtra(2, null, new BigDecimal("100.00"));
+		regra.setFaixaHoraExtra(f1);
+		regra.setFaixaHoraExtra(f2);
+		regraApuracaoRepository.save(regra);
+
+		// Trabalhou das 08:00 às 12:00 e 13:00 às 20:00 (4h + 7h = 11h trabalhadas = 660 min)
+		// Carga prevista: 8h (480 min). Excedente: 3h (180 min extras)
+		Batida b1 = criarBatidaTeste(funcionario, data.atTime(8, 0), TipoRegistro.ENTRADA);
+		Batida b2 = criarBatidaTeste(funcionario, data.atTime(12, 0), TipoRegistro.SAIDA);
+		Batida b3 = criarBatidaTeste(funcionario, data.atTime(13, 0), TipoRegistro.ENTRADA);
+		Batida b4 = criarBatidaTeste(funcionario, data.atTime(20, 0), TipoRegistro.SAIDA);
+		batidaRepository.saveAll(List.of(b1, b2, b3, b4));
+
+		ApuracaoDiaria apuracao = apuracaoDiariaService.apurarDia(funcionario, data);
+
+		assertNotNull(apuracao);
+		assertEquals(180, apuracao.getMinutosHoraExtraTotal(), "Total de horas extras deve ser 180 min (3h)");
+		assertNotNull(apuracao.getHorasExtrasPorFaixaJson());
+		assertTrue(apuracao.getHorasExtrasPorFaixaJson().contains("\"50%\":120") || apuracao.getHorasExtrasPorFaixaJson().contains("\"50%\": 120"));
+		assertTrue(apuracao.getHorasExtrasPorFaixaJson().contains("\"100%\":60") || apuracao.getHorasExtrasPorFaixaJson().contains("\"100%\": 60"));
+	}
+
+	@Test
+	@DisplayName("T14 - Hora Noturna Reduzida: Trabalho das 22:00 às 05:00 (420 min relógio) convertido para 480 min noturnos computados")
+	void testT14_HoraNoturnaReduzida() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		LocalDate data = LocalDate.of(2026, 11, 14);
+
+		apuracaoDiariaRepository.deleteByFuncionarioIdAndDataReferencia(funcionario.getId(), data);
+
+		// Turno noturno: 22:00 às 05:00 do dia seguinte (7 horas relógio = 420 minutos)
+		Batida b1 = criarBatidaTeste(funcionario, data.atTime(22, 0), TipoRegistro.ENTRADA);
+		Batida b2 = criarBatidaTeste(funcionario, data.plusDays(1).atTime(5, 0), TipoRegistro.SAIDA);
+		batidaRepository.saveAll(List.of(b1, b2));
+
+		ApuracaoDiaria apuracao = apuracaoDiariaService.apurarDia(funcionario, data);
+
+		assertNotNull(apuracao);
+		assertEquals(420, apuracao.getMinutosTrabalhados(), "Minutos relógio trabalhados: 420 (7h)");
+		// 420 * (60 / 52.5) = 420 * (8 / 7) = 480 minutos noturnos computados
+		assertEquals(480, apuracao.getMinutosAdicionalNoturno(), "Com a redução ficta (52m30s), 7h relógio viram 8h noturnas (480 min)");
+	}
+
+	@Test
+	@DisplayName("T14 - Falta Integral: Dia útil previsto sem nenhuma marcação gera status FALTA e minutosFalta integral")
+	void testT14_FaltaIntegralDiaUtilSemBatidas() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		LocalDate data = LocalDate.of(2026, 11, 9); // Segunda-feira (dia útil)
+
+		apuracaoDiariaRepository.deleteByFuncionarioIdAndDataReferencia(funcionario.getId(), data);
+
+		ApuracaoDiaria apuracao = apuracaoDiariaService.apurarDia(funcionario, data);
+
+		assertNotNull(apuracao);
+		if (apuracao.getMinutosPrevistos() > 0) {
+			assertEquals(StatusApuracaoDiaria.FALTA, apuracao.getStatus());
+			assertEquals(apuracao.getMinutosPrevistos(), apuracao.getMinutosFalta(), "Minutos de falta devem ser iguais aos previstos");
+			assertEquals(0, apuracao.getMinutosTrabalhados());
+		} else {
+			assertEquals(StatusApuracaoDiaria.FOLGA, apuracao.getStatus());
+		}
+	}
+
+	private Batida criarBatidaTeste(Funcionario funcionario, LocalDateTime dataHora, TipoRegistro tipoRegistro) {
+		Batida b = new Batida();
+		b.setNsr(batidaRepository.proximoNsrSequence());
+		b.setFuncionario(funcionario);
+		b.setDataHora(dataHora);
+		b.setTipoRegistro(tipoRegistro);
+		b.setTipoOrigem(TipoOrigem.ESTACAO);
+		b.setStatusBatida(StatusBatida.NORMAL);
+		return b;
 	}
 }

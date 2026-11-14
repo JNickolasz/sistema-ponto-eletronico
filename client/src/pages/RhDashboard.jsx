@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar';
 import ImportacaoPosicionalSection from '../components/ImportacaoPosicionalSection';
 import BatidasOrfasSection from '../components/BatidasOrfasSection';
 import FilaInconsistenciasSection from '../components/FilaInconsistenciasSection';
+import ApuracaoEspelhoSection from '../components/ApuracaoEspelhoSection';
 import rhService from '../services/rhService';
 import batidaService from '../services/batidaService';
 import equipamentoService from '../services/equipamentoService';
@@ -198,6 +199,7 @@ export function RhDashboard() {
   const [loadingHorarioPrevisto, setLoadingHorarioPrevisto] = useState(false);
   const [regimesColaborador, setRegimesColaborador] = useState([]);
   const [orfasPendentesCount, setOrfasPendentesCount] = useState(0);
+  const [colaboradorApuracaoId, setColaboradorApuracaoId] = useState('');
 
   const carregarContagemOrfas = async () => {
     try {
@@ -1241,6 +1243,18 @@ export function RhDashboard() {
           >
             <Layers size={18} />
             <span>Inconsistências & Fechamento (T12)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva('apuracao')}
+            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              abaAtiva === 'apuracao'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Clock size={18} />
+            <span>Apuração & Espelho (T14)</span>
           </button>
         </div>
 
@@ -3770,6 +3784,48 @@ export function RhDashboard() {
               carregarContagemOrfas();
             }}
           />
+        )}
+
+        {abaAtiva === 'apuracao' && (
+          <div className="space-y-6">
+            <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <UserCheck className="w-5 h-5 text-indigo-400" />
+                  Selecionar Colaborador para Apuração
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Selecione um colaborador da empresa para analisar pares, tolerâncias CLT, faixas de HE e espelho do mês.
+                </p>
+              </div>
+
+              <div className="min-w-[280px]">
+                <select
+                  value={colaboradorApuracaoId}
+                  onChange={(e) => setColaboradorApuracaoId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="">Selecione um colaborador...</option>
+                  {funcionariosEmpresa.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.nomeCompleto} ({f.matricula})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {colaboradorApuracaoId ? (
+              <ApuracaoEspelhoSection
+                funcionarioId={colaboradorApuracaoId}
+                podeRecalcular={true}
+              />
+            ) : (
+              <div className="rounded-2xl bg-slate-900/40 border border-dashed border-slate-800 p-12 text-center text-slate-500 text-sm">
+                Selecione um colaborador no menu acima para carregar o espelho de ponto e calcular o período.
+              </div>
+            )}
+          </div>
         )}
 
         {/* Modal de Cadastro de Nova Empresa (Admin) */}
