@@ -43,6 +43,7 @@ public class BatidaService {
     private final HistoricoImportacaoRepository historicoImportacaoRepository;
     private final InconsistenciaRepository inconsistenciaRepository;
     private final InconsistenciaService inconsistenciaService;
+    private final ApuracaoDiariaService apuracaoDiariaService;
     private final SecurityTenantContext securityTenantContext;
 
     @PersistenceContext
@@ -55,6 +56,7 @@ public class BatidaService {
             HistoricoImportacaoRepository historicoImportacaoRepository,
             InconsistenciaRepository inconsistenciaRepository,
             InconsistenciaService inconsistenciaService,
+            ApuracaoDiariaService apuracaoDiariaService,
             SecurityTenantContext securityTenantContext
     ) {
         this.batidaRepository = batidaRepository;
@@ -63,6 +65,7 @@ public class BatidaService {
         this.historicoImportacaoRepository = historicoImportacaoRepository;
         this.inconsistenciaRepository = inconsistenciaRepository;
         this.inconsistenciaService = inconsistenciaService;
+        this.apuracaoDiariaService = apuracaoDiariaService;
         this.securityTenantContext = securityTenantContext;
     }
 
@@ -97,6 +100,7 @@ public class BatidaService {
         batida = batidaRepository.saveAndFlush(batida);
         try {
             inconsistenciaService.analisarDiaColaborador(funcionario, batida.getDataHora().toLocalDate());
+            apuracaoDiariaService.apurarDia(funcionario, batida.getDataHora().toLocalDate());
         } catch (Exception ignored) {
         }
 

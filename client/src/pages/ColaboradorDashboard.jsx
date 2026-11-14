@@ -4,6 +4,7 @@ import colaboradorService from '../services/colaboradorService';
 import jornadaService from '../services/jornadaService';
 import SolicitarAjusteModal from '../components/SolicitarAjusteModal';
 import MinhasSolicitacoesSection from '../components/MinhasSolicitacoesSection';
+import ApuracaoEspelhoSection from '../components/ApuracaoEspelhoSection';
 import { useAuth } from '../hooks/useAuth';
 import {
   Clock,
@@ -652,6 +653,12 @@ export function ColaboradorDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Espelho de Ponto e Apuração Diária (T14) */}
+        <ApuracaoEspelhoSection
+          funcionarioId={user?.funcionarioId || user?.id}
+          podeRecalcular={false}
+        />
 
         {/* Minhas Solicitações de Ajuste (T13) */}
         <MinhasSolicitacoesSection

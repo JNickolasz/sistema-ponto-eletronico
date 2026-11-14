@@ -39,6 +39,7 @@ public class SolicitacaoAjusteService {
     private final FechamentoPeriodoRepository fechamentoPeriodoRepository;
     private final BatidaRepository batidaRepository;
     private final InconsistenciaService inconsistenciaService;
+    private final ApuracaoDiariaService apuracaoDiariaService;
     private final SecurityTenantContext securityTenantContext;
 
     public SolicitacaoAjusteService(
@@ -47,6 +48,7 @@ public class SolicitacaoAjusteService {
             FechamentoPeriodoRepository fechamentoPeriodoRepository,
             BatidaRepository batidaRepository,
             InconsistenciaService inconsistenciaService,
+            ApuracaoDiariaService apuracaoDiariaService,
             SecurityTenantContext securityTenantContext
     ) {
         this.solicitacaoAjusteRepository = solicitacaoAjusteRepository;
@@ -54,6 +56,7 @@ public class SolicitacaoAjusteService {
         this.fechamentoPeriodoRepository = fechamentoPeriodoRepository;
         this.batidaRepository = batidaRepository;
         this.inconsistenciaService = inconsistenciaService;
+        this.apuracaoDiariaService = apuracaoDiariaService;
         this.securityTenantContext = securityTenantContext;
     }
 
@@ -157,6 +160,7 @@ public class SolicitacaoAjusteService {
 
             try {
                 inconsistenciaService.analisarDiaColaborador(solicitacao.getColaborador(), solicitacao.getDataAlvo());
+                apuracaoDiariaService.apurarDia(solicitacao.getColaborador(), solicitacao.getDataAlvo());
             } catch (Exception ignored) {}
         }
 
