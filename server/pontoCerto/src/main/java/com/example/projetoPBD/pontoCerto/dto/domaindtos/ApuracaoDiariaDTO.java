@@ -40,6 +40,9 @@ public class ApuracaoDiariaDTO {
             Integer minutosAdicionalNoturno,
             Integer minutosFalta,
             Integer minutosHoraExtraTotal,
+            Integer minutosAbonados,
+            UUID ocorrenciaId,
+            String tipoOcorrenciaNome,
             List<ParMarcacao> pares,
             Map<String, Integer> horasExtrasPorFaixa,
             LocalDateTime calculadoEm
@@ -59,6 +62,7 @@ public class ApuracaoDiariaDTO {
             int totalMinutosAdicionalNoturno,
             int totalMinutosFalta,
             int totalMinutosHoraExtra,
+            int totalMinutosAbonados,
             List<Response> dias
     ) {}
 }

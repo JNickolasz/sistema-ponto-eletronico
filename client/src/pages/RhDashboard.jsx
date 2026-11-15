@@ -4,6 +4,7 @@ import ImportacaoPosicionalSection from '../components/ImportacaoPosicionalSecti
 import BatidasOrfasSection from '../components/BatidasOrfasSection';
 import FilaInconsistenciasSection from '../components/FilaInconsistenciasSection';
 import ApuracaoEspelhoSection from '../components/ApuracaoEspelhoSection';
+import OcorrenciasSection from '../components/OcorrenciasSection';
 import rhService from '../services/rhService';
 import batidaService from '../services/batidaService';
 import equipamentoService from '../services/equipamentoService';
@@ -1255,6 +1256,18 @@ export function RhDashboard() {
           >
             <Clock size={18} />
             <span>Apuração & Espelho (T14)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva('ocorrencias')}
+            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              abaAtiva === 'ocorrencias'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <CalendarCheck size={18} />
+            <span>Ocorrências & Abonos (T15)</span>
           </button>
         </div>
 
@@ -3826,6 +3839,10 @@ export function RhDashboard() {
               </div>
             )}
           </div>
+        )}
+
+        {abaAtiva === 'ocorrencias' && (
+          <OcorrenciasSection funcionarios={funcionariosEmpresa} />
         )}
 
         {/* Modal de Cadastro de Nova Empresa (Admin) */}

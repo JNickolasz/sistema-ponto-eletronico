@@ -165,6 +165,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.UNPROCESSABLE_ENTITY, ex);
     }
 
+    @ExceptionHandler(OcorrenciaConflitoException.class)
+    public ResponseEntity<String> handleException(OcorrenciaConflitoException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex);
+    }
+
     private ResponseEntity<String> buildResponse(
             HttpStatus status,
             RuntimeException ex

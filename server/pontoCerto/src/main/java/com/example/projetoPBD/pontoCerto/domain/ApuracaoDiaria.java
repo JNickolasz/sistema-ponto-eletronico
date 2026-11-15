@@ -68,4 +68,16 @@ public class ApuracaoDiaria {
 
     @Column(name = "calculado_em", nullable = false)
     private LocalDateTime calculadoEm;
+
+    // Minutos abonados no dia por atestado/ocorrência (evita falta ou atraso)
+    @Column(name = "minutos_abonados", nullable = false)
+    private Integer minutosAbonados = 0;
+
+    // Referência opcional à ocorrência que justificou o dia
+    @Column(name = "ocorrencia_id")
+    private UUID ocorrenciaId;
+
+    // Nome da ocorrência gravado para o espelho de ponto renderizar rápido
+    @Column(name = "tipo_ocorrencia_nome", length = 100)
+    private String tipoOcorrenciaNome;
 }

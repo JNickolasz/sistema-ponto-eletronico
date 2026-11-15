@@ -2,23 +2,24 @@ import api from './api';
 
 export const apuracaoService = {
   consultar: async ({ funcionarioId, dataInicio, dataFim, mesReferencia }) => {
-    const params = {};
-    if (funcionarioId) params.funcionarioId = funcionarioId;
-    if (dataInicio) params.dataInicio = dataInicio;
-    if (dataFim) params.dataFim = dataFim;
-    if (mesReferencia) params.mesReferencia = mesReferencia;
+    const params = new URLSearchParams();
+    if (funcionarioId) params.append('funcionarioId', funcionarioId);
+    if (dataInicio) params.append('dataInicio', dataInicio);
+    if (dataFim) params.append('dataFim', dataFim);
+    if (mesReferencia) params.append('mesReferencia', mesReferencia);
 
-    const response = await api.get('/api/apuracao', { params });
-    return response.data;
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    const response = await api.get(`/apuracao${qs}`);
+    return response?.data || response;
   },
 
   recalcular: async ({ funcionarioId, dataInicio, dataFim }) => {
-    const response = await api.post('/api/apuracao/recalcular', {
+    const response = await api.post('/apuracao/recalcular', {
       funcionarioId,
       dataInicio,
       dataFim,
     });
-    return response.data;
+    return response?.data || response;
   },
 };
 
