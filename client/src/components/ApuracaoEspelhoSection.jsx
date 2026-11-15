@@ -11,8 +11,11 @@ import {
   UserCheck,
   CheckCircle2,
   XCircle,
-  FileText
+  FileText,
+  Paperclip,
+  ExternalLink
 } from 'lucide-react';
+import ocorrenciaService from '../services/ocorrenciaService';
 
 function formatMinutos(minutos) {
   if (!minutos || minutos === 0) return '0h00';
@@ -182,7 +185,7 @@ export default function ApuracaoEspelhoSection({ funcionarioId, podeRecalcular =
 
       {/* Cards de Resumo */}
       {dados && (
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
           <div className="bg-slate-50 border border-slate-200/70 rounded-xl p-3">
             <span className="text-xs font-medium text-slate-500">Horas Previstas</span>
             <p className="text-lg font-bold text-slate-800 mt-0.5">
@@ -194,6 +197,13 @@ export default function ApuracaoEspelhoSection({ funcionarioId, podeRecalcular =
             <span className="text-xs font-medium text-emerald-700">Horas Trabalhadas</span>
             <p className="text-lg font-bold text-emerald-900 mt-0.5">
               {formatMinutos(dados.totalMinutosTrabalhados)}
+            </p>
+          </div>
+
+          <div className="bg-sky-50/60 border border-sky-200/70 rounded-xl p-3">
+            <span className="text-xs font-medium text-sky-700">Horas Abonadas</span>
+            <p className="text-lg font-bold text-sky-900 mt-0.5">
+              {formatMinutos(dados.totalMinutosAbonados)}
             </p>
           </div>
 
@@ -278,7 +288,25 @@ export default function ApuracaoEspelhoSection({ funcionarioId, podeRecalcular =
 
                     {/* Status */}
                     <td className="py-3 px-3 whitespace-nowrap">
-                      {getStatusBadge(dia.status)}
+                      <div className="flex flex-col gap-1 items-start">
+                        {getStatusBadge(dia.status)}
+                        {dia.tipoOcorrenciaNome && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                            {dia.tipoOcorrenciaNome}
+                            {dia.minutosAbonados > 0 && ` (${formatMinutos(dia.minutosAbonados)})`}
+                            {dia.ocorrenciaId && (
+                              <button
+                                type="button"
+                                onClick={() => ocorrenciaService.abrirAnexo(dia.ocorrenciaId)}
+                                className="hover:text-blue-900 transition-colors ml-0.5 cursor-pointer"
+                                title="Visualizar documento anexo"
+                              >
+                                <Paperclip className="w-3 h-3" />
+                              </button>
+                            )}
+                          </span>
+                        )}
+                      </div>
                     </td>
 
                     {/* Pares Formados */}
@@ -316,7 +344,21 @@ export default function ApuracaoEspelhoSection({ funcionarioId, podeRecalcular =
                       {ehImpar ? (
                         <span className="text-gray-400">0h00</span>
                       ) : dia.minutosTrabalhados > 0 ? (
-                        <span className="text-emerald-700">{formatMinutos(dia.minutosTrabalhados)}</span>
+                        <span className="text-emerald-700">
+                          {formatMinutos(dia.minutosTrabalhados)}
+                          {dia.minutosAbonados > 0 && (
+                            <span className="block text-[10px] font-normal text-sky-600">
+                              +{formatMinutos(dia.minutosAbonados)} abonado
+                            </span>
+                          )}
+                        </span>
+                      ) : dia.minutosAbonados > 0 ? (
+                        <span className="text-sky-700">
+                          0h00
+                          <span className="block text-[10px] font-normal text-sky-600">
+                            +{formatMinutos(dia.minutosAbonados)} abonado
+                          </span>
+                        </span>
                       ) : (
                         <span className="text-gray-400">0h00</span>
                       )}

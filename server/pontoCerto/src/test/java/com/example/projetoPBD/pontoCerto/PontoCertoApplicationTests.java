@@ -46,6 +46,22 @@ import com.example.projetoPBD.pontoCerto.dto.domaindtos.ApuracaoDiariaDTO;
 import com.example.projetoPBD.pontoCerto.repository.ApuracaoDiariaRepository;
 import com.example.projetoPBD.pontoCerto.repository.RegraApuracaoRepository;
 import com.example.projetoPBD.pontoCerto.service.ApuracaoDiariaService;
+import com.example.projetoPBD.pontoCerto.domain.TipoOcorrencia;
+import com.example.projetoPBD.pontoCerto.domain.OcorrenciaColaborador;
+import com.example.projetoPBD.pontoCerto.domain.FuncionarioUserDetails;
+import com.example.projetoPBD.pontoCerto.domain.enums.TipoAbonoOcorrencia;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.TipoOcorrenciaDTO;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.OcorrenciaColaboradorDTO;
+import com.example.projetoPBD.pontoCerto.repository.TipoOcorrenciaRepository;
+import com.example.projetoPBD.pontoCerto.repository.OcorrenciaColaboradorRepository;
+import com.example.projetoPBD.pontoCerto.service.TipoOcorrenciaService;
+import com.example.projetoPBD.pontoCerto.service.OcorrenciaColaboradorService;
+import com.example.projetoPBD.pontoCerto.service.AnexoStorageService;
+import com.example.projetoPBD.pontoCerto.service.exceptions.OcorrenciaConflitoException;
+import org.springframework.core.io.Resource;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -120,6 +136,21 @@ class PontoCertoApplicationTests {
 
 	@Autowired
 	private RegraApuracaoRepository regraApuracaoRepository;
+
+	@Autowired
+	private TipoOcorrenciaRepository tipoOcorrenciaRepository;
+
+	@Autowired
+	private OcorrenciaColaboradorRepository ocorrenciaColaboradorRepository;
+
+	@Autowired
+	private TipoOcorrenciaService tipoOcorrenciaService;
+
+	@Autowired
+	private OcorrenciaColaboradorService ocorrenciaColaboradorService;
+
+	@Autowired
+	private AnexoStorageService anexoStorageService;
 
 	@Test
 	void contextLoads() {
@@ -973,5 +1004,261 @@ class PontoCertoApplicationTests {
 		b.setTipoOrigem(TipoOrigem.ESTACAO);
 		b.setStatusBatida(StatusBatida.NORMAL);
 		return b;
+	}
+
+	@Test
+	@DisplayName("T15 - Abono Integral: 3 dias de atestado sem batidas não geram falta")
+	void testT15_AbonoIntegralSemFalta() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+
+		LocalDate inicio = LocalDate.of(2026, 11, 23); // Segunda
+		LocalDate fim = LocalDate.of(2026, 11, 25);    // Quarta
+
+		// Limpa apurações e ocorrências prévias no intervalo
+		for (LocalDate d = inicio; !d.isAfter(fim); d = d.plusDays(1)) {
+			apuracaoDiariaRepository.deleteByFuncionarioIdAndDataReferencia(funcionario.getId(), d);
+		}
+		List<OcorrenciaColaborador> prev = ocorrenciaColaboradorRepository.findSobrepostas(funcionario.getId(), inicio, fim);
+		ocorrenciaColaboradorRepository.deleteAll(prev);
+
+		TipoOcorrencia tipo = tipoOcorrenciaRepository.findByEmpresaIdOrderByNomeAsc(funcionario.getEmpresa().getId())
+				.stream().filter(t -> t.getTipoAbono() == TipoAbonoOcorrencia.INTEGRAL)
+				.findFirst()
+				.orElseGet(() -> {
+					TipoOcorrencia t = new TipoOcorrencia();
+					t.setEmpresa(funcionario.getEmpresa());
+					t.setNome("Atestado Integral T15 " + UUID.randomUUID().toString().substring(0, 5));
+					t.setTipoAbono(TipoAbonoOcorrencia.INTEGRAL);
+					t.setExigeAnexo(false);
+					t.setAtivo(true);
+					return tipoOcorrenciaRepository.save(t);
+				});
+
+		OcorrenciaColaboradorDTO.CriarRequest req = new OcorrenciaColaboradorDTO.CriarRequest(
+				funcionario.getId(),
+				tipo.getId(),
+				inicio,
+				fim,
+				null,
+				"Atestado 3 dias T15"
+		);
+
+		OcorrenciaColaboradorDTO.Response resp = ocorrenciaColaboradorService.lancarOcorrencia(req, null);
+		assertNotNull(resp);
+
+		for (LocalDate d = inicio; !d.isAfter(fim); d = d.plusDays(1)) {
+			ApuracaoDiaria apuracao = apuracaoDiariaService.apurarDia(funcionario, d);
+			assertNotNull(apuracao);
+			if (apuracao.getMinutosPrevistos() > 0) {
+				assertEquals(StatusApuracaoDiaria.ABONADO, apuracao.getStatus(), "Dia útil coberto por abono integral deve ter status ABONADO");
+				assertEquals(0, apuracao.getMinutosFalta(), "Não pode ter minutos de falta quando integralmente abonado");
+				assertTrue(apuracao.getMinutosAbonados() > 0, "Minutos abonados devem ser maiores que zero");
+			}
+		}
+
+		// Cleanup
+		ocorrenciaColaboradorService.cancelarOcorrencia(resp.id());
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T15 - Abono Parcial (Meio Período): Jornada 8h com 4h abonadas + 4h batidas zera faltas e atrasos")
+	void testT15_AbonoParcialMeioPeriodo() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+
+		LocalDate data = LocalDate.of(2026, 11, 26); // Quinta-feira
+
+		apuracaoDiariaRepository.deleteByFuncionarioIdAndDataReferencia(funcionario.getId(), data);
+		List<OcorrenciaColaborador> prev = ocorrenciaColaboradorRepository.findSobrepostas(funcionario.getId(), data, data);
+		ocorrenciaColaboradorRepository.deleteAll(prev);
+
+		TipoOcorrencia tipo = tipoOcorrenciaRepository.findByEmpresaIdOrderByNomeAsc(funcionario.getEmpresa().getId())
+				.stream().filter(t -> t.getTipoAbono() == TipoAbonoOcorrencia.PARCIAL)
+				.findFirst()
+				.orElseGet(() -> {
+					TipoOcorrencia t = new TipoOcorrencia();
+					t.setEmpresa(funcionario.getEmpresa());
+					t.setNome("Atestado Parcial T15 " + UUID.randomUUID().toString().substring(0, 5));
+					t.setTipoAbono(TipoAbonoOcorrencia.PARCIAL);
+					t.setMinutosAbonoPadrao(240);
+					t.setExigeAnexo(false);
+					t.setAtivo(true);
+					return tipoOcorrenciaRepository.save(t);
+				});
+
+		// 1 par de batidas de 4h: 14:00 às 18:00 (240 min trabalhados)
+		Batida b1 = criarBatidaTeste(funcionario, data.atTime(14, 0), TipoRegistro.ENTRADA);
+		Batida b2 = criarBatidaTeste(funcionario, data.atTime(18, 0), TipoRegistro.SAIDA);
+		batidaRepository.saveAll(List.of(b1, b2));
+
+		OcorrenciaColaboradorDTO.CriarRequest req = new OcorrenciaColaboradorDTO.CriarRequest(
+				funcionario.getId(),
+				tipo.getId(),
+				data,
+				data,
+				240,
+				"Atestado Parcial 4h"
+		);
+
+		OcorrenciaColaboradorDTO.Response resp = ocorrenciaColaboradorService.lancarOcorrencia(req, null);
+		assertNotNull(resp);
+
+		ApuracaoDiaria apuracao = apuracaoDiariaService.apurarDia(funcionario, data);
+		assertNotNull(apuracao);
+		assertEquals(240, apuracao.getMinutosTrabalhados(), "Deve ter 240 min trabalhados");
+		assertEquals(240, apuracao.getMinutosAbonados(), "Deve ter 240 min abonados");
+		assertEquals(0, apuracao.getMinutosFalta(), "Não deve ter falta com trabalho + abono cobrindo jornada");
+		assertEquals(0, apuracao.getMinutosAtraso(), "Atraso do turno da manhã deve ter sido abatido pelo abono");
+
+		// Cleanup
+		ocorrenciaColaboradorService.cancelarOcorrencia(resp.id());
+		batidaRepository.deleteAll(List.of(b1, b2));
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T15 - Bloqueio de Sobreposição: Não permite lançar duas ocorrências com interseção de datas")
+	void testT15_BloqueioSobreposicaoOcorrencias() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+
+		LocalDate ini1 = LocalDate.of(2026, 12, 10);
+		LocalDate fim1 = LocalDate.of(2026, 12, 15);
+		LocalDate ini2 = LocalDate.of(2026, 12, 14);
+		LocalDate fim2 = LocalDate.of(2026, 12, 18);
+
+		List<OcorrenciaColaborador> prev = ocorrenciaColaboradorRepository.findSobrepostas(funcionario.getId(), ini1, fim2);
+		ocorrenciaColaboradorRepository.deleteAll(prev);
+
+		TipoOcorrencia tipo = tipoOcorrenciaRepository.findByEmpresaIdOrderByNomeAsc(funcionario.getEmpresa().getId())
+				.stream().findFirst().orElseGet(() -> {
+					TipoOcorrencia t = new TipoOcorrencia();
+					t.setEmpresa(funcionario.getEmpresa());
+					t.setNome("Folga T15 " + UUID.randomUUID().toString().substring(0, 5));
+					t.setTipoAbono(TipoAbonoOcorrencia.INTEGRAL);
+					t.setExigeAnexo(false);
+					t.setAtivo(true);
+					return tipoOcorrenciaRepository.save(t);
+				});
+
+		OcorrenciaColaboradorDTO.CriarRequest req1 = new OcorrenciaColaboradorDTO.CriarRequest(
+				funcionario.getId(), tipo.getId(), ini1, fim1, null, "Primeira ocorrência"
+		);
+		OcorrenciaColaboradorDTO.Response resp1 = ocorrenciaColaboradorService.lancarOcorrencia(req1, null);
+		assertNotNull(resp1);
+
+		OcorrenciaColaboradorDTO.CriarRequest req2 = new OcorrenciaColaboradorDTO.CriarRequest(
+				funcionario.getId(), tipo.getId(), ini2, fim2, null, "Ocorrência sobreposta"
+		);
+
+		assertThrows(OcorrenciaConflitoException.class, () -> {
+			ocorrenciaColaboradorService.lancarOcorrencia(req2, null);
+		}, "Deve lançar OcorrenciaConflitoException ao detectar colisão de datas");
+
+		// Cleanup
+		ocorrenciaColaboradorService.cancelarOcorrencia(resp1.id());
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T15 - Bloqueio de Período Fechado: Recusa lançar ocorrência em competência concluída")
+	void testT15_BloqueioPeriodoFechado() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+
+		LocalDate data = LocalDate.of(2026, 7, 15);
+		String mesReferencia = "2026-07";
+
+		fechamentoPeriodoRepository.deleteAll();
+
+		FechamentoPeriodo fechamento = new FechamentoPeriodo();
+		fechamento.setEmpresa(funcionario.getEmpresa());
+		fechamento.setMesReferencia(mesReferencia);
+		fechamento.setDataInicio(LocalDate.of(2026, 7, 1));
+		fechamento.setDataFim(LocalDate.of(2026, 7, 31));
+		fechamento.setDataFechamento(LocalDateTime.now());
+		fechamento.setFechadoPor("RH Teste");
+		fechamento.setStatus(StatusFechamentoPeriodo.CONCLUIDO);
+		fechamentoPeriodoRepository.save(fechamento);
+
+		TipoOcorrencia tipo = tipoOcorrenciaRepository.findByEmpresaIdOrderByNomeAsc(funcionario.getEmpresa().getId())
+				.stream().findFirst().orElseGet(() -> {
+					TipoOcorrencia t = new TipoOcorrencia();
+					t.setEmpresa(funcionario.getEmpresa());
+					t.setNome("Atestado Fechado T15 " + UUID.randomUUID().toString().substring(0, 5));
+					t.setTipoAbono(TipoAbonoOcorrencia.INTEGRAL);
+					t.setExigeAnexo(false);
+					t.setAtivo(true);
+					return tipoOcorrenciaRepository.save(t);
+				});
+
+		OcorrenciaColaboradorDTO.CriarRequest req = new OcorrenciaColaboradorDTO.CriarRequest(
+				funcionario.getId(), tipo.getId(), data, data, null, "Tentativa em mês fechado"
+		);
+
+		assertThrows(PeriodoFechadoException.class, () -> {
+			ocorrenciaColaboradorService.lancarOcorrencia(req, null);
+		}, "Deve lançar PeriodoFechadoException ao tentar lançar em mês já fechado");
+
+		fechamentoPeriodoRepository.deleteAll();
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T15 - Anexo Comprobatório: Upload de comprovante e recuperação com integridade")
+	void testT15_UploadDownloadAnexo() throws Exception {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+
+		LocalDate data = LocalDate.of(2026, 11, 27);
+		List<OcorrenciaColaborador> prev = ocorrenciaColaboradorRepository.findSobrepostas(funcionario.getId(), data, data);
+		ocorrenciaColaboradorRepository.deleteAll(prev);
+
+		TipoOcorrencia tipo = new TipoOcorrencia();
+		tipo.setEmpresa(funcionario.getEmpresa());
+		tipo.setNome("Atestado com Anexo " + UUID.randomUUID().toString().substring(0, 5));
+		tipo.setTipoAbono(TipoAbonoOcorrencia.INTEGRAL);
+		tipo.setExigeAnexo(true);
+		tipo.setAtivo(true);
+		tipo = tipoOcorrenciaRepository.save(tipo);
+
+		byte[] arquivoBytes = "conteudo-do-atestado-medico-em-pdf-simulado".getBytes(StandardCharsets.UTF_8);
+		MockMultipartFile mockFile = new MockMultipartFile(
+				"arquivo",
+				"atestado_teste.pdf",
+				"application/pdf",
+				arquivoBytes
+		);
+
+		OcorrenciaColaboradorDTO.CriarRequest req = new OcorrenciaColaboradorDTO.CriarRequest(
+				funcionario.getId(), tipo.getId(), data, data, null, "Comprovante médico anexo"
+		);
+
+		OcorrenciaColaboradorDTO.Response resp = ocorrenciaColaboradorService.lancarOcorrencia(req, mockFile);
+		assertNotNull(resp);
+		assertEquals("atestado_teste.pdf", resp.nomeArquivo());
+		assertTrue(resp.possuiAnexo());
+
+		Resource recurso = ocorrenciaColaboradorService.carregarAnexo(resp.id());
+		assertNotNull(recurso);
+		assertTrue(recurso.exists());
+		assertEquals(arquivoBytes.length, recurso.contentLength());
+
+		// Cancelar ocorrência deve também remover o arquivo do disco
+		ocorrenciaColaboradorService.cancelarOcorrencia(resp.id());
+		assertFalse(ocorrenciaColaboradorRepository.existsById(resp.id()));
+
+		SecurityContextHolder.clearContext();
+	}
+
+	private void autenticarComoRh(Funcionario f) {
+		UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+				new FuncionarioUserDetails(f),
+				null,
+				List.of(new SimpleGrantedAuthority("ROLE_RH"))
+		);
+		SecurityContextHolder.getContext().setAuthentication(auth);
 	}
 }

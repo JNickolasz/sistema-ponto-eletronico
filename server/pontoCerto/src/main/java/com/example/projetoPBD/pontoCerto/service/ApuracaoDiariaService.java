@@ -35,6 +35,7 @@ public class ApuracaoDiariaService {
     private final InconsistenciaService inconsistenciaService;
     private final FechamentoPeriodoRepository fechamentoPeriodoRepository;
     private final FeriadoRepository feriadoRepository;
+    private final OcorrenciaColaboradorRepository ocorrenciaRepository;
     private final SecurityTenantContext securityTenantContext;
     private final ObjectMapper objectMapper;
 
@@ -47,6 +48,7 @@ public class ApuracaoDiariaService {
             InconsistenciaService inconsistenciaService,
             FechamentoPeriodoRepository fechamentoPeriodoRepository,
             FeriadoRepository feriadoRepository,
+            OcorrenciaColaboradorRepository ocorrenciaRepository,
             SecurityTenantContext securityTenantContext
     ) {
         this.apuracaoRepository = apuracaoRepository;
@@ -57,6 +59,7 @@ public class ApuracaoDiariaService {
         this.inconsistenciaService = inconsistenciaService;
         this.fechamentoPeriodoRepository = fechamentoPeriodoRepository;
         this.feriadoRepository = feriadoRepository;
+        this.ocorrenciaRepository = ocorrenciaRepository;
         this.securityTenantContext = securityTenantContext;
         this.objectMapper = new ObjectMapper();
     }
@@ -98,6 +101,20 @@ public class ApuracaoDiariaService {
         apuracao.setCalculadoEm(LocalDateTime.now());
         apuracao.setMinutosPrevistos(minutosPrevistos);
 
+        // Busca se existe ocorrência / abono vigente para a data (T15)
+        Optional<OcorrenciaColaborador> ocorrenciaOpt = ocorrenciaRepository
+                .findVigenteNaData(funcionario.getId(), dataReferencia);
+
+        if (ocorrenciaOpt.isPresent()) {
+            OcorrenciaColaborador oc = ocorrenciaOpt.get();
+            apuracao.setOcorrenciaId(oc.getId());
+            apuracao.setTipoOcorrenciaNome(oc.getTipoOcorrencia().getNome());
+        } else {
+            apuracao.setOcorrenciaId(null);
+            apuracao.setTipoOcorrenciaNome(null);
+            apuracao.setMinutosAbonados(0);
+        }
+
         // CASO 1: Zero batidas
         if (batidas.isEmpty()) {
             boolean feriado = verificarSeEhFeriado(funcionario, dataReferencia);
@@ -105,6 +122,19 @@ public class ApuracaoDiariaService {
                 apuracao.setStatus(StatusApuracaoDiaria.FOLGA);
                 zerarTotalizadores(apuracao);
                 apuracao.setMinutosPrevistos(0);
+            } else if (ocorrenciaOpt.isPresent() && ocorrenciaOpt.get().getTipoOcorrencia().getTipoAbono() == TipoAbonoOcorrencia.INTEGRAL) {
+                // Abono Integral em dia útil: 100% abonado, sem falta
+                apuracao.setStatus(StatusApuracaoDiaria.ABONADO);
+                zerarTotalizadores(apuracao);
+                apuracao.setMinutosAbonados(minutosPrevistos);
+                apuracao.setMinutosFalta(0);
+            } else if (ocorrenciaOpt.isPresent() && ocorrenciaOpt.get().getTipoOcorrencia().getTipoAbono() == TipoAbonoOcorrencia.PARCIAL) {
+                // Abono Parcial sem batidas: abona a parcela e o restante vira falta
+                int abono = Math.min(minutosPrevistos, ocorrenciaOpt.get().getMinutosAbonoPorDia() != null ? ocorrenciaOpt.get().getMinutosAbonoPorDia() : 0);
+                apuracao.setStatus(StatusApuracaoDiaria.FALTA);
+                zerarTotalizadores(apuracao);
+                apuracao.setMinutosAbonados(abono);
+                apuracao.setMinutosFalta(Math.max(0, minutosPrevistos - abono));
             } else {
                 apuracao.setStatus(StatusApuracaoDiaria.FALTA);
                 zerarTotalizadores(apuracao);
@@ -184,6 +214,29 @@ public class ApuracaoDiariaService {
                 minutosSaidaAntecipada = saidaAntecipada;
             }
         }
+
+        // Aplicação de Abono (T15) sobre atrasos e faltas
+        int minutosAbonados = 0;
+        if (ocorrenciaOpt.isPresent()) {
+            TipoAbonoOcorrencia tipoAbono = ocorrenciaOpt.get().getTipoOcorrencia().getTipoAbono();
+            if (tipoAbono == TipoAbonoOcorrencia.INTEGRAL) {
+                minutosAbonados = minutosPrevistos;
+                apuracao.setStatus(StatusApuracaoDiaria.ABONADO);
+                minutosAtraso = 0;
+                minutosSaidaAntecipada = 0;
+            } else if (tipoAbono == TipoAbonoOcorrencia.PARCIAL) {
+                minutosAbonados = ocorrenciaOpt.get().getMinutosAbonoPorDia() != null
+                        ? ocorrenciaOpt.get().getMinutosAbonoPorDia()
+                        : 0;
+
+                int tempoEfetivo = minutosTrabalhados + minutosAbonados;
+                if (tempoEfetivo >= minutosPrevistos) {
+                    minutosAtraso = 0;
+                    minutosSaidaAntecipada = 0;
+                }
+            }
+        }
+        apuracao.setMinutosAbonados(minutosAbonados);
 
         // Cálculo de Adicional Noturno com Hora Noturna Reduzida
         Optional<RegraApuracao> regraApuracaoOpt = regraApuracaoRepository
@@ -383,6 +436,7 @@ public class ApuracaoDiariaService {
         a.setMinutosAdicionalNoturno(0);
         a.setMinutosFalta(0);
         a.setMinutosHoraExtraTotal(0);
+        a.setMinutosAbonados(0);
     }
 
     private void validarPeriodoNaoFechado(UUID empresaId, LocalDate data) {
@@ -412,6 +466,7 @@ public class ApuracaoDiariaService {
         int totalNoturno = 0;
         int totalFalta = 0;
         int totalHoraExtra = 0;
+        int totalAbonado = 0;
 
         List<ApuracaoDiariaDTO.Response> diasResponses = new ArrayList<>();
 
@@ -424,6 +479,7 @@ public class ApuracaoDiariaService {
             totalNoturno += ap.getMinutosAdicionalNoturno() != null ? ap.getMinutosAdicionalNoturno() : 0;
             totalFalta += ap.getMinutosFalta() != null ? ap.getMinutosFalta() : 0;
             totalHoraExtra += ap.getMinutosHoraExtraTotal() != null ? ap.getMinutosHoraExtraTotal() : 0;
+            totalAbonado += ap.getMinutosAbonados() != null ? ap.getMinutosAbonados() : 0;
 
             diasResponses.add(toDTO(ap));
         }
@@ -442,6 +498,7 @@ public class ApuracaoDiariaService {
                 totalNoturno,
                 totalFalta,
                 totalHoraExtra,
+                totalAbonado,
                 diasResponses
         );
     }
@@ -478,6 +535,9 @@ public class ApuracaoDiariaService {
                 ap.getMinutosAdicionalNoturno(),
                 ap.getMinutosFalta(),
                 ap.getMinutosHoraExtraTotal(),
+                ap.getMinutosAbonados() != null ? ap.getMinutosAbonados() : 0,
+                ap.getOcorrenciaId(),
+                ap.getTipoOcorrenciaNome(),
                 pares,
                 extrasPorFaixa,
                 ap.getCalculadoEm()
