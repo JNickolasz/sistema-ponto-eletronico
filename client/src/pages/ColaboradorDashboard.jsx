@@ -5,6 +5,7 @@ import jornadaService from '../services/jornadaService';
 import SolicitarAjusteModal from '../components/SolicitarAjusteModal';
 import MinhasSolicitacoesSection from '../components/MinhasSolicitacoesSection';
 import ApuracaoEspelhoSection from '../components/ApuracaoEspelhoSection';
+import BancoHorasSection from '../components/BancoHorasSection';
 import { useAuth } from '../hooks/useAuth';
 import {
   Clock,
@@ -658,6 +659,13 @@ export function ColaboradorDashboard() {
         <ApuracaoEspelhoSection
           funcionarioId={user?.funcionarioId || user?.id}
           podeRecalcular={false}
+        />
+
+        {/* Extrato Individual de Banco de Horas (T16) */}
+        <BancoHorasSection
+          funcionarioId={user?.funcionarioId || user?.id}
+          podeRegistrarCompensacao={false}
+          exibirVisaoEquipe={false}
         />
 
         {/* Minhas Solicitações de Ajuste (T13) */}

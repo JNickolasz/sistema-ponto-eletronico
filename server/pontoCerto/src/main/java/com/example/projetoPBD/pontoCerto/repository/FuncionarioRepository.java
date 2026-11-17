@@ -30,6 +30,10 @@ public interface FuncionarioRepository extends JpaRepository<Funcionario, UUID> 
 
     List<Funcionario> findByEmpresaId(UUID empresaId);
 
+    List<Funcionario> findByEmpresaIdOrderByNomeCompletoAsc(UUID empresaId);
+
+    List<Funcionario> findByGestorIdOrderByNomeCompletoAsc(UUID gestorId);
+
     Optional<Funcionario> findByUsuario(String usuario);
     boolean existsByUsuario(String usuario);
     /*

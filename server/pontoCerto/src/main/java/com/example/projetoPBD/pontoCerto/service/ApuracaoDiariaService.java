@@ -36,6 +36,7 @@ public class ApuracaoDiariaService {
     private final FechamentoPeriodoRepository fechamentoPeriodoRepository;
     private final FeriadoRepository feriadoRepository;
     private final OcorrenciaColaboradorRepository ocorrenciaRepository;
+    private final BancoHorasService bancoHorasService;
     private final SecurityTenantContext securityTenantContext;
     private final ObjectMapper objectMapper;
 
@@ -49,6 +50,7 @@ public class ApuracaoDiariaService {
             FechamentoPeriodoRepository fechamentoPeriodoRepository,
             FeriadoRepository feriadoRepository,
             OcorrenciaColaboradorRepository ocorrenciaRepository,
+            BancoHorasService bancoHorasService,
             SecurityTenantContext securityTenantContext
     ) {
         this.apuracaoRepository = apuracaoRepository;
@@ -60,6 +62,7 @@ public class ApuracaoDiariaService {
         this.fechamentoPeriodoRepository = fechamentoPeriodoRepository;
         this.feriadoRepository = feriadoRepository;
         this.ocorrenciaRepository = ocorrenciaRepository;
+        this.bancoHorasService = bancoHorasService;
         this.securityTenantContext = securityTenantContext;
         this.objectMapper = new ObjectMapper();
     }
@@ -142,7 +145,7 @@ public class ApuracaoDiariaService {
             }
             apuracao.setParesJson("[]");
             apuracao.setHorasExtrasPorFaixaJson("{}");
-            return apuracaoRepository.saveAndFlush(apuracao);
+            return salvarEDerivarBancoHoras(apuracao);
         }
 
         // CASO 2: Quantidade ímpar de marcações (Não inventa batida nem arredonda)
@@ -155,7 +158,7 @@ public class ApuracaoDiariaService {
             zerarTotalizadores(apuracao);
             apuracao.setParesJson("[]");
             apuracao.setHorasExtrasPorFaixaJson("{}");
-            return apuracaoRepository.saveAndFlush(apuracao);
+            return salvarEDerivarBancoHoras(apuracao);
         }
 
         // CASO 3: Quantidade par (>= 2) -> Pareamento sequencial
@@ -294,7 +297,7 @@ public class ApuracaoDiariaService {
             apuracao.setHorasExtrasPorFaixaJson("{}");
         }
 
-        return apuracaoRepository.saveAndFlush(apuracao);
+        return salvarEDerivarBancoHoras(apuracao);
     }
 
     @Transactional
@@ -437,6 +440,12 @@ public class ApuracaoDiariaService {
         a.setMinutosFalta(0);
         a.setMinutosHoraExtraTotal(0);
         a.setMinutosAbonados(0);
+    }
+
+    private ApuracaoDiaria salvarEDerivarBancoHoras(ApuracaoDiaria apuracao) {
+        ApuracaoDiaria salva = apuracaoRepository.saveAndFlush(apuracao);
+        bancoHorasService.derivarMovimentacoesDaApuracao(salva);
+        return salva;
     }
 
     private void validarPeriodoNaoFechado(UUID empresaId, LocalDate data) {

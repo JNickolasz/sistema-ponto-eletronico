@@ -5,6 +5,7 @@ import BatidasOrfasSection from '../components/BatidasOrfasSection';
 import FilaInconsistenciasSection from '../components/FilaInconsistenciasSection';
 import ApuracaoEspelhoSection from '../components/ApuracaoEspelhoSection';
 import OcorrenciasSection from '../components/OcorrenciasSection';
+import BancoHorasSection from '../components/BancoHorasSection';
 import rhService from '../services/rhService';
 import batidaService from '../services/batidaService';
 import equipamentoService from '../services/equipamentoService';
@@ -1268,6 +1269,18 @@ export function RhDashboard() {
           >
             <CalendarCheck size={18} />
             <span>Ocorrências & Abonos (T15)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAbaAtiva('banco-horas')}
+            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              abaAtiva === 'banco-horas'
+                ? 'border-indigo-500 text-indigo-400'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <History size={18} />
+            <span>Banco de Horas (T16)</span>
           </button>
         </div>
 
@@ -3843,6 +3856,14 @@ export function RhDashboard() {
 
         {abaAtiva === 'ocorrencias' && (
           <OcorrenciasSection funcionarios={funcionariosEmpresa} />
+        )}
+
+        {abaAtiva === 'banco-horas' && (
+          <BancoHorasSection
+            funcionarios={funcionariosEmpresa}
+            podeRegistrarCompensacao={true}
+            exibirVisaoEquipe={true}
+          />
         )}
 
         {/* Modal de Cadastro de Nova Empresa (Admin) */}

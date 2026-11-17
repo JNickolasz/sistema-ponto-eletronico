@@ -58,6 +58,13 @@ import com.example.projetoPBD.pontoCerto.service.TipoOcorrenciaService;
 import com.example.projetoPBD.pontoCerto.service.OcorrenciaColaboradorService;
 import com.example.projetoPBD.pontoCerto.service.AnexoStorageService;
 import com.example.projetoPBD.pontoCerto.service.exceptions.OcorrenciaConflitoException;
+import com.example.projetoPBD.pontoCerto.domain.MovimentacaoBancoHoras;
+import com.example.projetoPBD.pontoCerto.domain.FechamentoBancoHoras;
+import com.example.projetoPBD.pontoCerto.domain.enums.TipoMovimentacaoBancoHoras;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.BancoHorasDTO;
+import com.example.projetoPBD.pontoCerto.repository.MovimentacaoBancoHorasRepository;
+import com.example.projetoPBD.pontoCerto.repository.FechamentoBancoHorasRepository;
+import com.example.projetoPBD.pontoCerto.service.BancoHorasService;
 import org.springframework.core.io.Resource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -151,6 +158,15 @@ class PontoCertoApplicationTests {
 
 	@Autowired
 	private AnexoStorageService anexoStorageService;
+
+	@Autowired
+	private MovimentacaoBancoHorasRepository movimentacaoBancoHorasRepository;
+
+	@Autowired
+	private FechamentoBancoHorasRepository fechamentoBancoHorasRepository;
+
+	@Autowired
+	private BancoHorasService bancoHorasService;
 
 	@Test
 	void contextLoads() {
@@ -1260,5 +1276,207 @@ class PontoCertoApplicationTests {
 				List.of(new SimpleGrantedAuthority("ROLE_RH"))
 		);
 		SecurityContextHolder.getContext().setAuthentication(auth);
+	}
+
+	@Test
+	@DisplayName("T16 - Derivação Automática: 1h extra (+60m) e 30m de atraso (-30m) geram saldo acumulado de +30m sem intervenção manual")
+	void testT16_DerivacaoAutomatica() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+
+		LocalDate dia1 = LocalDate.of(2026, 9, 14); // Segunda
+		LocalDate dia2 = LocalDate.of(2026, 9, 15); // Terça
+
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+		apuracaoDiariaRepository.deleteByFuncionarioIdAndDataReferencia(funcionario.getId(), dia1);
+		apuracaoDiariaRepository.deleteByFuncionarioIdAndDataReferencia(funcionario.getId(), dia2);
+
+		// Dia 1: Trabalhou 9h (08:00-12:00 e 13:00-18:00 = 540m, previsto 480m -> +60m extra)
+		Batida b1 = criarBatidaTeste(funcionario, dia1.atTime(8, 0), TipoRegistro.ENTRADA);
+		Batida b2 = criarBatidaTeste(funcionario, dia1.atTime(12, 0), TipoRegistro.SAIDA);
+		Batida b3 = criarBatidaTeste(funcionario, dia1.atTime(13, 0), TipoRegistro.ENTRADA);
+		Batida b4 = criarBatidaTeste(funcionario, dia1.atTime(18, 0), TipoRegistro.SAIDA);
+		batidaRepository.saveAll(List.of(b1, b2, b3, b4));
+
+		// Dia 2: Entrou 30m atrasado (08:30-12:00 e 13:00-17:00 = 450m -> -30m atraso)
+		Batida b5 = criarBatidaTeste(funcionario, dia2.atTime(8, 30), TipoRegistro.ENTRADA);
+		Batida b6 = criarBatidaTeste(funcionario, dia2.atTime(12, 0), TipoRegistro.SAIDA);
+		Batida b7 = criarBatidaTeste(funcionario, dia2.atTime(13, 0), TipoRegistro.ENTRADA);
+		Batida b8 = criarBatidaTeste(funcionario, dia2.atTime(17, 0), TipoRegistro.SAIDA);
+		batidaRepository.saveAll(List.of(b5, b6, b7, b8));
+
+		apuracaoDiariaService.apurarDia(funcionario, dia1);
+		apuracaoDiariaService.apurarDia(funcionario, dia2);
+
+		BancoHorasDTO.ExtratoPeriodoResponse extrato = bancoHorasService.consultarExtrato(funcionario.getId(), dia1, dia2);
+
+		assertNotNull(extrato);
+		assertEquals(60, extrato.creditosPeriodoMinutos(), "Deve ter +60m de crédito no dia 1");
+		assertEquals(30, extrato.debitosPeriodoMinutos(), "Deve ter -30m de débito no dia 2");
+		assertEquals(30, extrato.saldoFinalMinutos(), "Saldo acumulado final deve ser +30m");
+
+		batidaRepository.deleteAll(List.of(b1, b2, b3, b4, b5, b6, b7, b8));
+		movimentacaoBancoHorasRepository.deleteAll();
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T16 - Extrato com Saldo Inicial e Final: Filtrar período intermediário reflete acumulado anterior")
+	void testT16_ExtratoSaldoInicialEFinal() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+
+		// Movimentação anterior ao período filtrado (dia 05/09: +120 min)
+		MovimentacaoBancoHoras movAnterior = new MovimentacaoBancoHoras();
+		movAnterior.setFuncionario(funcionario);
+		movAnterior.setDataReferencia(LocalDate.of(2026, 9, 5));
+		movAnterior.setTipo(TipoMovimentacaoBancoHoras.CREDITO_APURACAO);
+		movAnterior.setMinutos(120);
+		movAnterior.setDescricao("Crédito anterior +02:00");
+		movAnterior.setRegistradoEm(LocalDateTime.now());
+		movimentacaoBancoHorasRepository.saveAndFlush(movAnterior);
+
+		// Movimentação dentro do período filtrado (dia 15/09: +60 min)
+		MovimentacaoBancoHoras movNoPeriodo = new MovimentacaoBancoHoras();
+		movNoPeriodo.setFuncionario(funcionario);
+		movNoPeriodo.setDataReferencia(LocalDate.of(2026, 9, 15));
+		movNoPeriodo.setTipo(TipoMovimentacaoBancoHoras.CREDITO_APURACAO);
+		movNoPeriodo.setMinutos(60);
+		movNoPeriodo.setDescricao("Crédito no período +01:00");
+		movNoPeriodo.setRegistradoEm(LocalDateTime.now());
+		movimentacaoBancoHorasRepository.saveAndFlush(movNoPeriodo);
+
+		BancoHorasDTO.ExtratoPeriodoResponse extrato = bancoHorasService.consultarExtrato(
+				funcionario.getId(),
+				LocalDate.of(2026, 9, 10),
+				LocalDate.of(2026, 9, 20)
+		);
+
+		assertEquals(120, extrato.saldoInicialMinutos(), "Saldo inicial em 10/09 deve refletir os +120m acumulados até 09/09");
+		assertEquals(60, extrato.creditosPeriodoMinutos());
+		assertEquals(180, extrato.saldoFinalMinutos(), "Saldo final em 20/09 deve ser 120 + 60 = 180m");
+
+		movimentacaoBancoHorasRepository.deleteAll();
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T16 - Registro de Compensação: Abatimento de 02:00 com motivo obrigatório atualiza saldo acumulado")
+	void testT16_RegistroCompensacao() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+
+		LocalDate dataCredito = LocalDate.of(2026, 9, 10);
+		LocalDate dataComp = LocalDate.of(2026, 9, 18);
+
+		MovimentacaoBancoHoras movCredito = new MovimentacaoBancoHoras();
+		movCredito.setFuncionario(funcionario);
+		movCredito.setDataReferencia(dataCredito);
+		movCredito.setTipo(TipoMovimentacaoBancoHoras.CREDITO_APURACAO);
+		movCredito.setMinutos(240); // +04:00 acumulados
+		movCredito.setDescricao("Crédito +04:00");
+		movCredito.setRegistradoEm(LocalDateTime.now());
+		movimentacaoBancoHorasRepository.saveAndFlush(movCredito);
+
+		BancoHorasDTO.RegistrarCompensacaoRequest req = new BancoHorasDTO.RegistrarCompensacaoRequest(
+				funcionario.getId(),
+				dataComp,
+				120, // 02:00 compensadas
+				"Saída antecipada compensada com banco de horas"
+		);
+
+		BancoHorasDTO.ItemExtratoResponse compSalva = bancoHorasService.registrarCompensacao(funcionario, req);
+		assertNotNull(compSalva);
+		assertEquals(-120, compSalva.minutos());
+		assertEquals(120, compSalva.saldoAcumuladoMinutos(), "Saldo após abater 120m de 240m deve ser 120m");
+
+		movimentacaoBancoHorasRepository.deleteAll();
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T16 - Imutabilidade de Período Fechado: Fechar outubro com +10:00 preserva saldo congelado após alterar regras")
+	void testT16_ImutabilidadePeriodoFechado() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+
+		LocalDate diaOutubro = LocalDate.of(2026, 10, 15);
+		MovimentacaoBancoHoras movOutubro = new MovimentacaoBancoHoras();
+		movOutubro.setFuncionario(funcionario);
+		movOutubro.setDataReferencia(diaOutubro);
+		movOutubro.setTipo(TipoMovimentacaoBancoHoras.CREDITO_APURACAO);
+		movOutubro.setMinutos(600); // +10:00
+		movOutubro.setDescricao("Crédito consolidado outubro +10:00");
+		movOutubro.setRegistradoEm(LocalDateTime.now());
+		movimentacaoBancoHorasRepository.saveAndFlush(movOutubro);
+
+		// Congela o período de Outubro/2026
+		FechamentoBancoHoras snapshot = bancoHorasService.congelarPeriodoFuncionario(funcionario, "2026-10", "RH Teste");
+		assertNotNull(snapshot);
+		assertEquals(600, snapshot.getSaldoFinalCongeladoMinutos());
+
+		// Simula tentativa de recálculo / alteração de apuração em Outubro/2026
+		ApuracaoDiaria apNova = new ApuracaoDiaria();
+		apNova.setId(UUID.randomUUID());
+		apNova.setFuncionario(funcionario);
+		apNova.setDataReferencia(diaOutubro);
+		apNova.setStatus(StatusApuracaoDiaria.FALTA);
+		apNova.setMinutosFalta(480);
+		bancoHorasService.derivarMovimentacoesDaApuracao(apNova);
+
+		// Consulta extrato de outubro -> deve permanecer intacto em +10:00 (600 min)
+		BancoHorasDTO.ExtratoPeriodoResponse extratoOutubro = bancoHorasService.consultarExtrato(
+				funcionario.getId(),
+				LocalDate.of(2026, 10, 1),
+				LocalDate.of(2026, 10, 31)
+		);
+		assertEquals(600, extratoOutubro.saldoFinalMinutos(), "Saldo congelado de outubro deve permanecer intacto em +10:00 (600m)");
+
+		fechamentoBancoHorasRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T16 - Relatório de Equipe: Gestor visualiza apenas subordinados da sua equipe com saldos atualizados")
+	void testT16_RelatorioSaldoEquipe() {
+		List<Funcionario> todos = funcionarioRepository.findAll();
+		Funcionario gestor = todos.stream()
+				.filter(f -> f.getPerfilAcesso() == PerfilAcesso.GESTOR)
+				.findFirst()
+				.orElse(todos.get(0));
+
+		Funcionario subordinado = todos.stream()
+				.filter(f -> f.getGestor() != null && f.getGestor().getId().equals(gestor.getId()))
+				.findFirst()
+				.orElseGet(() -> {
+					Funcionario f = todos.get(0);
+					f.setGestor(gestor);
+					return funcionarioRepository.saveAndFlush(f);
+				});
+
+		List<BancoHorasDTO.SaldoColaboradorEquipeResponse> relatorio = bancoHorasService.consultarSaldoEquipe(
+				gestor,
+				LocalDate.of(2026, 11, 1),
+				LocalDate.of(2026, 11, 30)
+		);
+
+		assertNotNull(relatorio);
+		assertTrue(relatorio.stream().anyMatch(r -> r.funcionarioId().equals(subordinado.getId())),
+				"Subordinado direto deve constar no relatório de banco de horas da equipe do gestor");
 	}
 }
