@@ -32,6 +32,7 @@ public class InconsistenciaService {
     private final FeriadoRepository feriadoRepository;
     private final RegimeTrabalhoService regimeTrabalhoService;
     private final InconsistenciaRegistroAutonomoService registroAutonomoService;
+    private final BancoHorasService bancoHorasService;
     private final SecurityTenantContext securityTenantContext;
 
     public InconsistenciaService(
@@ -44,6 +45,7 @@ public class InconsistenciaService {
             FeriadoRepository feriadoRepository,
             RegimeTrabalhoService regimeTrabalhoService,
             InconsistenciaRegistroAutonomoService registroAutonomoService,
+            BancoHorasService bancoHorasService,
             SecurityTenantContext securityTenantContext
     ) {
         this.inconsistenciaRepository = inconsistenciaRepository;
@@ -55,6 +57,7 @@ public class InconsistenciaService {
         this.feriadoRepository = feriadoRepository;
         this.regimeTrabalhoService = regimeTrabalhoService;
         this.registroAutonomoService = registroAutonomoService;
+        this.bancoHorasService = bancoHorasService;
         this.securityTenantContext = securityTenantContext;
     }
 
@@ -615,6 +618,7 @@ public class InconsistenciaService {
         }
 
         FechamentoPeriodo salvo = fechamentoPeriodoRepository.saveAndFlush(fechamento);
+        bancoHorasService.congelarPeriodoEmpresa(empresaId, mesRef, autor);
         return toFechamentoResponse(salvo);
     }
 

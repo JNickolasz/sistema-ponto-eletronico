@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
+import BancoHorasSection from '../components/BancoHorasSection';
 import gestorService from '../services/gestorService';
 import solicitacaoAjusteService from '../services/solicitacaoAjusteService';
 import { useAuth } from '../hooks/useAuth';
@@ -497,6 +498,12 @@ export function GestorDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Visão de Banco de Horas da Equipe & Extrato Individual (T16) */}
+        <BancoHorasSection
+          podeRegistrarCompensacao={true}
+          exibirVisaoEquipe={true}
+        />
       </main>
 
       {/* Modal de Análise do Gestor (T13) */}
