@@ -33,6 +33,7 @@ public class InconsistenciaService {
     private final RegimeTrabalhoService regimeTrabalhoService;
     private final InconsistenciaRegistroAutonomoService registroAutonomoService;
     private final BancoHorasService bancoHorasService;
+    private final CompetenciaLockService competenciaLockService;
     private final SecurityTenantContext securityTenantContext;
 
     public InconsistenciaService(
@@ -46,6 +47,7 @@ public class InconsistenciaService {
             RegimeTrabalhoService regimeTrabalhoService,
             InconsistenciaRegistroAutonomoService registroAutonomoService,
             BancoHorasService bancoHorasService,
+            CompetenciaLockService competenciaLockService,
             SecurityTenantContext securityTenantContext
     ) {
         this.inconsistenciaRepository = inconsistenciaRepository;
@@ -58,6 +60,7 @@ public class InconsistenciaService {
         this.regimeTrabalhoService = regimeTrabalhoService;
         this.registroAutonomoService = registroAutonomoService;
         this.bancoHorasService = bancoHorasService;
+        this.competenciaLockService = competenciaLockService;
         this.securityTenantContext = securityTenantContext;
     }
 
@@ -73,6 +76,16 @@ public class InconsistenciaService {
             return;
         }
 
+        LocalDate dataOriginal = batidaOrfa.getDataHora().toLocalDate();
+        LocalDate dataAlocada = dataOriginal;
+        String compAlocada = YearMonth.from(dataOriginal).toString();
+
+        if (competenciaLockService.estaPeriodoFechado(empresa.getId(), dataOriginal)) {
+            YearMonth proxima = competenciaLockService.obterProximaCompetenciaAberta(empresa.getId(), dataOriginal);
+            dataAlocada = proxima.atDay(1);
+            compAlocada = proxima.toString();
+        }
+
         Inconsistencia inc = new Inconsistencia();
         inc.setEmpresa(empresa);
         inc.setTipo(TipoInconsistencia.ORFA);
@@ -82,7 +95,9 @@ public class InconsistenciaService {
         inc.setArquivoImportadoId(batidaOrfa.getArquivoImportadoId());
         inc.setNomeArquivo(nomeArquivo);
         inc.setIdentificadorRecebido(batidaOrfa.getIdentificadorOriginal());
-        inc.setDataReferencia(batidaOrfa.getDataHora().toLocalDate());
+        inc.setDataReferencia(dataAlocada);
+        inc.setDataOcorrenciaOriginal(dataOriginal);
+        inc.setCompetenciaAlocacao(compAlocada);
         inc.setDataHoraOrigem(batidaOrfa.getDataHora());
         inc.setChaveDeduplicacao(chave);
         inc.setDescricaoOrigem(
@@ -92,6 +107,53 @@ public class InconsistenciaService {
         );
 
         inconsistenciaRepository.saveAndFlush(inc);
+    }
+
+    @Transactional
+    public Inconsistencia registrarMarcacaoPeriodoFechado(
+            Batida batida,
+            Funcionario funcionario,
+            Equipamento equipamento,
+            String nomeArquivo,
+            YearMonth competenciaAlocada
+    ) {
+        if (batida == null || funcionario == null) {
+            return null;
+        }
+        Empresa empresa = funcionario.getEmpresa();
+        String chave = "MARC_FECHADO_" + batida.getId();
+
+        if (inconsistenciaRepository.existsByEmpresaIdAndChaveDeduplicacao(empresa.getId(), chave)) {
+            return null;
+        }
+
+        LocalDate dataOriginal = batida.getDataHora().toLocalDate();
+        YearMonth destino = competenciaAlocada != null
+                ? competenciaAlocada
+                : competenciaLockService.obterProximaCompetenciaAberta(empresa.getId(), dataOriginal);
+
+        Inconsistencia inc = new Inconsistencia();
+        inc.setEmpresa(empresa);
+        inc.setTipo(TipoInconsistencia.MARCACAO_PERIODO_FECHADO);
+        inc.setSituacao(StatusInconsistencia.ABERTA);
+        inc.setFuncionario(funcionario);
+        inc.setEquipamento(equipamento);
+        inc.setBatidaOrigemId(batida.getId());
+        inc.setArquivoImportadoId(batida.getArquivoImportadoId());
+        inc.setNomeArquivo(nomeArquivo);
+        inc.setIdentificadorRecebido(batida.getIdentificadorOriginal());
+        inc.setDataReferencia(destino.atDay(1));
+        inc.setDataOcorrenciaOriginal(dataOriginal);
+        inc.setCompetenciaAlocacao(destino.toString());
+        inc.setDataHoraOrigem(batida.getDataHora());
+        inc.setChaveDeduplicacao(chave);
+        inc.setDescricaoOrigem(
+                "Marcação atrasada referente a período já fechado (Data original: " + dataOriginal
+                        + " às " + batida.getDataHora().toLocalTime() + ", NSR " + batida.getNsr()
+                        + ") — alocada na competência " + destino + " para decisão do RH."
+        );
+
+        return inconsistenciaRepository.saveAndFlush(inc);
     }
 
     public void registrarEquipamentoDesconhecido(
@@ -423,6 +485,8 @@ public class InconsistenciaService {
             throw new IllegalArgumentException("Esta inconsistência já foi resolvida.");
         }
 
+        competenciaLockService.validarPeriodoAberto(empresaId, inc.getDataReferencia());
+
         String autor = obterIdentificacaoUsuarioLogado();
         UUID autorId = obterIdUsuarioLogado();
         String motivoLimpo = dto.motivo().trim();
@@ -597,7 +661,9 @@ public class InconsistenciaService {
         String autor = obterIdentificacaoUsuarioLogado();
         UUID autorId = obterIdUsuarioLogado();
 
-        FechamentoPeriodo fechamento = new FechamentoPeriodo();
+        FechamentoPeriodo fechamento = fechamentoPeriodoRepository
+                .findFirstByEmpresaIdAndMesReferenciaOrderByDataFechamentoDesc(empresaId, mesRef)
+                .orElseGet(FechamentoPeriodo::new);
         fechamento.setEmpresa(empresa);
         fechamento.setMesReferencia(mesRef);
         fechamento.setDataInicio(inicio);

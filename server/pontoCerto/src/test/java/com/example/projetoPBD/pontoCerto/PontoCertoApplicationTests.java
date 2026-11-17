@@ -4,6 +4,7 @@ import com.example.projetoPBD.pontoCerto.domain.Batida;
 import com.example.projetoPBD.pontoCerto.domain.Equipamento;
 import com.example.projetoPBD.pontoCerto.domain.Feriado;
 import com.example.projetoPBD.pontoCerto.domain.Funcionario;
+import com.example.projetoPBD.pontoCerto.domain.Inconsistencia;
 import com.example.projetoPBD.pontoCerto.domain.enums.AcaoTratamento;
 import com.example.projetoPBD.pontoCerto.domain.enums.Alcance;
 import com.example.projetoPBD.pontoCerto.domain.enums.StatusBatida;
@@ -65,6 +66,12 @@ import com.example.projetoPBD.pontoCerto.dto.domaindtos.BancoHorasDTO;
 import com.example.projetoPBD.pontoCerto.repository.MovimentacaoBancoHorasRepository;
 import com.example.projetoPBD.pontoCerto.repository.FechamentoBancoHorasRepository;
 import com.example.projetoPBD.pontoCerto.service.BancoHorasService;
+import com.example.projetoPBD.pontoCerto.domain.HistoricoFechamentoPeriodo;
+import com.example.projetoPBD.pontoCerto.domain.enums.AcaoFechamentoPeriodo;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.FechamentoPeriodoDTO;
+import com.example.projetoPBD.pontoCerto.repository.HistoricoFechamentoPeriodoRepository;
+import com.example.projetoPBD.pontoCerto.service.CompetenciaLockService;
+import com.example.projetoPBD.pontoCerto.service.FechamentoPeriodoService;
 import org.springframework.core.io.Resource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -167,6 +174,15 @@ class PontoCertoApplicationTests {
 
 	@Autowired
 	private BancoHorasService bancoHorasService;
+
+	@Autowired
+	private FechamentoPeriodoService fechamentoPeriodoService;
+
+	@Autowired
+	private HistoricoFechamentoPeriodoRepository historicoFechamentoPeriodoRepository;
+
+	@Autowired
+	private CompetenciaLockService competenciaLockService;
 
 	@Test
 	void contextLoads() {
@@ -1478,5 +1494,301 @@ class PontoCertoApplicationTests {
 		assertNotNull(relatorio);
 		assertTrue(relatorio.stream().anyMatch(r -> r.funcionarioId().equals(subordinado.getId())),
 				"Subordinado direto deve constar no relatório de banco de horas da equipe do gestor");
+	}
+
+	@Test
+	@DisplayName("T17 - Bloqueio Pós-Fechamento: Operações em mês fechado são recusadas (409 PeriodoFechadoException)")
+	void testT17_BloqueioPosFechamento() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+		UUID empresaId = funcionario.getEmpresa().getId();
+		LocalDate dataOutubro = LocalDate.of(2026, 10, 15);
+
+		// Garante que o período 2026-10 está fechado
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+
+		FechamentoPeriodo fechamento = new FechamentoPeriodo();
+		fechamento.setEmpresa(funcionario.getEmpresa());
+		fechamento.setMesReferencia("2026-10");
+		fechamento.setDataInicio(LocalDate.of(2026, 10, 1));
+		fechamento.setDataFim(LocalDate.of(2026, 10, 31));
+		fechamento.setDataFechamento(LocalDateTime.now());
+		fechamento.setStatus(StatusFechamentoPeriodo.CONCLUIDO);
+		fechamento.setFechadoPor("RH Teste");
+		fechamento.setPendenciasAbertasNoFechamento(0);
+		fechamentoPeriodoRepository.saveAndFlush(fechamento);
+
+		// 1. Tentar bater ponto na estação no período fechado
+		assertThrows(PeriodoFechadoException.class, () ->
+				batidaService.registrarBatida(new BatidaDTO.Request(
+						funcionario.getId(),
+						TipoRegistro.ENTRADA,
+						null,
+						null,
+						null,
+						"127.0.0.1",
+						dataOutubro.atTime(8, 0)
+				))
+		);
+
+		// 2. Tentar abrir solicitação de ajuste no período fechado
+		assertThrows(PeriodoFechadoException.class, () ->
+				solicitacaoAjusteService.abrirSolicitacao(funcionario, new SolicitacaoAjusteDTO.CriarRequest(
+						dataOutubro,
+						LocalTime.of(8, 0),
+						TipoRegistro.ENTRADA,
+						"Esqueci de bater ponto"
+				))
+		);
+
+		// 3. Tentar lançar ocorrência no período fechado
+		TipoOcorrencia tipo = tipoOcorrenciaRepository.findByEmpresaIdOrderByNomeAsc(empresaId).stream().findFirst().orElseGet(() -> {
+			TipoOcorrencia t = new TipoOcorrencia();
+			t.setEmpresa(funcionario.getEmpresa());
+			t.setNome("Atestado T17");
+			t.setTipoAbono(TipoAbonoOcorrencia.INTEGRAL);
+			return tipoOcorrenciaRepository.saveAndFlush(t);
+		});
+		assertThrows(PeriodoFechadoException.class, () ->
+				ocorrenciaColaboradorService.lancarOcorrencia(new OcorrenciaColaboradorDTO.CriarRequest(
+						funcionario.getId(),
+						tipo.getId(),
+						dataOutubro,
+						dataOutubro,
+						null,
+						"Atestado em mês fechado"
+				), null)
+		);
+
+		// 4. Tentar registrar compensação de banco de horas no período fechado
+		assertThrows(PeriodoFechadoException.class, () ->
+				bancoHorasService.registrarCompensacao(new BancoHorasDTO.RegistrarCompensacaoRequest(
+						funcionario.getId(),
+						dataOutubro,
+						60,
+						"Compensação em mês fechado"
+				))
+		);
+
+		// 5. Tentar tratar pendência do período fechado
+		Inconsistencia pendencia = new Inconsistencia();
+		pendencia.setEmpresa(funcionario.getEmpresa());
+		pendencia.setFuncionario(funcionario);
+		pendencia.setTipo(TipoInconsistencia.DIA_IMPAR);
+		pendencia.setSituacao(StatusInconsistencia.ABERTA);
+		pendencia.setDataReferencia(dataOutubro);
+		pendencia.setDataHoraOrigem(dataOutubro.atTime(8, 0));
+		pendencia.setChaveDeduplicacao("PEND_FECHADO_" + UUID.randomUUID());
+		pendencia.setDescricaoOrigem("Pendência em período fechado");
+		Inconsistencia salva = inconsistenciaRepository.saveAndFlush(pendencia);
+
+		assertThrows(PeriodoFechadoException.class, () ->
+				inconsistenciaService.tratar(salva.getId(), new InconsistenciaDTO.TratarRequest(
+						AcaoTratamento.ABONAR_DIA,
+						"Tentativa de tratar em mês fechado",
+						null,
+						null,
+						null,
+						null
+				))
+		);
+
+		// Cleanup
+		inconsistenciaRepository.delete(salva);
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T17 - Importação Atrasada: Batida de mês fechado preserva data original e é alocada na competência seguinte aberta")
+	void testT17_ImportacaoAtrasadaPeriodoFechado() {
+		Equipamento equipamento = equipamentoRepository.findAll().stream().findFirst()
+				.orElseThrow(() -> new IllegalStateException("Nenhum equipamento encontrado."));
+		Funcionario colaborador = funcionarioRepository.findByEmpresaId(equipamento.getEmpresa().getId()).stream()
+				.findFirst()
+				.orElseThrow();
+		autenticarComoRh(colaborador);
+		UUID empresaId = colaborador.getEmpresa().getId();
+
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		inconsistenciaRepository.deleteAll();
+
+		// Fecha o mês 2026-10
+		FechamentoPeriodo fechamento = new FechamentoPeriodo();
+		fechamento.setEmpresa(colaborador.getEmpresa());
+		fechamento.setMesReferencia("2026-10");
+		fechamento.setDataInicio(LocalDate.of(2026, 10, 1));
+		fechamento.setDataFim(LocalDate.of(2026, 10, 31));
+		fechamento.setDataFechamento(LocalDateTime.now());
+		fechamento.setStatus(StatusFechamentoPeriodo.CONCLUIDO);
+		fechamento.setFechadoPor("RH Teste");
+		fechamento.setPendenciasAbertasNoFechamento(0);
+		fechamentoPeriodoRepository.saveAndFlush(fechamento);
+
+		// AFD contendo batida em 28/10/2026 às 14:00 (mês fechado)
+		String conteudo = String.join("\n",
+				"1000000000CABECALHO",
+				"3000000999281020261400" + colaborador.getPisPasep(),
+				"9000000001TRAILER"
+		);
+		MockMultipartFile arquivo = new MockMultipartFile(
+				"arquivo", "afd_atrasado_outubro.txt", "text/plain", conteudo.getBytes(StandardCharsets.UTF_8)
+		);
+
+		ImportacaoDTO.HistoricoResponse hist = importacaoService.confirmarImportacao(arquivo, equipamento.getId());
+		assertNotNull(hist);
+		assertEquals(1, hist.totalValidas());
+
+		// A batida foi salva preservando data/hora original 28/10/2026 14:00
+		List<Batida> batidas = batidaRepository.findAtivasByFuncionarioIdAndDataHoraBetweenOrderByDataHoraAsc(
+				colaborador.getId(),
+				LocalDate.of(2026, 10, 28).atStartOfDay(),
+				LocalDate.of(2026, 10, 28).atTime(LocalTime.MAX)
+		);
+		assertEquals(1, batidas.size(), "Batida deve ser persistida com data/hora original");
+		assertEquals(LocalDateTime.of(2026, 10, 28, 14, 0), batidas.get(0).getDataHora());
+
+		// Inconsistência MARCACAO_PERIODO_FECHADO deve ter sido gerada com alocação em 2026-11
+		List<Inconsistencia> atrasadas = inconsistenciaRepository.findByEmpresaIdOrderByDataHoraOrigemDesc(empresaId).stream()
+				.filter(i -> i.getTipo() == TipoInconsistencia.MARCACAO_PERIODO_FECHADO)
+				.toList();
+
+		assertFalse(atrasadas.isEmpty(), "Deve gerar inconsistência do tipo MARCACAO_PERIODO_FECHADO");
+		Inconsistencia incAtrasada = atrasadas.get(0);
+		assertEquals(LocalDate.of(2026, 10, 28), incAtrasada.getDataOcorrenciaOriginal());
+		assertEquals("2026-11", incAtrasada.getCompetenciaAlocacao());
+		assertEquals(LocalDate.of(2026, 11, 1), incAtrasada.getDataReferencia());
+		assertEquals(StatusInconsistencia.ABERTA, incAtrasada.getSituacao());
+
+		// Cleanup
+		inconsistenciaRepository.deleteAll();
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T17 - Fechamento com Pendências: Sem confirmação é bloqueado; com confirmação fecha como CONCLUIDO_COM_PENDENCIAS")
+	void testT17_FechamentoComPendencias() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+		UUID empresaId = funcionario.getEmpresa().getId();
+
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		inconsistenciaRepository.deleteAll();
+
+		// Cria uma pendência aberta em 2026-08-10
+		Inconsistencia pendencia = new Inconsistencia();
+		pendencia.setEmpresa(funcionario.getEmpresa());
+		pendencia.setFuncionario(funcionario);
+		pendencia.setTipo(TipoInconsistencia.DIA_IMPAR);
+		pendencia.setSituacao(StatusInconsistencia.ABERTA);
+		pendencia.setDataReferencia(LocalDate.of(2026, 8, 10));
+		pendencia.setDataHoraOrigem(LocalDateTime.of(2026, 8, 10, 8, 0));
+		pendencia.setChaveDeduplicacao("PEND_T17_AGOSTO_" + UUID.randomUUID());
+		pendencia.setDescricaoOrigem("Batida ímpar em agosto");
+		inconsistenciaRepository.saveAndFlush(pendencia);
+
+		// 1. Prévia deve apontar 1 pendência aberta
+		FechamentoPeriodoDTO.PreviaResponse previa = fechamentoPeriodoService.consultarPreviaFechamento(empresaId, "2026-08");
+		assertEquals(1, previa.totalPendenciasAbertas());
+		assertEquals(StatusFechamentoPeriodo.ABERTO, previa.statusAtual());
+
+		// 2. Fechar sem confirmação explícita -> lança FechamentoComPendenciasException
+		assertThrows(FechamentoComPendenciasException.class, () ->
+				fechamentoPeriodoService.fecharPeriodo(empresaId, "2026-08", false, null)
+		);
+
+		// 3. Fechar com confirmação explícita -> CONCLUIDO_COM_PENDENCIAS
+		FechamentoPeriodoDTO.FechamentoDetalheResponse fechado = fechamentoPeriodoService.fecharPeriodo(
+				empresaId,
+				"2026-08",
+				true,
+				"Fechamento com pendências autorizado pela diretoria"
+		);
+
+		assertEquals(StatusFechamentoPeriodo.CONCLUIDO_COM_PENDENCIAS, fechado.status());
+		assertEquals(1, fechado.quantidadePendenciasAbertas());
+		assertTrue(fechado.ressalvaOuAviso().contains("Fechamento com pendências autorizado"));
+
+		// Trilha de auditoria
+		List<HistoricoFechamentoPeriodo> historico = historicoFechamentoPeriodoRepository.findByFechamentoPeriodoIdOrderByDataHoraDesc(fechado.id());
+		assertFalse(historico.isEmpty());
+		assertEquals(AcaoFechamentoPeriodo.FECHAMENTO_COM_PENDENCIAS, historico.get(0).getAcao());
+
+		// Cleanup
+		inconsistenciaRepository.deleteAll();
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T17 - Reabertura Auditada: Exige motivo, volta status para ABERTO, descongela banco de horas e libera operações")
+	void testT17_ReaberturaAuditada() {
+		Funcionario funcionario = funcionarioRepository.findAll().stream().findFirst().orElseThrow();
+		autenticarComoRh(funcionario);
+		UUID empresaId = funcionario.getEmpresa().getId();
+
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+
+		// Fecha o período 2026-06 sem pendências
+		FechamentoPeriodoDTO.FechamentoDetalheResponse fechado = fechamentoPeriodoService.fecharPeriodo(
+				empresaId,
+				"2026-06",
+				false,
+				"Fechamento regular de junho"
+		);
+		assertEquals(StatusFechamentoPeriodo.CONCLUIDO, fechado.status());
+		assertTrue(competenciaLockService.estaCompetenciaFechada(empresaId, "2026-06"));
+
+		// 1. Tentar reabrir sem motivo -> lança IllegalArgumentException
+		assertThrows(IllegalArgumentException.class, () ->
+				fechamentoPeriodoService.reabrirPeriodo(empresaId, "2026-06", "   ")
+		);
+
+		// 2. Reabrir com motivo válido
+		FechamentoPeriodoDTO.FechamentoDetalheResponse reaberto = fechamentoPeriodoService.reabrirPeriodo(
+				empresaId,
+				"2026-06",
+				"Reabertura para inclusão de atestado médico retroativo"
+		);
+
+		assertEquals(StatusFechamentoPeriodo.ABERTO, reaberto.status());
+		assertFalse(competenciaLockService.estaCompetenciaFechada(empresaId, "2026-06"));
+
+		// 3. Auditoria gravou ação REABERTURA
+		List<HistoricoFechamentoPeriodo> hist = historicoFechamentoPeriodoRepository.findByFechamentoPeriodoIdOrderByDataHoraDesc(fechado.id());
+		assertTrue(hist.stream().anyMatch(h -> h.getAcao() == AcaoFechamentoPeriodo.REABERTURA
+				&& h.getMotivo().contains("atestado médico retroativo")));
+
+		// 4. Operações voltam a ser permitidas na competência reaberta
+		BatidaDTO.ComprovanteResponse comprovante = batidaService.registrarBatida(new BatidaDTO.Request(
+				funcionario.getId(),
+				TipoRegistro.ENTRADA,
+				null,
+				null,
+				null,
+				"127.0.0.1",
+				LocalDateTime.of(2026, 6, 15, 8, 0)
+		));
+		assertNotNull(comprovante);
+		assertNotNull(comprovante.nsr());
+
+		// Cleanup
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		SecurityContextHolder.clearContext();
 	}
 }

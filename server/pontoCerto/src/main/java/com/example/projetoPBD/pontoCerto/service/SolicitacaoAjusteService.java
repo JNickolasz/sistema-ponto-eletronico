@@ -134,6 +134,7 @@ public class SolicitacaoAjusteService {
         }
 
         validarPermissaoGestao(gestor, solicitacao.getColaborador());
+        validarPeriodoFechado(solicitacao.getColaborador().getEmpresa().getId(), solicitacao.getDataAlvo());
 
         solicitacao.setGestor(gestor);
         solicitacao.setAnalisadoEm(LocalDateTime.now());

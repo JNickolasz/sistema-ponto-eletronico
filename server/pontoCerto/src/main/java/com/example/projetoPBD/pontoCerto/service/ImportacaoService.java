@@ -26,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -46,6 +47,7 @@ public class ImportacaoService {
     private final HistoricoImportacaoRepository historicoRepository;
     private final SecurityTenantContext securityTenantContext;
     private final InconsistenciaService inconsistenciaService;
+    private final CompetenciaLockService competenciaLockService;
 
     public ImportacaoService(
             ProcessadorArquivoPosicional processador,
@@ -54,7 +56,8 @@ public class ImportacaoService {
             BatidaRepository batidaRepository,
             HistoricoImportacaoRepository historicoRepository,
             SecurityTenantContext securityTenantContext,
-            InconsistenciaService inconsistenciaService
+            InconsistenciaService inconsistenciaService,
+            CompetenciaLockService competenciaLockService
     ) {
         this.processador = processador;
         this.equipamentoRepository = equipamentoRepository;
@@ -63,6 +66,7 @@ public class ImportacaoService {
         this.historicoRepository = historicoRepository;
         this.securityTenantContext = securityTenantContext;
         this.inconsistenciaService = inconsistenciaService;
+        this.competenciaLockService = competenciaLockService;
     }
 
     @Transactional(readOnly = true)
@@ -257,12 +261,17 @@ public class ImportacaoService {
                 );
             } else {
                 LocalDate dataBatida = reg.dataHora().toLocalDate();
+                boolean periodoFechado = competenciaLockService.estaPeriodoFechado(empresaId, dataBatida);
+
                 String chaveFuncDia = funcionario.getId() + "_" + dataBatida;
                 int qtdNoDia = contagemNoDiaPorFunc.getOrDefault(chaveFuncDia, 0);
                 TipoRegistro tipoCalc = (qtdNoDia % 2 == 0) ? TipoRegistro.ENTRADA : TipoRegistro.SAIDA;
                 contagemNoDiaPorFunc.put(chaveFuncDia, qtdNoDia + 1);
-                funcParaAnalisar.put(chaveFuncDia, funcionario);
-                dataParaAnalisar.put(chaveFuncDia, dataBatida);
+
+                if (!periodoFechado) {
+                    funcParaAnalisar.put(chaveFuncDia, funcionario);
+                    dataParaAnalisar.put(chaveFuncDia, dataBatida);
+                }
 
                 Batida batida = new Batida();
                 batida.setNsr(reg.nsr());
@@ -279,6 +288,17 @@ public class ImportacaoService {
                 batidaRepository.flush();
                 batidasSalvas.addAll(salvas);
                 validasCount++;
+
+                if (periodoFechado) {
+                    YearMonth proximaAberta = competenciaLockService.obterProximaCompetenciaAberta(empresaId, dataBatida);
+                    inconsistenciaService.registrarMarcacaoPeriodoFechado(
+                            salvas.get(0),
+                            funcionario,
+                            equipamento,
+                            historico.getNomeArquivo(),
+                            proximaAberta
+                    );
+                }
             }
         }
 
