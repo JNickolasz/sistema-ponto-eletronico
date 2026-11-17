@@ -383,6 +383,43 @@ public class BancoHorasService {
     }
 
     /**
+     * Descongela os saldos de banco de horas da empresa quando uma competência é reaberta pelo RH.
+     */
+    @Transactional
+    public void descongelarPeriodoEmpresa(UUID empresaId, String mesReferencia) {
+        List<Funcionario> funcionarios = funcionarioRepository.findByEmpresaId(empresaId);
+        for (Funcionario f : funcionarios) {
+            descongelarPeriodoFuncionario(f, mesReferencia);
+        }
+    }
+
+    @Transactional
+    public void descongelarPeriodoFuncionario(Funcionario funcionario, String mesReferencia) {
+        YearMonth ym = YearMonth.parse(mesReferencia.trim());
+        LocalDate inicioMes = ym.atDay(1);
+        LocalDate fimMes = ym.atEndOfMonth();
+
+        fechamentoBancoHorasRepository.findByFuncionarioIdAndMesReferencia(funcionario.getId(), mesReferencia.trim())
+                .ifPresent(fechamento -> {
+                    fechamentoBancoHorasRepository.delete(fechamento);
+                    fechamentoBancoHorasRepository.flush();
+                });
+
+        List<MovimentacaoBancoHoras> movsMes = movimentacaoRepository
+                .findByFuncionarioIdAndDataReferenciaBetweenOrderByDataReferenciaAscRegistradoEmAsc(
+                        funcionario.getId(),
+                        inicioMes,
+                        fimMes
+                );
+        for (MovimentacaoBancoHoras m : movsMes) {
+            m.setPeriodoFechado(false);
+        }
+        if (!movsMes.isEmpty()) {
+            movimentacaoRepository.saveAllAndFlush(movsMes);
+        }
+    }
+
+    /**
      * Relatório consolidado de saldos por equipe para o Gestor (ou empresa inteira para o RH).
      */
     @Transactional(readOnly = true)

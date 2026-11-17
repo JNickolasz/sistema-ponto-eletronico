@@ -61,6 +61,12 @@ public class Inconsistencia {
     @Column(name = "data_referencia", nullable = false)
     private LocalDate dataReferencia;
 
+    @Column(name = "data_ocorrencia_original", nullable = true)
+    private LocalDate dataOcorrenciaOriginal;
+
+    @Column(name = "competencia_alocacao", length = 7, nullable = true)
+    private String competenciaAlocacao;
+
     @Column(name = "data_hora_origem", nullable = false)
     private LocalDateTime dataHoraOrigem;
 

@@ -44,6 +44,7 @@ public class BatidaService {
     private final InconsistenciaRepository inconsistenciaRepository;
     private final InconsistenciaService inconsistenciaService;
     private final ApuracaoDiariaService apuracaoDiariaService;
+    private final CompetenciaLockService competenciaLockService;
     private final SecurityTenantContext securityTenantContext;
 
     @PersistenceContext
@@ -57,6 +58,7 @@ public class BatidaService {
             InconsistenciaRepository inconsistenciaRepository,
             InconsistenciaService inconsistenciaService,
             ApuracaoDiariaService apuracaoDiariaService,
+            CompetenciaLockService competenciaLockService,
             SecurityTenantContext securityTenantContext
     ) {
         this.batidaRepository = batidaRepository;
@@ -66,6 +68,7 @@ public class BatidaService {
         this.inconsistenciaRepository = inconsistenciaRepository;
         this.inconsistenciaService = inconsistenciaService;
         this.apuracaoDiariaService = apuracaoDiariaService;
+        this.competenciaLockService = competenciaLockService;
         this.securityTenantContext = securityTenantContext;
     }
 
@@ -73,6 +76,12 @@ public class BatidaService {
     public BatidaDTO.ComprovanteResponse registrarBatida(BatidaDTO.Request dto) {
         Funcionario funcionario = funcionarioRepository.findById(dto.funcionarioId())
                 .orElseThrow(() -> new UsuarioNaoEncontradoException("Funcionário não encontrado"));
+
+        LocalDateTime dataHoraEfetiva = dto.dataHoraOpcional() != null ? dto.dataHoraOpcional() : LocalDateTime.now();
+        competenciaLockService.validarPeriodoAberto(
+                funcionario.getEmpresa().getId(),
+                dataHoraEfetiva.toLocalDate()
+        );
 
         Equipamento equipamento = null;
         if (dto.equipamentoId() != null) {
@@ -83,7 +92,7 @@ public class BatidaService {
         Batida batida = new Batida();
         batida.setFuncionario(funcionario);
         batida.setEquipamento(equipamento);
-        batida.setDataHora(dto.dataHoraOpcional() != null ? dto.dataHoraOpcional() : LocalDateTime.now());
+        batida.setDataHora(dataHoraEfetiva);
         batida.setTipoRegistro(dto.tipoRegistro());
         batida.setStatusBatida(StatusBatida.NORMAL);
         batida.setTipoOrigem(equipamento != null ? TipoOrigem.ESTACAO : TipoOrigem.APLICATIVO_WEB);

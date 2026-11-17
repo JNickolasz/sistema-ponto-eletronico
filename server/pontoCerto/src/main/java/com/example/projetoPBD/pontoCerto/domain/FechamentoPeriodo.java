@@ -14,7 +14,12 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "fechamento_periodo")
+@Table(
+        name = "fechamento_periodo",
+        uniqueConstraints = {
+                @UniqueConstraint(name = "uk_fechamento_empresa_comp", columnNames = {"empresa_id", "mes_referencia"})
+        }
+)
 public class FechamentoPeriodo {
 
     @Id
@@ -25,8 +30,8 @@ public class FechamentoPeriodo {
     @JoinColumn(name = "empresa_id", nullable = false)
     private Empresa empresa;
 
-    @Column(name = "mes_referencia", nullable = false)
-    private String mesReferencia; // formato YYYY-MM
+    @Column(name = "mes_referencia", nullable = false, length = 7)
+    private String mesReferencia; // formato YYYY-MM (competencia)
 
     @Column(name = "data_inicio", nullable = false)
     private LocalDate dataInicio;
@@ -52,4 +57,37 @@ public class FechamentoPeriodo {
 
     @Column(name = "aviso_pendencias", columnDefinition = "TEXT", nullable = true)
     private String avisoPendencias;
+
+    // Aliases semânticos do Card 17 (compatíveis com T12)
+    public String getCompetencia() {
+        return mesReferencia;
+    }
+
+    public void setCompetencia(String competencia) {
+        this.mesReferencia = competencia;
+    }
+
+    public LocalDateTime getFechadoEm() {
+        return dataFechamento;
+    }
+
+    public void setFechadoEm(LocalDateTime fechadoEm) {
+        this.dataFechamento = fechadoEm;
+    }
+
+    public Integer getQuantidadePendenciasAbertas() {
+        return pendenciasAbertasNoFechamento;
+    }
+
+    public void setQuantidadePendenciasAbertas(Integer quantidadePendenciasAbertas) {
+        this.pendenciasAbertasNoFechamento = quantidadePendenciasAbertas;
+    }
+
+    public String getRessalvaOuAviso() {
+        return avisoPendencias;
+    }
+
+    public void setRessalvaOuAviso(String ressalvaOuAviso) {
+        this.avisoPendencias = ressalvaOuAviso;
+    }
 }
