@@ -195,8 +195,21 @@ public class BatidaService {
         Batida batida = batidaRepository.findById(batidaId)
                 .orElseThrow(() -> new IllegalArgumentException("Marcação não encontrada."));
 
-        if (batida.getFuncionario() != null && !batida.getFuncionario().getEmpresa().getId().equals(empresaId)) {
+        UUID empresaBatida = batida.getFuncionario() != null
+                ? batida.getFuncionario().getEmpresa().getId()
+                : (batida.getEquipamento() != null ? batida.getEquipamento().getEmpresa().getId() : null);
+        if (empresaBatida == null || !empresaBatida.equals(empresaId)) {
             throw new AcessoNegadoException("Acesso negado à marcação de outra empresa.");
+        }
+
+        Funcionario logado = obterFuncionarioAutenticadoOpcional();
+        if (logado != null && logado.getPerfilAcesso() == com.example.projetoPBD.pontoCerto.domain.enums.PerfilAcesso.GESTOR) {
+            Funcionario fBatida = batida.getFuncionario();
+            boolean ehProprioOuSubordinado = fBatida != null && (fBatida.getId().equals(logado.getId())
+                    || (fBatida.getGestor() != null && fBatida.getGestor().getId().equals(logado.getId())));
+            if (!ehProprioOuSubordinado) {
+                throw new AcessoNegadoException("Gestor só pode visualizar fotos de colaboradores da sua equipe.");
+            }
         }
 
         Resource recurso = anexoStorageService.carregarComoRecurso(batida.getFotoUrl());
@@ -211,7 +224,23 @@ public class BatidaService {
         Funcionario funcionario = funcionarioRepository.findById(dto.funcionarioId())
                 .orElseThrow(() -> new UsuarioNaoEncontradoException("Funcionário não encontrado"));
 
-        LocalDateTime dataHoraEfetiva = dto.dataHoraOpcional() != null ? dto.dataHoraOpcional() : LocalDateTime.now();
+        Funcionario logado = obterFuncionarioAutenticadoOpcional();
+        boolean forcarHoraServidor = false;
+        if (logado != null) {
+            if (!funcionario.getEmpresa().getId().equals(logado.getEmpresa().getId())) {
+                throw new AcessoNegadoException("Não é permitido registrar ponto para colaborador de outra empresa.");
+            }
+            if (logado.getPerfilAcesso() == com.example.projetoPBD.pontoCerto.domain.enums.PerfilAcesso.COLABORADOR) {
+                if (!funcionario.getId().equals(logado.getId())) {
+                    throw new AcessoNegadoException("Colaborador não pode registrar ponto em nome de outro colaborador.");
+                }
+                forcarHoraServidor = true;
+            }
+        }
+
+        LocalDateTime dataHoraEfetiva = (!forcarHoraServidor && dto.dataHoraOpcional() != null)
+                ? dto.dataHoraOpcional()
+                : LocalDateTime.now();
         competenciaLockService.validarPeriodoAberto(
                 funcionario.getEmpresa().getId(),
                 dataHoraEfetiva.toLocalDate()
@@ -252,14 +281,39 @@ public class BatidaService {
 
     @Transactional(readOnly = true)
     public List<BatidaDTO.ComprovanteResponse> listarPorFuncionario(UUID funcionarioId) {
-        if (!funcionarioRepository.existsById(funcionarioId)) {
-            throw new UsuarioNaoEncontradoException("Funcionário não encontrado");
+        Funcionario alvo = funcionarioRepository.findById(funcionarioId)
+                .orElseThrow(() -> new UsuarioNaoEncontradoException("Funcionário não encontrado"));
+
+        Funcionario logado = obterFuncionarioAutenticadoOpcional();
+        if (logado != null) {
+            if (!alvo.getEmpresa().getId().equals(logado.getEmpresa().getId())) {
+                throw new AcessoNegadoException("Colaborador não pertence à sua empresa.");
+            }
+            if (logado.getPerfilAcesso() == com.example.projetoPBD.pontoCerto.domain.enums.PerfilAcesso.COLABORADOR
+                    && !alvo.getId().equals(logado.getId())) {
+                throw new AcessoNegadoException("Colaborador só pode listar as próprias marcações.");
+            }
+            if (logado.getPerfilAcesso() == com.example.projetoPBD.pontoCerto.domain.enums.PerfilAcesso.GESTOR) {
+                boolean ehProprioOuSubordinado = alvo.getId().equals(logado.getId())
+                        || (alvo.getGestor() != null && alvo.getGestor().getId().equals(logado.getId()));
+                if (!ehProprioOuSubordinado) {
+                    throw new AcessoNegadoException("Gestor só pode listar marcações da sua equipe.");
+                }
+            }
         }
 
         return batidaRepository.findByFuncionarioIdOrderByDataHoraDesc(funcionarioId)
                 .stream()
                 .map(BatidaDTO.ComprovanteResponse::new)
                 .toList();
+    }
+
+    private Funcionario obterFuncionarioAutenticadoOpcional() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof FuncionarioUserDetails fud) {
+            return funcionarioRepository.findById(fud.getFuncionario().getId()).orElse(null);
+        }
+        return null;
     }
 
     @Transactional(readOnly = true)

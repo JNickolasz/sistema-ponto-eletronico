@@ -1,7 +1,9 @@
 package com.example.projetoPBD.pontoCerto.resource;
 
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.FechamentoPeriodoDTO;
+import com.example.projetoPBD.pontoCerto.security.SecurityTenantContext;
 import com.example.projetoPBD.pontoCerto.service.FechamentoPeriodoService;
+import com.example.projetoPBD.pontoCerto.service.exceptions.AcessoNegadoException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -14,9 +16,14 @@ import java.util.UUID;
 public class FechamentoPeriodoController {
 
     private final FechamentoPeriodoService fechamentoPeriodoService;
+    private final SecurityTenantContext securityTenantContext;
 
-    public FechamentoPeriodoController(FechamentoPeriodoService fechamentoPeriodoService) {
+    public FechamentoPeriodoController(
+            FechamentoPeriodoService fechamentoPeriodoService,
+            SecurityTenantContext securityTenantContext
+    ) {
         this.fechamentoPeriodoService = fechamentoPeriodoService;
+        this.securityTenantContext = securityTenantContext;
     }
 
     @GetMapping("/previa")
@@ -26,11 +33,9 @@ public class FechamentoPeriodoController {
             @RequestParam(required = false) String mesReferencia,
             @RequestParam(required = false) UUID empresaId
     ) {
+        validarTenant(empresaId);
         String comp = competencia != null ? competencia : mesReferencia;
-        FechamentoPeriodoDTO.PreviaResponse resp = empresaId != null
-                ? fechamentoPeriodoService.consultarPreviaFechamento(empresaId, comp)
-                : fechamentoPeriodoService.consultarPreviaFechamento(comp);
-        return ResponseEntity.ok(resp);
+        return ResponseEntity.ok(fechamentoPeriodoService.consultarPreviaFechamento(comp));
     }
 
     @PostMapping("/fechar")
@@ -50,12 +55,17 @@ public class FechamentoPeriodoController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH', 'GESTOR')")
     public ResponseEntity<List<FechamentoPeriodoDTO.FechamentoDetalheResponse>> listarFechamentos(
             @RequestParam(required = false) UUID empresaId
     ) {
-        List<FechamentoPeriodoDTO.FechamentoDetalheResponse> lista = empresaId != null
-                ? fechamentoPeriodoService.listarFechamentos(empresaId)
-                : fechamentoPeriodoService.listarFechamentos();
-        return ResponseEntity.ok(lista);
+        validarTenant(empresaId);
+        return ResponseEntity.ok(fechamentoPeriodoService.listarFechamentos());
+    }
+
+    private void validarTenant(UUID empresaId) {
+        if (empresaId != null && !empresaId.equals(securityTenantContext.empresaAtual())) {
+            throw new AcessoNegadoException("Acesso negado: empresa informada não pertence ao usuário autenticado.");
+        }
     }
 }

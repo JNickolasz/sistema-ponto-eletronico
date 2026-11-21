@@ -41,8 +41,16 @@ public class AnexoStorageService {
         String nomeOriginal = arquivo.getOriginalFilename() != null ? arquivo.getOriginalFilename() : nomePadrao;
         String extensao = "";
         int pontoIndex = nomeOriginal.lastIndexOf('.');
-        if (pontoIndex > 0) {
-            extensao = nomeOriginal.substring(pontoIndex);
+        if (pontoIndex > 0 && pontoIndex < nomeOriginal.length() - 1) {
+            String extBruta = nomeOriginal.substring(pontoIndex).toLowerCase();
+            String extLimpa = extBruta.replaceAll("[^a-z0-9.]", "");
+            if (extLimpa.equals(".html") || extLimpa.equals(".htm") || extLimpa.equals(".svg")
+                    || extLimpa.equals(".js") || extLimpa.equals(".exe") || extLimpa.equals(".sh")) {
+                throw new IllegalArgumentException("Tipo de arquivo não permitido por política de segurança.");
+            }
+            if (extLimpa.length() <= 10) {
+                extensao = extLimpa;
+            }
         }
 
         String nomeArquivoArmazenado = UUID.randomUUID() + extensao;

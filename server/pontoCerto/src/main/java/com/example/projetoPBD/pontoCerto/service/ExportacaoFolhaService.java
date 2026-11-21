@@ -330,6 +330,10 @@ public class ExportacaoFolhaService {
     private String csv(String valor) {
         if (valor == null) return "";
         String limpo = valor.replace("\"", "\"\"").replace("\n", " ").replace("\r", " ");
+        if (!limpo.isEmpty() && (limpo.charAt(0) == '=' || limpo.charAt(0) == '+'
+                || limpo.charAt(0) == '-' || limpo.charAt(0) == '@' || limpo.charAt(0) == '\t')) {
+            limpo = "'" + limpo;
+        }
         if (limpo.contains(";") || limpo.contains("\"")) {
             return "\"" + limpo + "\"";
         }

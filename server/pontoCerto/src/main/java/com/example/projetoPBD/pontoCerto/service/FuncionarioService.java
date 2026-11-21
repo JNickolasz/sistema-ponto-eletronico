@@ -156,11 +156,15 @@ public class FuncionarioService {
     }
 
     public java.util.List<FuncionarioDTO.Response> buscar(UUID empresaId, String termo) {
+        UUID empresaAtual = securityTenantContext.empresaAtual();
+        if (empresaId != null && !empresaId.equals(empresaAtual)) {
+            throw new AcessoNegadoException("Acesso negado: você só pode consultar colaboradores da sua própria empresa.");
+        }
         java.util.List<Funcionario> funcionarios;
         if (termo == null || termo.isBlank()) {
-            funcionarios = repository.findByEmpresaId(empresaId);
+            funcionarios = repository.findByEmpresaId(empresaAtual);
         } else {
-            funcionarios = repository.buscarPorTermo(empresaId, termo.trim());
+            funcionarios = repository.buscarPorTermo(empresaAtual, termo.trim());
         }
         return funcionarios.stream().map(FuncionarioDTO.Response::new).toList();
     }
