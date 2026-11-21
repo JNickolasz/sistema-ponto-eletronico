@@ -235,41 +235,41 @@ export default function LoginPage() {
   // ==================== MODO DOMÍNIO RAIZ (localhost:5173/login) ====================
   return (
     <div className="min-h-screen flex flex-col bg-[var(--surface-page)] text-[var(--text-primary)]">
-      <header className="h-16 px-4 sm:px-6 flex items-center justify-between max-w-6xl w-full mx-auto">
+      <header className="min-h-20 border-b border-[var(--border-subtle)] bg-[var(--surface-card)]/95 backdrop-blur-xs px-6 sm:px-10 lg:px-14 flex items-center justify-between w-full">
         <Link
           to="/"
-          className="inline-flex items-center gap-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
         >
-          <ArrowLeft size={15} />
+          <ArrowLeft size={16} />
           Voltar à página inicial
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <ThemeToggle />
         </div>
       </header>
 
       <main className="flex-1 flex items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md space-y-6">
+        <div className="w-full max-w-[460px] space-y-6">
           <div className="flex flex-col items-center text-center">
             <BrandLogo name="Ponto Certo" subtitle="Acesso ao sistema" size="lg" />
           </div>
 
-          <Card className="p-6 sm:p-8 shadow-xs space-y-6">
+          <Card className="p-8 sm:p-10 shadow-sm space-y-6">
             {/* Seletor claro: Empresa Cliente vs Admin da Plataforma */}
-            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-[var(--surface-subtle)] border border-[var(--border-subtle)]">
+            <div className="grid grid-cols-2 gap-1.5 p-1.5 rounded-xl bg-[var(--surface-subtle)] border border-[var(--border-subtle)]">
               <button
                 type="button"
                 onClick={() => {
                   setAbaRaiz('empresa');
                   setSenha('');
                 }}
-                className={`h-9 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                className={`min-h-10 rounded-lg text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                   abaRaiz === 'empresa'
                     ? 'bg-[var(--surface-card)] text-[var(--text-primary)] shadow-xs'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                <Building2 size={14} />
+                <Building2 size={16} />
                 Sou Empresa
               </button>
               <button
@@ -278,42 +278,46 @@ export default function LoginPage() {
                   setAbaRaiz('admin');
                   setSenha('');
                 }}
-                className={`h-9 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                className={`min-h-10 rounded-lg text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer ${
                   abaRaiz === 'admin'
                     ? 'bg-[var(--surface-card)] text-[var(--text-primary)] shadow-xs'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
                 }`}
               >
-                <ShieldCheck size={14} />
+                <ShieldCheck size={16} />
                 Admin do Sistema
               </button>
             </div>
 
             {abaRaiz === 'empresa' ? (
-              <form onSubmit={handleIrParaSubdominio} className="space-y-4">
-                <div>
-                  <h1 className="text-base font-semibold tracking-tight">Encontrar sua empresa</h1>
-                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+              <form onSubmit={handleIrParaSubdominio} className="space-y-5">
+                <div className="text-center">
+                  <h1 className="text-xl font-bold tracking-tight">Encontrar sua empresa</h1>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
                     Informe o endereço da sua empresa para ser direcionado ao portal exclusivo dela.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="subdominio-busca" className="block text-xs font-medium">
+                  <label htmlFor="subdominio-busca" className="block text-sm font-semibold">
                     Subdomínio da empresa
                   </label>
-                  <div className="flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] overflow-hidden focus-within:ring-2 focus-within:ring-[var(--brand-600)]/25 focus-within:border-[var(--brand-600)]">
+                  <div className="flex items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] overflow-hidden focus-within:ring-2 focus-within:ring-[var(--brand-600)]/25 focus-within:border-[var(--brand-600)]">
                     <input
                       id="subdominio-busca"
+                      name="subdominio"
                       type="text"
                       autoFocus
+                      autoCorrect="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
                       value={subdominioBusca}
                       onChange={(e) => setSubdominioBusca(e.target.value)}
                       disabled={verificandoSub}
                       placeholder="suaempresa"
-                      className="flex-1 h-10 px-3 text-sm bg-transparent text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none font-mono-tabular"
+                      className="flex-1 min-h-12 px-4 text-base bg-transparent text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none font-mono-tabular"
                     />
-                    <span className="px-3 h-10 inline-flex items-center bg-[var(--surface-subtle)] border-l border-[var(--border-subtle)] text-xs text-[var(--text-muted)] font-mono-tabular">
+                    <span className="px-4 min-h-12 inline-flex items-center bg-[var(--surface-subtle)] border-l border-[var(--border-subtle)] text-sm text-[var(--text-muted)] font-mono-tabular">
                       .pontocerto
                     </span>
                   </div>
@@ -322,48 +326,50 @@ export default function LoginPage() {
                 <Button type="submit" variant="primary" size="lg" className="w-full" disabled={verificandoSub}>
                   {verificandoSub ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
+                      <Loader2 size={18} className="animate-spin" />
                       Localizando portal...
                     </>
                   ) : (
                     <>
                       Continuar para o portal da empresa
-                      <ArrowRight size={16} />
+                      <ArrowRight size={18} />
                     </>
                   )}
                 </Button>
               </form>
             ) : (
-              <form onSubmit={handleLoginAdmin} className="space-y-4">
-                <div>
-                  <h1 className="text-base font-semibold tracking-tight">Administração Global do SaaS</h1>
-                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+              <form onSubmit={handleLoginAdmin} className="space-y-5">
+                <div className="text-center">
+                  <h1 className="text-xl font-bold tracking-tight">Administração Global do SaaS</h1>
+                  <p className="mt-1 text-sm text-[var(--text-secondary)]">
                     Acesso central a todas as empresas clientes, estatísticas globais, personalização white-label e feriados nacionais.
                   </p>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label htmlFor="admin-key" className="block text-xs font-medium">
+                  <label htmlFor="admin-key" className="block text-sm font-semibold">
                     Chave de Administrador
                   </label>
                   <div className="relative">
                     <input
                       id="admin-key"
+                      name="adminKey"
                       type={mostrarSenha ? 'text' : 'password'}
                       autoFocus
                       value={senha}
                       onChange={(e) => setSenha(e.target.value)}
                       disabled={submitting}
                       placeholder="Informe sua X-Admin-Key"
-                      className="w-full h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] pl-3 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--brand-600)]/25 focus:border-[var(--brand-600)]"
+                      className="w-full min-h-12 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] pl-4 pr-11 text-base focus:outline-none focus:ring-2 focus:ring-[var(--brand-600)]/25 focus:border-[var(--brand-600)]"
                     />
                     <button
                       type="button"
                       onClick={() => setMostrarSenha((v) => !v)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1 cursor-pointer"
+                      aria-pressed={mostrarSenha}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-primary)] p-1.5 cursor-pointer"
                       aria-label={mostrarSenha ? 'Ocultar chave' : 'Mostrar chave'}
                     >
-                      {mostrarSenha ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {mostrarSenha ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
                 </div>
@@ -371,7 +377,7 @@ export default function LoginPage() {
                 <Button type="submit" variant="primary" size="lg" className="w-full" disabled={submitting}>
                   {submitting ? (
                     <>
-                      <Loader2 size={16} className="animate-spin" />
+                      <Loader2 size={18} className="animate-spin" />
                       Verificando chave...
                     </>
                   ) : (

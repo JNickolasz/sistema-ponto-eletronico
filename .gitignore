@@ -1,0 +1,9 @@
+# Uploads locais em tempo de execução (fotos de batidas e anexos)
+uploads/
+
+# IDE & Ambiente
+.idea/
+.vscode/
+.env
+.env.*
+!.env.example

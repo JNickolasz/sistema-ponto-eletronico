@@ -1,4 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+
+function isUsableLogoUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim();
+  if (!trimmed) return false;
+  // Ignora URLs fictícias de placeholder antigo (ex: https://exemplo.com/logo.png)
+  if (/exemplo\.com|example\.com/i.test(trimmed)) return false;
+  return true;
+}
 
 export function BrandLogo({
   name = 'Ponto Certo',
@@ -6,36 +15,70 @@ export function BrandLogo({
   logoUrl = null,
   size = 'md',
 }) {
-  const iconBox = size === 'sm' ? 'h-8 w-8 rounded-lg' : size === 'lg' ? 'h-11 w-11 rounded-xl' : 'h-9 w-9 rounded-lg';
-  const titleCls = size === 'sm' ? 'text-sm' : size === 'lg' ? 'text-xl' : 'text-base';
+  const [imgFailed, setImgFailed] = useState(false);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [logoUrl]);
+
+  const showCustomImage = isUsableLogoUrl(logoUrl) && !imgFailed;
+
+  const iconBox =
+    size === 'sm'
+      ? 'h-10 w-10 rounded-xl'
+      : size === 'lg'
+        ? 'h-14 w-14 rounded-2xl'
+        : 'h-11 w-11 rounded-xl';
+  const svgSize = size === 'sm' ? 22 : size === 'lg' ? 28 : 24;
+  const titleCls =
+    size === 'sm'
+      ? 'text-[15px] leading-tight line-clamp-2'
+      : size === 'lg'
+        ? 'text-2xl leading-tight'
+        : 'text-lg leading-tight';
+  const subCls = size === 'lg' ? 'text-sm' : 'text-xs';
 
   return (
-    <div className="inline-flex items-center gap-2.5 select-none">
-      {logoUrl ? (
+    <div className="flex items-center gap-2.5 select-none min-w-0 max-w-full">
+      {showCustomImage ? (
         <img
           src={logoUrl}
           alt={name}
-          className={`${iconBox} object-contain border border-[var(--border-subtle)] bg-white p-1`}
+          onError={() => setImgFailed(true)}
+          className={`${iconBox} object-contain shrink-0 shadow-xs`}
         />
       ) : (
         <span
-          className={`${iconBox} flex items-center justify-center shrink-0`}
+          className={`${iconBox} flex items-center justify-center shrink-0 shadow-xs`}
           style={{ backgroundColor: 'var(--brand-600)', color: 'var(--brand-fg)' }}
           aria-hidden="true"
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width={svgSize}
+            height={svgSize}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.25"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <circle cx="12" cy="12" r="9" />
             <path d="M12 7v5l3 2" />
             <path d="M17.5 4.5l2 2" />
           </svg>
         </span>
       )}
-      <div className="leading-tight min-w-0">
-        <div className={`${titleCls} font-semibold tracking-tight text-[var(--text-primary)] truncate`}>
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <div
+          className={`${titleCls} font-bold tracking-tight text-[var(--text-primary)] break-words`}
+          style={{ fontFamily: 'var(--font-display)' }}
+          title={name}
+        >
           {name}
         </div>
         {subtitle && (
-          <div className="text-[11px] font-medium text-[var(--text-muted)] truncate">
+          <div className={`${subCls} font-medium text-[var(--text-secondary)] truncate mt-0.5`}>
             {subtitle}
           </div>
         )}

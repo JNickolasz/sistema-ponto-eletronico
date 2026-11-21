@@ -81,6 +81,7 @@ export function GestorDashboard() {
     try {
       setModalAnalise((prev) => ({ ...prev, loading: true }));
       await solicitacaoAjusteService.analisar(modalAnalise.item.id, {
+        status: modalAnalise.acao,
         decisao: modalAnalise.acao,
         justificativaGestor: modalAnalise.justificativa.trim(),
       });
@@ -190,12 +191,14 @@ export function GestorDashboard() {
                       </div>
                       <div className="text-xs font-mono-tabular text-[var(--text-secondary)]">
                         Horário solicitado:{' '}
-                        {item.dataHoraSolicitada
-                          ? new Date(item.dataHoraSolicitada).toLocaleString('pt-BR')
-                          : '—'}
+                        {item.dataAlvo
+                          ? `${item.dataAlvo.split('-').reverse().join('/')} às ${String(item.horarioPretendido || '').slice(0, 5)}`
+                          : item.dataHoraSolicitada
+                            ? new Date(item.dataHoraSolicitada).toLocaleString('pt-BR')
+                            : '—'}
                       </div>
                       <p className="text-xs text-[var(--text-secondary)]">
-                        Justificativa: {item.justificativa || item.motivo || '—'}
+                        Justificativa: {item.motivo || item.justificativa || '—'}
                       </p>
                     </div>
 

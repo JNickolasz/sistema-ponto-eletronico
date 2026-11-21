@@ -38,15 +38,7 @@ export const batidaService = {
       ip: dados.ip?.trim() || null,
     };
 
-    try {
-      return await api.post('/api/batidas', payload);
-    } catch (err) {
-      // Fallback para rota alternativa caso mapeado como /v1/api/batidas
-      if (err?.status === 404) {
-        return await api.post('/v1/api/batidas', payload);
-      }
-      throw err;
-    }
+    return await api.post('/batidas', payload);
   },
 
   /**
@@ -68,15 +60,7 @@ export const batidaService = {
   async listarBatidasPorFuncionario(funcionarioId) {
     if (!funcionarioId || String(funcionarioId).trim() === '') return [];
     const cleanId = String(funcionarioId).trim();
-
-    try {
-      return await api.get(`/api/funcionarios/${encodeURIComponent(cleanId)}/batidas`);
-    } catch (err) {
-      if (err?.status === 404) {
-        return await api.get(`/v1/api/funcionarios/${encodeURIComponent(cleanId)}/batidas`);
-      }
-      throw err;
-    }
+    return await api.get(`/funcionarios/${encodeURIComponent(cleanId)}/batidas`);
   },
 
   async listarBatidasOrfas(status = 'ORFA_PENDENTE') {

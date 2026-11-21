@@ -15,6 +15,20 @@
 :root {
   color-scheme: light dark;
 
+  /* Typography scale overrides (rem-based for accessibility & legibility) */
+  --font-sans: 'Plus Jakarta Sans', 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --text-xs: 0.85rem;
+  --text-xs--line-height: 1.45;
+  --text-sm: 0.96rem;
+  --text-sm--line-height: 1.5;
+  --text-base: 1.0625rem;
+  --text-base--line-height: 1.55;
+  --text-lg: 1.22rem;
+  --text-lg--line-height: 1.45;
+  --text-xl: 1.38rem;
+  --text-xl--line-height: 1.35;
+
   /* Default White-Label Brand Palette: Ponto Certo Corporate Blue */
   --brand-50: #eff6ff;
   --brand-100: #dbeafe;
@@ -24,17 +38,17 @@
   --brand-700: #1d4ed8;
   --brand-fg: #ffffff;
 
-  /* Semantic Surface & Text Tokens using native CSS light-dark() */
+  /* Semantic Surface & High-Legibility Text Tokens using native CSS light-dark() */
   --surface-page: light-dark(#f8fafc, #09090b);
   --surface-sidebar: light-dark(#f1f5f9, #0d0d10);
   --surface-card: light-dark(#ffffff, #141418);
   --surface-subtle: light-dark(#f1f5f9, #1c1c21);
   --surface-hover: light-dark(#e2e8f0, #27272a);
-  --border-subtle: light-dark(#e2e8f0, #27272a);
-  --border-strong: light-dark(#cbd5e1, #3f3f46);
+  --border-subtle: light-dark(#cbd5e1, #2e2e36);
+  --border-strong: light-dark(#94a3b8, #52525b);
   --text-primary: light-dark(#0f172a, #fafafa);
-  --text-secondary: light-dark(#475569, #a1a1aa);
-  --text-muted: light-dark(#64748b, #71717a);
+  --text-secondary: light-dark(#334155, #d4d4d8);
+  --text-muted: light-dark(#475569, #a1a1aa);
 }
 
 :root:has(> head > meta[name="color-scheme"][content="dark"]) {
@@ -53,9 +67,10 @@
 }
 
 html {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   @media (prefers-reduced-motion: no-preference) {
     scroll-behavior: smooth;
   }
@@ -66,6 +81,21 @@ body {
   background-color: var(--surface-page);
   color: var(--text-primary);
   min-height: 100vh;
+  line-height: 1.5;
+  font-size-adjust: from-font;
+  overflow-wrap: break-word;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="color"]),
+select,
+textarea {
+  font: inherit;
+  font-size: max(1rem, 1em);
 }
 
 .font-mono-tabular {
@@ -99,7 +129,7 @@ dialog::backdrop {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -116,13 +146,13 @@ dialog::backdrop {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
 .animate-panelEnter {
   @media (prefers-reduced-motion: no-preference) {
-    animation: panelEnter 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: panelEnter 0.26s cubic-bezier(0.22, 1, 0.36, 1) forwards;
   }
 }
 

@@ -10,9 +10,9 @@ export function Button({
   ...props
 }) {
   const sizes = {
-    sm: 'h-8 px-3 text-xs rounded-lg gap-1.5',
-    md: 'h-9 px-4 text-sm rounded-lg gap-2',
-    lg: 'h-11 px-5 text-sm rounded-xl gap-2',
+    sm: 'min-h-9 px-3.5 py-1.5 text-xs rounded-lg gap-1.5',
+    md: 'min-h-10 px-4 py-2 text-sm rounded-lg gap-2',
+    lg: 'min-h-12 px-5 py-2.5 text-base rounded-xl gap-2',
   };
 
   const variants = {
@@ -30,7 +30,7 @@ export function Button({
     <button
       type={type}
       disabled={disabled}
-      className={`inline-flex items-center justify-center font-medium transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${sizes[size]} ${variants[variant]} ${className}`}
+      className={`inline-flex items-center justify-center font-semibold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${sizes[size]} ${variants[variant]} ${className}`}
       {...props}
     >
       {children}
@@ -38,10 +38,11 @@ export function Button({
   );
 }
 
-export function Card({ children, className = '' }) {
+export function Card({ children, className = '', ...props }) {
   return (
     <div
-      className={`rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] ${className}`}
+      className={`rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-card)] ${className}`}
+      {...props}
     >
       {children}
     </div>
@@ -59,7 +60,7 @@ export function Badge({ children, tone = 'neutral', className = '' }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${tones[tone]} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full border px-3 py-0.5 text-xs font-semibold ${tones[tone]} ${className}`}
     >
       {children}
     </span>
@@ -70,7 +71,7 @@ export function PageHeader({ title, description, actions }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-5 border-b border-[var(--border-subtle)]">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight text-[var(--text-primary)]">{title}</h1>
+        <h1 className="text-2xl font-bold tracking-tight text-[var(--text-primary)]">{title}</h1>
         {description && (
           <p className="mt-1 text-sm text-[var(--text-secondary)]">{description}</p>
         )}
@@ -84,13 +85,13 @@ export function EmptyState({ icon: Icon, title, description, action }) {
   return (
     <div className="flex flex-col items-center justify-center text-center py-12 px-4">
       {Icon && (
-        <div className="h-11 w-11 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] flex items-center justify-center text-[var(--text-muted)] mb-3">
-          <Icon size={20} />
+        <div className="h-12 w-12 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] flex items-center justify-center text-[var(--text-muted)] mb-3">
+          <Icon size={22} />
         </div>
       )}
-      <h3 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h3>
+      <h3 className="text-base font-semibold text-[var(--text-primary)]">{title}</h3>
       {description && (
-        <p className="mt-1 text-xs text-[var(--text-secondary)] max-w-sm">{description}</p>
+        <p className="mt-1 text-sm text-[var(--text-secondary)] max-w-sm">{description}</p>
       )}
       {action && <div className="mt-4">{action}</div>}
     </div>
@@ -101,15 +102,15 @@ export function Input({ label, error, hint, className = '', ...props }) {
   return (
     <div className="space-y-1.5">
       {label && (
-        <label className="block text-xs font-medium text-[var(--text-primary)]">
+        <label className="block text-sm font-semibold text-[var(--text-primary)]">
           {label}
         </label>
       )}
       <input
-        className={`w-full h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-600)]/25 focus:border-[var(--brand-600)] transition-colors ${className}`}
+        className={`w-full min-h-11 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3.5 text-base text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-600)]/25 focus:border-[var(--brand-600)] transition-colors ${className}`}
         {...props}
       />
-      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="text-xs font-medium text-red-600 dark:text-red-400">{error}</p>}
       {!error && hint && <p className="text-xs text-[var(--text-muted)]">{hint}</p>}
     </div>
   );

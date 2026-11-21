@@ -144,7 +144,7 @@ export default function LandingPage() {
     <div className="min-h-screen bg-[var(--surface-page)] text-[var(--text-primary)] flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-[var(--border-subtle)] bg-[var(--surface-card)]/95 backdrop-blur-xs">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+        <div className="w-full px-6 sm:px-10 lg:px-14 min-h-20 flex items-center justify-between gap-4">
           <a
             href="#topo"
             onClick={(e) => {
@@ -152,13 +152,13 @@ export default function LandingPage() {
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
-            <BrandLogo name="Ponto Certo" />
+            <BrandLogo name="Ponto Certo" subtitle="Plataforma de Ponto Eletrônico" size="md" />
           </a>
 
           <nav
             ref={navRef}
             aria-label="Navegação principal"
-            className="landing-scrollspy-nav hidden md:flex items-center gap-7 text-sm font-medium"
+            className="landing-scrollspy-nav hidden md:flex items-center gap-8 text-sm font-semibold"
           >
             {NAV_SECTIONS.map((item) => (
               <a
@@ -171,12 +171,12 @@ export default function LandingPage() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <ThemeToggle />
             <Link to="/login">
               <Button variant="primary" size="md">
                 Acessar Portal
-                <ArrowRight size={15} />
+                <ArrowRight size={16} />
               </Button>
             </Link>
           </div>

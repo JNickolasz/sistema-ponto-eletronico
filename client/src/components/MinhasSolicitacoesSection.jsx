@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  FileText,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  RefreshCw,
   AlertCircle,
-  PlusCircle,
   Calendar,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Plus,
+  RefreshCw,
   UserCheck,
+  XCircle,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import solicitacaoAjusteService from '../services/solicitacaoAjusteService';
+import { Badge, Button, Card, EmptyState } from './ui/Primitives';
 
-export function MinhasSolicitacoesSection({ onAbrirModal }) {
+export function MinhasSolicitacoesSection({ onAbrirModal, refreshKey = 0 }) {
   const [solicitacoes, setSolicitacoes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,7 +33,7 @@ export function MinhasSolicitacoesSection({ onAbrirModal }) {
 
   useEffect(() => {
     carregarSolicitacoes();
-  }, []);
+  }, [refreshKey]);
 
   const formatarData = (dataStr) => {
     if (!dataStr) return '—';
@@ -47,153 +47,150 @@ export function MinhasSolicitacoesSection({ onAbrirModal }) {
 
   const formatarHora = (horaStr) => {
     if (!horaStr) return '—';
-    return horaStr.substring(0, 5);
+    return String(horaStr).substring(0, 5);
   };
 
-  const getStatusBadge = (status) => {
+  const renderStatusBadge = (status) => {
     switch (status) {
       case 'DEFERIDO':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <CheckCircle2 size={13} /> Deferido
-          </span>
+          <Badge tone="success">
+            <CheckCircle2 size={13} />
+            Deferido
+          </Badge>
         );
       case 'INDEFERIDO':
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-            <XCircle size={13} /> Indeferido
-          </span>
+          <Badge tone="danger">
+            <XCircle size={13} />
+            Indeferido
+          </Badge>
         );
       case 'PENDENTE':
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <Clock size={13} /> Pendente de Análise
-          </span>
+          <Badge tone="warning">
+            <Clock size={13} />
+            Pendente de Análise
+          </Badge>
         );
     }
   };
 
   return (
-    <div className="rounded-3xl bg-slate-900/60 border border-slate-800 p-6 sm:p-8 backdrop-blur-xl space-y-6">
-      {/* Header da seção */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800/80 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
-            <FileText size={22} />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              Minhas Solicitações de Ajuste
-              <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-mono">
-                {solicitacoes.length}
-              </span>
-            </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Histórico de pedidos de inclusão/correção de batida enviados ao seu gestor.
-            </p>
-          </div>
+    <Card className="p-6 space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-[var(--border-subtle)]">
+        <div className="flex items-center gap-2.5">
+          <h2 className="text-base font-bold text-[var(--text-primary)]">
+            Histórico de Solicitações
+          </h2>
+          <Badge tone="neutral">{solicitacoes.length}</Badge>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
+        <div className="flex items-center gap-2">
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
             onClick={carregarSolicitacoes}
             disabled={loading}
-            className="p-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-300 transition-all cursor-pointer disabled:opacity-50"
-            title="Atualizar histórico"
           >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          </button>
-          <button
-            type="button"
-            onClick={onAbrirModal}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
-          >
-            <PlusCircle size={15} />
-            <span>Solicitar Ajuste</span>
-          </button>
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Atualizar
+          </Button>
+          {onAbrirModal && (
+            <Button type="button" variant="primary" size="sm" onClick={onAbrirModal}>
+              <Plus size={14} />
+              Solicitar Ajuste
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Conteúdo */}
       {loading ? (
-        <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-3">
-          <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-          <span className="text-xs">Carregando histórico de solicitações...</span>
+        <div className="py-12 flex flex-col items-center justify-center text-[var(--text-muted)] gap-2.5">
+          <Loader2 size={24} className="animate-spin" />
+          <span className="text-xs font-medium">Carregando histórico de solicitações...</span>
         </div>
       ) : error ? (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2.5">
+        <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 text-red-700 dark:text-red-300 text-xs flex items-center gap-2.5">
           <AlertCircle size={16} className="shrink-0" />
           <span>{error}</span>
         </div>
       ) : solicitacoes.length === 0 ? (
-        <div className="py-12 px-4 text-center rounded-2xl border border-dashed border-slate-800 text-slate-500 space-y-2">
-          <Clock size={36} className="mx-auto text-slate-600" />
-          <p className="text-sm font-medium text-slate-400">Você não possui solicitações de ajuste registradas.</p>
-          <p className="text-xs text-slate-600">
-            Caso tenha esquecido de bater o ponto em algum dia, clique em "Solicitar Ajuste" acima.
-          </p>
-        </div>
+        <EmptyState
+          icon={Clock}
+          title="Você não possui solicitações de ajuste registradas"
+          description="Caso tenha esquecido de bater o ponto em algum dia, clique em 'Nova Solicitação' para enviar ao seu gestor."
+          action={
+            onAbrirModal ? (
+              <Button variant="primary" size="sm" onClick={onAbrirModal}>
+                <Plus size={14} />
+                Solicitar Ajuste
+              </Button>
+            ) : null
+          }
+        />
       ) : (
         <div className="space-y-3">
           {solicitacoes.map((item) => (
             <div
               key={item.id}
-              className="p-4 sm:p-5 rounded-2xl bg-slate-950/70 border border-slate-800/80 hover:border-slate-700/80 transition-all space-y-3"
+              className="p-4 sm:p-5 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] space-y-3"
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <span className="p-1.5 rounded-lg bg-slate-800 text-slate-300">
-                    <Calendar size={14} />
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <span
+                    className="h-8 w-8 rounded-lg flex items-center justify-center"
+                    style={{ backgroundColor: 'var(--brand-50)', color: 'var(--brand-600)' }}
+                  >
+                    <Calendar size={15} />
                   </span>
                   <div>
-                    <span className="text-sm font-bold text-white font-mono">
+                    <span className="text-sm font-bold text-[var(--text-primary)] font-mono-tabular">
                       {formatarData(item.dataAlvo)}
                     </span>
-                    <span className="text-xs text-slate-400 ml-2">
-                      às <strong className="font-mono text-emerald-400">{formatarHora(item.horarioPretendido)}</strong>
+                    <span className="text-xs text-[var(--text-secondary)] ml-2">
+                      às{' '}
+                      <strong
+                        className="font-mono-tabular"
+                        style={{ color: 'var(--brand-600)' }}
+                      >
+                        {formatarHora(item.horarioPretendido)}
+                      </strong>
                     </span>
                   </div>
-                  <span
-                    className={`ml-2 text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${
-                      item.tipoRegistro === 'ENTRADA'
-                        ? 'bg-emerald-950/60 border-emerald-800/40 text-emerald-300'
-                        : 'bg-blue-950/60 border-blue-800/40 text-blue-300'
-                    }`}
-                  >
+                  <Badge tone={item.tipoRegistro === 'ENTRADA' ? 'success' : 'brand'}>
                     {item.tipoRegistro}
-                  </span>
+                  </Badge>
                 </div>
 
-                <div>{getStatusBadge(item.status)}</div>
+                <div>{renderStatusBadge(item.status)}</div>
               </div>
 
-              {/* Justificativa do Colaborador */}
-              <div className="text-xs text-slate-300 bg-slate-900/70 p-3 rounded-xl border border-slate-800/60">
-                <span className="text-[11px] font-semibold text-slate-400 block mb-1">
+              <div className="text-xs text-[var(--text-secondary)] bg-[var(--surface-card)] p-3.5 rounded-xl border border-[var(--border-subtle)]">
+                <span className="text-xs font-semibold text-[var(--text-muted)] block mb-1">
                   Seu motivo:
                 </span>
-                {item.motivo}
+                <span className="text-[var(--text-primary)]">{item.motivo}</span>
               </div>
 
-              {/* Retorno do Gestor se analisado */}
               {item.status !== 'PENDENTE' && (
                 <div
-                  className={`p-3 rounded-xl border text-xs space-y-1 ${
+                  className={`p-3.5 rounded-xl border text-xs space-y-1 ${
                     item.status === 'DEFERIDO'
-                      ? 'bg-emerald-950/30 border-emerald-800/40 text-emerald-200'
-                      : 'bg-rose-950/30 border-rose-800/40 text-rose-200'
+                      ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-900/60 text-emerald-900 dark:text-emerald-200'
+                      : 'bg-red-50/70 dark:bg-red-950/30 border-red-200 dark:border-red-900/60 text-red-900 dark:text-red-200'
                   }`}
                 >
-                  <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold">
                     <span className="flex items-center gap-1.5">
-                      <UserCheck size={13} />
-                      Analisado por: <strong className="text-slate-200">{item.gestorNome || 'Gestor'}</strong>
+                      <UserCheck size={14} />
+                      Analisado por: <strong>{item.gestorNome || 'Gestor'}</strong>
                     </span>
                     {item.batidaCriadaId && (
-                      <span className="text-emerald-400 font-mono text-[10px]">
-                        ✓ Batida gerada no espelho
+                      <span className="font-mono-tabular text-xs font-bold">
+                        ✓ Marcação gerada no espelho
                       </span>
                     )}
                   </div>
@@ -206,7 +203,7 @@ export function MinhasSolicitacoesSection({ onAbrirModal }) {
           ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 

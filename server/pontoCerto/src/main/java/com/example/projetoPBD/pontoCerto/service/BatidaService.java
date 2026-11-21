@@ -185,8 +185,10 @@ public class BatidaService {
                 estacao.getEmpresa().getRazaoSocial(),
                 estacao.getEmpresa().getCnpj(),
                 funcionario.getNomeCompleto(),
+                funcionario.getCpf(),
                 funcionario.getMatricula(),
                 agoraServidor,
+                batida.getTipoRegistro(),
                 TipoOrigem.ESTACAO,
                 true,
                 "Ponto registrado com sucesso às " + horaFormatada

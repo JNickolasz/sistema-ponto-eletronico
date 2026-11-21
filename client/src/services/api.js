@@ -23,7 +23,11 @@ export async function request(endpoint, options = {}) {
     const backendRoot = API_BASE.replace(/\/api\/v1\/?$/, '');
     url = `${backendRoot}${cleanEndpoint}`;
   } else {
-    if (cleanEndpoint.startsWith('/v1/')) {
+    if (cleanEndpoint.startsWith('/api/v1/')) {
+      cleanEndpoint = cleanEndpoint.substring(7);
+    } else if (cleanEndpoint.startsWith('/api/')) {
+      cleanEndpoint = cleanEndpoint.substring(4);
+    } else if (cleanEndpoint.startsWith('/v1/')) {
       cleanEndpoint = cleanEndpoint.substring(3);
     }
     url = `${API_BASE}${cleanEndpoint}`;

@@ -71,12 +71,46 @@ public class BatidaDTO {
             String nomeEmpresa,
             String cnpjEmpresa,
             String nomeFuncionario,
+            String cpfFuncionario,
             String matricula,
             LocalDateTime dataHoraServidor,
+            TipoRegistro tipoRegistro,
             TipoOrigem tipoOrigem,
             boolean fotoCapturada,
             String mensagem
-    ) {}
+    ) {
+        public ComprovanteEstacaoResponse(
+                UUID batidaId,
+                Long nsr,
+                UUID estacaoId,
+                String estacaoIdentificacao,
+                String nomeEmpresa,
+                String cnpjEmpresa,
+                String nomeFuncionario,
+                String matricula,
+                LocalDateTime dataHoraServidor,
+                TipoOrigem tipoOrigem,
+                boolean fotoCapturada,
+                String mensagem
+        ) {
+            this(
+                    batidaId,
+                    nsr,
+                    estacaoId,
+                    estacaoIdentificacao,
+                    nomeEmpresa,
+                    cnpjEmpresa,
+                    nomeFuncionario,
+                    null,
+                    matricula,
+                    dataHoraServidor,
+                    null,
+                    tipoOrigem,
+                    fotoCapturada,
+                    mensagem
+            );
+        }
+    }
 
     public record VincularOrfaRequest(
             @NotNull(message = "ID do funcionário é obrigatório")
