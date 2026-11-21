@@ -72,6 +72,9 @@ import com.example.projetoPBD.pontoCerto.dto.domaindtos.FechamentoPeriodoDTO;
 import com.example.projetoPBD.pontoCerto.repository.HistoricoFechamentoPeriodoRepository;
 import com.example.projetoPBD.pontoCerto.service.CompetenciaLockService;
 import com.example.projetoPBD.pontoCerto.service.FechamentoPeriodoService;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.EspelhoPontoDTO;
+import com.example.projetoPBD.pontoCerto.service.EspelhoService;
+import com.example.projetoPBD.pontoCerto.service.exceptions.AcessoNegadoException;
 import org.springframework.core.io.Resource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -183,6 +186,9 @@ class PontoCertoApplicationTests {
 
 	@Autowired
 	private CompetenciaLockService competenciaLockService;
+
+	@Autowired
+	private EspelhoService espelhoService;
 
 	@Test
 	void contextLoads() {
@@ -1789,6 +1795,130 @@ class PontoCertoApplicationTests {
 		// Cleanup
 		historicoFechamentoPeriodoRepository.deleteAll();
 		fechamentoPeriodoRepository.deleteAll();
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T18 - Espelho de Ponto Completo: Dia a dia com previsto, origens (Estação/Ajuste), totais, fechamento com data e HTML legível")
+	void testT18_EspelhoDiaADiaOrigensFechamentoEImpressao() {
+		Funcionario colaborador = funcionarioRepository.findAll().stream()
+				.filter(f -> f.getPerfilAcesso() == PerfilAcesso.COLABORADOR)
+				.findFirst()
+				.orElse(funcionarioRepository.findAll().get(0));
+		autenticarComoRh(colaborador);
+		UUID empresaId = colaborador.getEmpresa().getId();
+
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+		inconsistenciaRepository.deleteAll();
+
+		LocalDate diaTrabalho = LocalDate.of(2026, 5, 11); // Segunda-feira
+		apuracaoDiariaRepository.findByFuncionarioIdAndDataReferencia(colaborador.getId(), diaTrabalho)
+				.ifPresent(apuracaoDiariaRepository::delete);
+
+		// 1. Batida pela Estação (08:00)
+		Batida bEstacao = new Batida();
+		bEstacao.setFuncionario(colaborador);
+		bEstacao.setDataHora(diaTrabalho.atTime(8, 0));
+		bEstacao.setTipoRegistro(TipoRegistro.ENTRADA);
+		bEstacao.setTipoOrigem(TipoOrigem.ESTACAO);
+		bEstacao.setStatusBatida(StatusBatida.NORMAL);
+		bEstacao.setNsr(batidaRepository.proximoNsrSequence());
+		batidaRepository.saveAndFlush(bEstacao);
+
+		// 2. Batida de saída ajustada manualmente (18:00 -> +1h extra assumindo intervalo ou jornada)
+		Batida bAjuste = new Batida();
+		bAjuste.setFuncionario(colaborador);
+		bAjuste.setDataHora(diaTrabalho.atTime(18, 0));
+		bAjuste.setTipoRegistro(TipoRegistro.SAIDA);
+		bAjuste.setTipoOrigem(TipoOrigem.AJUSTE_MANUAL);
+		bAjuste.setStatusBatida(StatusBatida.NORMAL);
+		bAjuste.setMotivoAjuste("Esquecimento na saída");
+		bAjuste.setAutorAjuste("Gestor Teste");
+		bAjuste.setNsr(batidaRepository.proximoNsrSequence());
+		batidaRepository.saveAndFlush(bAjuste);
+
+		apuracaoDiariaService.apurarDia(colaborador, diaTrabalho);
+
+		// 3. Fecha a competência 2026-05 para verificar indicação da data de fechamento
+		FechamentoPeriodoDTO.FechamentoDetalheResponse fechado = fechamentoPeriodoService.fecharPeriodo(
+				empresaId, "2026-05", true, "Fechamento para conferência do espelho T18"
+		);
+
+		// 4. Consulta espelho mensal
+		EspelhoPontoDTO.EspelhoMensalResponse espelho = espelhoService.consultarEspelhoMensal(colaborador.getId(), "2026-05");
+		assertNotNull(espelho);
+		assertEquals("2026-05", espelho.competencia());
+		assertEquals(31, espelho.dias().size());
+		assertTrue(espelho.fechamento().periodoFechado());
+		assertNotNull(espelho.fechamento().dataFechamento());
+		assertEquals(fechado.fechadoEm().withNano(0), espelho.fechamento().dataFechamento().withNano(0));
+
+		EspelhoPontoDTO.DiaEspelhoResponse dia11 = espelho.dias().get(10);
+		assertEquals(diaTrabalho, dia11.data());
+		assertEquals(2, dia11.marcacoes().size());
+		assertEquals("Estação", dia11.marcacoes().get(0).origemLabel());
+		assertEquals("Ajuste", dia11.marcacoes().get(1).origemLabel());
+		assertTrue(espelho.totais().totalMinutosTrabalhados() > 0);
+
+		// 5. Impressão em página HTML legível
+		String html = espelhoService.gerarHtmlImpressao(colaborador.getId(), "2026-05");
+		assertTrue(html.contains("Espelho de Ponto Eletrônico"));
+		assertTrue(html.contains(colaborador.getNomeCompleto()));
+		assertTrue(html.contains("PERÍODO FECHADO em"));
+		assertTrue(html.contains("Estação"));
+		assertTrue(html.contains("Ajuste"));
+
+		// Cleanup
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+		apuracaoDiariaRepository.findByFuncionarioIdAndDataReferencia(colaborador.getId(), diaTrabalho)
+				.ifPresent(apuracaoDiariaRepository::delete);
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T18 - Segurança de Perfis: Colaborador só vê o próprio espelho; Gestor vê equipe; RH vê toda empresa")
+	void testT18_ControleAcessoPerfis() {
+		List<Funcionario> todos = funcionarioRepository.findAll();
+		Funcionario rh = todos.stream().filter(f -> f.getPerfilAcesso() == PerfilAcesso.RH).findFirst().orElseThrow();
+		Funcionario gestor = todos.stream().filter(f -> f.getPerfilAcesso() == PerfilAcesso.GESTOR).findFirst().orElseThrow();
+		Funcionario subordinado = todos.stream()
+				.filter(f -> f.getPerfilAcesso() == PerfilAcesso.COLABORADOR && f.getGestor() != null && f.getGestor().getId().equals(gestor.getId()))
+				.findFirst()
+				.orElseGet(() -> {
+					Funcionario c = todos.stream().filter(f -> f.getPerfilAcesso() == PerfilAcesso.COLABORADOR).findFirst().orElseThrow();
+					c.setGestor(gestor);
+					return funcionarioRepository.saveAndFlush(c);
+				});
+
+		// 1. Colaborador vê o próprio espelho, mas é bloqueado ao tentar ver o do gestor
+		SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+				new FuncionarioUserDetails(subordinado), null, List.of(new SimpleGrantedAuthority("ROLE_COLABORADOR"))
+		));
+		assertNotNull(espelhoService.consultarEspelhoMensal(null, "2026-11"));
+		assertThrows(AcessoNegadoException.class, () ->
+				espelhoService.consultarEspelhoMensal(gestor.getId(), "2026-11")
+		);
+
+		// 2. Gestor vê espelho do subordinado, mas é bloqueado ao tentar ver o do RH (não subordinado)
+		SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+				new FuncionarioUserDetails(gestor), null, List.of(new SimpleGrantedAuthority("ROLE_GESTOR"))
+		));
+		assertNotNull(espelhoService.consultarEspelhoMensal(subordinado.getId(), "2026-11"));
+		assertThrows(AcessoNegadoException.class, () ->
+				espelhoService.consultarEspelhoMensal(rh.getId(), "2026-11")
+		);
+
+		// 3. RH vê espelho de qualquer colaborador da empresa
+		autenticarComoRh(rh);
+		assertNotNull(espelhoService.consultarEspelhoMensal(subordinado.getId(), "2026-11"));
+		assertNotNull(espelhoService.consultarEspelhoMensal(gestor.getId(), "2026-11"));
+
 		SecurityContextHolder.clearContext();
 	}
 }
