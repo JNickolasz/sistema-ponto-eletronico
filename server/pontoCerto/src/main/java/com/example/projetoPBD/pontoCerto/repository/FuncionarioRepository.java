@@ -11,6 +11,8 @@ import java.util.UUID;
 
 public interface FuncionarioRepository extends JpaRepository<Funcionario, UUID> {
 
+    Optional<Funcionario> findByIdAndEmpresaId(UUID id, UUID empresaId);
+
     Optional<Funcionario> findByUsuarioAndEmpresaId(String usuario, UUID empresaId);
     boolean existsByUsuarioAndEmpresaId(String usuario, UUID empresaId);
 

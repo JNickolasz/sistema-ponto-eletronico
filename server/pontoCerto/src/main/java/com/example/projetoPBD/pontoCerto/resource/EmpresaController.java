@@ -23,7 +23,7 @@ public class EmpresaController {
     @GetMapping
     @PreAuthorize("hasRole('RH')")
     public ResponseEntity<List<EmpresaDTO.Response>> listar() {
-        List<EmpresaDTO.Response> empresas = empresaService.listarEmpresas();
+        List<EmpresaDTO.Response> empresas = empresaService.listarEmpresaAtual();
         return ResponseEntity.ok(empresas);
     }
 }

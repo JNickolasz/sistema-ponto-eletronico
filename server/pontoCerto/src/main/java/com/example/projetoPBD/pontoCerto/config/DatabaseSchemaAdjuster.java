@@ -2,10 +2,12 @@ package com.example.projetoPBD.pontoCerto.config;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "app.schema-adjuster.enabled", havingValue = "true", matchIfMissing = true)
 public class DatabaseSchemaAdjuster implements ApplicationRunner {
 
     private final JdbcTemplate jdbcTemplate;

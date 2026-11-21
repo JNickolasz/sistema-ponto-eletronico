@@ -44,11 +44,15 @@ public class EquipamentoService {
     @Transactional
     public EquipamentoResponse cadastrar(EquipamentoDTO.Criar criarDto) {
 
+        Empresa empresa = empresaRepository.findById(securityTenantContext.empresaAtual())
+                .orElseThrow(() -> new EmpresaNaoEncontradaException("Empresa não encontrada!"));
+
         LocalDeTrabalho local = localDeTrabalhoRepository.findById(criarDto.localTrabalhoId())
                 .orElseThrow(() -> new EquipamentoInvalidoException("Local de trabalho não encontrado com id: " + criarDto.localTrabalhoId()));
 
-        Empresa empresa = empresaRepository.findById(securityTenantContext.empresaAtual())
-                .orElseThrow(() -> new EmpresaNaoEncontradaException("Empresa não encontrada!"));
+        if (local.getEmpresa() == null || !local.getEmpresa().getId().equals(empresa.getId())) {
+            throw new AcessoNegadoException("Acesso negado: local de trabalho não pertence à sua empresa.");
+        }
 
 
         if (equipamentoRepository.existsByEmpresaIdAndCodigo(empresa.getId(), criarDto.codigo())) {

@@ -19,11 +19,14 @@ export const localTrabalhoService = {
   /**
    * Cadastra uma nova empresa via API administrativa (POST /api/v1/admin/empresas)
    * @param {{razaoSocial: string, subdominio: string, cnpj: string, endereco: string, logoUrl?: string}} dados
-   * @param {string} [adminKey]
+   * @param {string} adminKey
    */
-  async cadastrarEmpresaAdmin(dados, adminKey = 'admin123') {
+  async cadastrarEmpresaAdmin(dados, adminKey) {
+    if (!adminKey || !adminKey.trim()) {
+      throw new Error('A chave de administrador (X-Admin-Key) é obrigatória.');
+    }
     return await api.post('/admin/empresas', dados, {
-      headers: { 'X-Admin-Key': adminKey },
+      headers: { 'X-Admin-Key': adminKey.trim() },
     });
   },
 

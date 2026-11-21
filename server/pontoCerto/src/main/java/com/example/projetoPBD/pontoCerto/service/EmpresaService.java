@@ -4,18 +4,21 @@ package com.example.projetoPBD.pontoCerto.service;
 import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EmpresaDTO;
 import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
+import com.example.projetoPBD.pontoCerto.security.SecurityTenantContext;
 import com.example.projetoPBD.pontoCerto.service.exceptions.EmpresaExistenteException;
+import com.example.projetoPBD.pontoCerto.service.exceptions.EmpresaNaoEncontradaException;
 import org.springframework.stereotype.Service;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class EmpresaService {
     private final EmpresaRepository empresaRepository;
+    private final SecurityTenantContext securityTenantContext;
 
-
-    public EmpresaService(EmpresaRepository empresaRepository) {
+    public EmpresaService(EmpresaRepository empresaRepository, SecurityTenantContext securityTenantContext) {
         this.empresaRepository = empresaRepository;
-
+        this.securityTenantContext = securityTenantContext;
     }
 
     public List<EmpresaDTO.Response> listarEmpresas() {
@@ -25,6 +28,13 @@ public class EmpresaService {
                         empresa.getRazaoSocial()
                 ))
                 .toList();
+    }
+
+    public List<EmpresaDTO.Response> listarEmpresaAtual() {
+        UUID empresaId = securityTenantContext.empresaAtual();
+        Empresa empresa = empresaRepository.findById(empresaId)
+                .orElseThrow(() -> new EmpresaNaoEncontradaException("Empresa não encontrada!"));
+        return List.of(new EmpresaDTO.Response(empresa.getId(), empresa.getRazaoSocial()));
     }
 
     public EmpresaDTO.Response cadastrarEmpresa(EmpresaDTO.Criar empresaDTO) {

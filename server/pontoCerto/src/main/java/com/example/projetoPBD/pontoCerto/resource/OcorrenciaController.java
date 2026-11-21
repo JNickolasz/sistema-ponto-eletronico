@@ -9,6 +9,7 @@ import com.example.projetoPBD.pontoCerto.service.OcorrenciaColaboradorService;
 import jakarta.validation.Valid;
 import org.springframework.core.io.Resource;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -19,13 +20,22 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @RestController
 @RequestMapping({"/api/v1/ocorrencias", "/api/ocorrencias"})
 public class OcorrenciaController {
+
+    private static final Set<String> CONTENT_TYPES_SEGUROS = Set.of(
+            MediaType.APPLICATION_PDF_VALUE,
+            MediaType.IMAGE_PNG_VALUE,
+            MediaType.IMAGE_JPEG_VALUE,
+            "image/webp"
+    );
 
     private final OcorrenciaColaboradorService ocorrenciaService;
 
@@ -85,12 +95,22 @@ public class OcorrenciaController {
         OcorrenciaColaborador o = ocorrenciaService.buscarPorId(id);
         Resource recurso = ocorrenciaService.carregarAnexo(id);
 
-        String contentType = o.getContentTypeAnexo() != null ? o.getContentTypeAnexo() : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+        String rawContentType = o.getContentTypeAnexo();
+        String contentType = (rawContentType != null && CONTENT_TYPES_SEGUROS.contains(rawContentType.toLowerCase()))
+                ? rawContentType.toLowerCase()
+                : MediaType.APPLICATION_OCTET_STREAM_VALUE;
+
         String nomeOriginal = o.getNomeArquivoAnexo() != null ? o.getNomeArquivoAnexo() : "anexo";
+        String nomeSanitizado = nomeOriginal.replaceAll("[\\r\\n\"\\\\/]+", "_");
+
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(nomeSanitizado, StandardCharsets.UTF_8)
+                .build();
 
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + nomeOriginal + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .header("X-Content-Type-Options", "nosniff")
                 .body(recurso);
     }
 

@@ -7,6 +7,7 @@ import com.example.projetoPBD.pontoCerto.domain.Feriado;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.FeriadoDTO;
 import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
 import com.example.projetoPBD.pontoCerto.repository.FeriadoRepository;
+import com.example.projetoPBD.pontoCerto.security.SecurityTenantContext;
 import com.example.projetoPBD.pontoCerto.service.exceptions.*;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.stereotype.Service;
@@ -21,36 +22,58 @@ public class FeriadoService {
 
     private final FeriadoRepository feriadoRepository;
     private final EmpresaRepository empresaRepository;
+    private final SecurityTenantContext securityTenantContext;
 
-    public FeriadoService(FeriadoRepository feriadoRepository, EmpresaRepository empresaRepository) {
+    public FeriadoService(
+            FeriadoRepository feriadoRepository,
+            EmpresaRepository empresaRepository,
+            SecurityTenantContext securityTenantContext
+    ) {
         this.feriadoRepository = feriadoRepository;
         this.empresaRepository = empresaRepository;
+        this.securityTenantContext = securityTenantContext;
     }
 
     @Transactional
-    public FeriadoDTO.Response cadastrar(FeriadoDTO.Request dto){
-//        caso um dia precise formatado
-//        String ufNormalizada = sanitizarUf(dto.uf());
-//        String municipioNormalizado = sanitizarMunicipio(dto.municipio());
-
+    public FeriadoDTO.Response cadastrar(FeriadoDTO.Request dto) {
         validarCamposPorAlcance(dto.alcance(), dto.uf(), dto.municipio());
 
-        // feriado nacional não contém empresa
-        if(dto.alcance() == Alcance.NACIONAL && dto.empresaId() != null) {
+        if (dto.alcance() == Alcance.NACIONAL) {
+            throw new AcessoNegadoException("Feriados nacionais são gerenciados exclusivamente pelo administrador da plataforma.");
+        }
+
+        UUID empresaAtualId = securityTenantContext.empresaAtual();
+        if (dto.empresaId() != null && !dto.empresaId().equals(empresaAtualId)) {
+            throw new AcessoNegadoException("Acesso negado: não é permitido cadastrar feriado para outra empresa.");
+        }
+
+        Empresa empresa = empresaRepository.findById(empresaAtualId)
+                .orElseThrow(() -> new EmpresaNaoEncontradaException("Empresa não encontrada com o ID informado."));
+
+        return salvarFeriado(dto, empresa);
+    }
+
+    @Transactional
+    public FeriadoDTO.Response cadastrarGlobal(FeriadoDTO.Request dto) {
+        validarCamposPorAlcance(dto.alcance(), dto.uf(), dto.municipio());
+
+        if (dto.alcance() == Alcance.NACIONAL && dto.empresaId() != null) {
             throw new FeriadoNacionalEmpresaInvalidaException("Feriado nacional é válido para todo o sistema e não deve conter empresa vinculada.");
         }
 
-        // 2. Busca a empresa se o ID for informado no DTO (Nulo = feriado nacional do sistema)
         Empresa empresa = null;
         if (dto.empresaId() != null) {
             empresa = empresaRepository.findById(dto.empresaId())
                     .orElseThrow(() -> new EmpresaNaoEncontradaException("Empresa não encontrada com o ID informado."));
         }
 
-        // validação de regra de conflito em feriados
+        return salvarFeriado(dto, empresa);
+    }
+
+    private FeriadoDTO.Response salvarFeriado(FeriadoDTO.Request dto, Empresa empresa) {
         boolean jaExiste = feriadoRepository.existsFeriadoConflitante(
                 dto.data(), dto.alcance(), dto.uf(), dto.municipio(), empresa, null);
-        if (jaExiste){
+        if (jaExiste) {
             throw new FeriadoExistenteException("Feriado já existe no sistema");
         }
 
@@ -105,9 +128,21 @@ public class FeriadoService {
 
     @Transactional
     public void inativar(UUID id) {
+        UUID empresaAtualId = securityTenantContext.empresaAtual();
         Feriado feriado = feriadoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Feriado não encontrado"));
-        feriado.setAtivo(false); // Inativação lógica
+        if (feriado.getEmpresa() == null || !feriado.getEmpresa().getId().equals(empresaAtualId)) {
+            throw new AcessoNegadoException("Acesso negado: você só pode inativar feriados pertencentes à sua própria empresa.");
+        }
+        feriado.setAtivo(false);
+        feriadoRepository.save(feriado);
+    }
+
+    @Transactional
+    public void inativarGlobal(UUID id) {
+        Feriado feriado = feriadoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Feriado não encontrado"));
+        feriado.setAtivo(false);
         feriadoRepository.save(feriado);
     }
 

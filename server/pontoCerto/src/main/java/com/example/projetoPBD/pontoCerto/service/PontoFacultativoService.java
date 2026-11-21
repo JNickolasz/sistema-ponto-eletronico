@@ -1,13 +1,13 @@
 package com.example.projetoPBD.pontoCerto.service;
 
+import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.enums.Alcance;
 import com.example.projetoPBD.pontoCerto.domain.PontoFacultativo;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.PontoFacultativoDTO;
+import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
 import com.example.projetoPBD.pontoCerto.repository.PontoFacultativoRepository;
-import com.example.projetoPBD.pontoCerto.service.exceptions.AlcanceInvalidoException;
-import com.example.projetoPBD.pontoCerto.service.exceptions.MunicipioCampoInvalidoException;
-import com.example.projetoPBD.pontoCerto.service.exceptions.PontoFacultativoExistenteException;
-import com.example.projetoPBD.pontoCerto.service.exceptions.UfCampoInvalidoException;
+import com.example.projetoPBD.pontoCerto.security.SecurityTenantContext;
+import com.example.projetoPBD.pontoCerto.service.exceptions.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,37 +18,58 @@ import java.util.UUID;
 public class PontoFacultativoService {
 
     private final PontoFacultativoRepository pontoFacultativoRepository;
+    private final EmpresaRepository empresaRepository;
+    private final SecurityTenantContext securityTenantContext;
 
-    public PontoFacultativoService(PontoFacultativoRepository pontoFacultativoRepository) {
+    public PontoFacultativoService(
+            PontoFacultativoRepository pontoFacultativoRepository,
+            EmpresaRepository empresaRepository,
+            SecurityTenantContext securityTenantContext
+    ) {
         this.pontoFacultativoRepository = pontoFacultativoRepository;
+        this.empresaRepository = empresaRepository;
+        this.securityTenantContext = securityTenantContext;
     }
 
     @Transactional
     public PontoFacultativoDTO.Response cadastrar(PontoFacultativoDTO.Request dto) {
-        // 1. Valida a consistência da UF/Município de acordo com o alcance selecionado
         validarCamposPorAlcance(dto.alcance(), dto.uf(), dto.municipio());
 
-        // 2. Valida a duplicidade na mesma data, alcance e localidade[cite: 1]
+        if (dto.alcance() == Alcance.NACIONAL) {
+            throw new AcessoNegadoException("Pontos facultativos nacionais/globais são gerenciados exclusivamente pelo administrador da plataforma.");
+        }
+
+        UUID empresaAtualId = securityTenantContext.empresaAtual();
+        Empresa empresa = empresaRepository.findById(empresaAtualId)
+                .orElseThrow(() -> new EmpresaNaoEncontradaException("Empresa não encontrada."));
+
+        return salvarPontoFacultativo(dto, empresa);
+    }
+
+    @Transactional
+    public PontoFacultativoDTO.Response cadastrarGlobal(PontoFacultativoDTO.Request dto) {
+        validarCamposPorAlcance(dto.alcance(), dto.uf(), dto.municipio());
+        return salvarPontoFacultativo(dto, null);
+    }
+
+    private PontoFacultativoDTO.Response salvarPontoFacultativo(PontoFacultativoDTO.Request dto, Empresa empresa) {
         boolean jaExiste = pontoFacultativoRepository.existsPontoFacultativoConflitante(
-                dto.data(), dto.alcance(), dto.uf(), dto.municipio(), null);
+                dto.data(), dto.alcance(), dto.uf(), dto.municipio(), empresa, null);
 
         if (jaExiste) {
             throw new PontoFacultativoExistenteException("Já existe um ponto facultativo cadastrado para esta data, alcance e localidade.");
         }
 
-        // 3. Cria e preenche a entidade PontoFacultativo
         PontoFacultativo ponto = new PontoFacultativo();
         ponto.setDescricao(dto.descricao());
         ponto.setAlcance(dto.alcance());
         ponto.setData(dto.data());
         ponto.setUf(dto.uf());
         ponto.setMunicipio(dto.municipio());
+        ponto.setEmpresa(empresa);
         ponto.setAtivo(true);
 
-        // 4. Salva a entidade na base de dados[cite: 1]
         ponto = pontoFacultativoRepository.save(ponto);
-
-        // 5. Retorna a resposta convertida para DTO via construtor
         return new PontoFacultativoDTO.Response(ponto);
     }
 
@@ -83,17 +104,30 @@ public class PontoFacultativoService {
 
     @Transactional
     public void inativar(UUID id) {
+        UUID empresaAtualId = securityTenantContext.empresaAtual();
         PontoFacultativo ponto = pontoFacultativoRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Ponto facultativo não encontrado com o ID informado."));
 
-        // Exclusão lógica: muda o status para inativo
+        if (ponto.getEmpresa() == null || !ponto.getEmpresa().getId().equals(empresaAtualId)) {
+            throw new AcessoNegadoException("Acesso negado: você só pode inativar pontos facultativos pertencentes à sua própria empresa.");
+        }
+
+        ponto.setAtivo(false);
+        pontoFacultativoRepository.save(ponto);
+    }
+
+    @Transactional
+    public void inativarGlobal(UUID id) {
+        PontoFacultativo ponto = pontoFacultativoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Ponto facultativo não encontrado com o ID informado."));
         ponto.setAtivo(false);
         pontoFacultativoRepository.save(ponto);
     }
 
     @Transactional(readOnly = true)
     public List<PontoFacultativoDTO.Response> buscarCalendarioAnual(int ano, String uf, String municipio) {
-        return pontoFacultativoRepository.buscarCalendarioAnual(ano, uf, municipio)
+        UUID empresaAtualId = securityTenantContext.empresaAtual();
+        return pontoFacultativoRepository.buscarCalendarioAnual(ano, uf, municipio, empresaAtualId)
                 .stream()
                 .map(PontoFacultativoDTO.Response::new)
                 .toList();

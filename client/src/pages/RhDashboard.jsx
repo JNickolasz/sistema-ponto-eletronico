@@ -94,7 +94,7 @@ export function RhDashboard() {
 
   // Modal de Cadastro de Empresa (Área Admin)
   const [modalEmpresaAberto, setModalEmpresaAberto] = useState(false);
-  const [adminKey, setAdminKey] = useState('admin123');
+  const [adminKey, setAdminKey] = useState('');
   const [razaoSocialNova, setRazaoSocialNova] = useState('');
   const [cnpjNovo, setCnpjNovo] = useState('');
   const [subdominioNovo, setSubdominioNovo] = useState('');
@@ -535,7 +535,11 @@ export function RhDashboard() {
         endereco: enderecoNovo.trim(),
       };
 
-      const res = await rhService.cadastrarEmpresaAdmin(payload, adminKey.trim() || 'admin123');
+      if (!adminKey.trim()) {
+        toast.error('Informe a chave de administrador para cadastrar uma empresa.');
+        return;
+      }
+      const res = await rhService.cadastrarEmpresaAdmin(payload, adminKey.trim());
       const novaEmpresa = res?.data || res;
       toast.success(`Empresa cadastrada via Admin com sucesso!`);
 
@@ -768,7 +772,6 @@ export function RhDashboard() {
 
       const novaLista = [novo, ...usuariosCadastrados];
       setUsuariosCadastrados(novaLista);
-      localStorage.setItem('pontoCerto_usuarios_criados', JSON.stringify(novaLista));
 
       // Limpar formulário
       setNomeCompleto('');
@@ -3911,7 +3914,7 @@ export function RhDashboard() {
                     required
                     value={adminKey}
                     onChange={(e) => setAdminKey(e.target.value)}
-                    placeholder="admin123"
+                    placeholder="Informe a chave de administrador"
                     className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none font-mono"
                   />
                 </div>

@@ -90,14 +90,9 @@ export function AdminDashboard() {
     }
   };
 
-  const handleSwitchToRh = async () => {
-    try {
-      await login('admin.rh', 'admin123');
-      toast.success('Conectado como Administrador de RH!');
-      navigate('/rh');
-    } catch (err) {
-      toast.error('Erro ao alternar para RH: ' + err.message);
-    }
+  const handleSwitchToRh = () => {
+    logout();
+    navigate('/login');
   };
 
   return (

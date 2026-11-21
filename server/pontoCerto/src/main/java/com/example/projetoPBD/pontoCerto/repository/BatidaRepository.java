@@ -24,6 +24,8 @@ public interface BatidaRepository extends JpaRepository<Batida, UUID> {
     @Query("SELECT COUNT(DISTINCT b.nsr) FROM Batida b")
     long countDistinctNsr();
 
+    boolean existsByFuncionarioId(UUID funcionarioId);
+
     boolean existsByFuncionarioIdAndDataHora(UUID funcionarioId, LocalDateTime dataHora);
 
     boolean existsByEquipamentoIdAndNsr(UUID equipamentoId, Long nsr);

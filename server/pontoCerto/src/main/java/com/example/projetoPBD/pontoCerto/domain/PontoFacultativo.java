@@ -36,4 +36,8 @@ public class PontoFacultativo {
 
     @Column(name = "ativo", nullable = false)
     private boolean ativo = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "empresa_id")
+    private Empresa empresa;
 }

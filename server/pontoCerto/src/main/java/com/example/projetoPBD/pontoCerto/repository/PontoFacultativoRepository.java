@@ -1,5 +1,6 @@
 package com.example.projetoPBD.pontoCerto.repository;
 
+import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.enums.Alcance;
 import com.example.projetoPBD.pontoCerto.domain.PontoFacultativo;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -20,17 +21,25 @@ public interface PontoFacultativoRepository extends JpaRepository<PontoFacultati
             WHERE p.ativo = true
               AND p.data = :data
               AND (:idExcluir IS NULL OR p.id != :idExcluir)
-              AND p.alcance = :alcance
-              AND (:uf IS NULL OR UPPER(p.uf) = UPPER(:uf))
-              AND (:municipio IS NULL OR LOWER(TRIM(p.municipio)) = LOWER(TRIM(:municipio)))
+              AND (
+                  (p.alcance = 'NACIONAL' AND p.empresa IS NULL)
+                  OR (
+                      p.alcance = :alcance
+                      AND (:uf IS NULL OR UPPER(p.uf) = UPPER(:uf))
+                      AND (:municipio IS NULL OR LOWER(TRIM(p.municipio)) = LOWER(TRIM(:municipio)))
+                      AND (
+                          (:empresa IS NULL AND p.empresa IS NULL)
+                          OR (p.empresa = :empresa)
+                      )
+                  )
+              )
             """)
-
-        // Valida se a data repetida no mesmo alcance/local já existe
     boolean existsPontoFacultativoConflitante(
             @Param("data") LocalDate data,
             @Param("alcance") Alcance alcance,
             @Param("uf") String uf,
             @Param("municipio") String municipio,
+            @Param("empresa") Empresa empresa,
             @Param("idExcluir") UUID idExcluir
     );
 
@@ -39,17 +48,17 @@ public interface PontoFacultativoRepository extends JpaRepository<PontoFacultati
             FROM PontoFacultativo p
             WHERE p.ativo = true
               AND YEAR(p.data) = :ano
+              AND (p.empresa IS NULL OR (:empresaId IS NOT NULL AND p.empresa.id = :empresaId))
               AND (
                   p.alcance = 'NACIONAL'
                   OR (p.alcance = 'ESTADUAL' AND UPPER(p.uf) = UPPER(:uf))
                   OR (p.alcance = 'MUNICIPAL' AND UPPER(p.uf) = UPPER(:uf) AND LOWER(TRIM(p.municipio)) = LOWER(TRIM(:municipio)))
               )
             """)
-
-        // Consulta do calendário anual
     List<PontoFacultativo> buscarCalendarioAnual(
             @Param("ano") int ano,
             @Param("uf") String uf,
-            @Param("municipio") String municipio
+            @Param("municipio") String municipio,
+            @Param("empresaId") UUID empresaId
     );
 }

@@ -208,7 +208,8 @@ export function LoginPage() {
               </div>
             </form>
 
-            {/* Quick Test / Seed Helpers */}
+            {/* Quick Test / Seed Helpers (exibido apenas em ambiente de desenvolvimento) */}
+            {import.meta.env.DEV && (
             <div className="mt-8 pt-6 border-t border-slate-800">
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles size={16} className="text-amber-400" />
@@ -331,6 +332,7 @@ export function LoginPage() {
                 💡 <span className="font-semibold text-indigo-200">Dica:</span> Você pode usar as contas de teste pré-configuradas acima ou cadastrar novos funcionários personalizados diretamente no painel do <strong>RH</strong>!
               </div>
             </div>
+            )}
 
           </div>
         </div>

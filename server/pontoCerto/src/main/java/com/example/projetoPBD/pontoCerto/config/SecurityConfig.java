@@ -2,6 +2,7 @@ package com.example.projetoPBD.pontoCerto.config;
 
 import com.example.projetoPBD.pontoCerto.security.filter.AdminFilter;
 import com.example.projetoPBD.pontoCerto.security.filter.JwtAuthFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -65,12 +66,20 @@ public class SecurityConfig {
                 .build();
     }
 
+    @Value("${cors.allowed-origins:http://localhost:5173}")
+    private String corsAllowedOrigins;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        configuration.setAllowedOrigins(
+                java.util.Arrays.stream(corsAllowedOrigins.split(","))
+                        .map(String::trim)
+                        .filter(s -> !s.isBlank())
+                        .toList()
+        );
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Admin-Key"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Admin-Key", "X-Tenant-Subdomain"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

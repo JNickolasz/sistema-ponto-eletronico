@@ -8,10 +8,13 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.nio.file.*;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class AnexoStorageService {
+
+    private static final Set<String> EXTENSOES_PERMITIDAS = Set.of(".pdf", ".png", ".jpg", ".jpeg", ".webp");
 
     private final Path diretorioUploads = Paths.get("uploads/ocorrencias").toAbsolutePath().normalize();
     private final Path diretorioFotosBatidas = Paths.get("uploads/batidas").toAbsolutePath().normalize();
@@ -44,13 +47,12 @@ public class AnexoStorageService {
         if (pontoIndex > 0 && pontoIndex < nomeOriginal.length() - 1) {
             String extBruta = nomeOriginal.substring(pontoIndex).toLowerCase();
             String extLimpa = extBruta.replaceAll("[^a-z0-9.]", "");
-            if (extLimpa.equals(".html") || extLimpa.equals(".htm") || extLimpa.equals(".svg")
-                    || extLimpa.equals(".js") || extLimpa.equals(".exe") || extLimpa.equals(".sh")) {
-                throw new IllegalArgumentException("Tipo de arquivo não permitido por política de segurança.");
+            if (!EXTENSOES_PERMITIDAS.contains(extLimpa)) {
+                throw new IllegalArgumentException("Tipo de arquivo não permitido. Envie apenas PDF ou imagem (PNG, JPG, JPEG, WEBP).");
             }
-            if (extLimpa.length() <= 10) {
-                extensao = extLimpa;
-            }
+            extensao = extLimpa;
+        } else {
+            throw new IllegalArgumentException("Arquivo sem extensão válida. Envie apenas PDF ou imagem (PNG, JPG, JPEG, WEBP).");
         }
 
         String nomeArquivoArmazenado = UUID.randomUUID() + extensao;

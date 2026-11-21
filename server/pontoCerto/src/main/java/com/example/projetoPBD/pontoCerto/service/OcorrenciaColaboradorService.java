@@ -19,10 +19,13 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
@@ -89,9 +92,8 @@ public class OcorrenciaColaboradorService {
             throw new IllegalArgumentException("Este tipo de ocorrência está inativo.");
         }
 
-        // --Bloqueio de periodo fechado--
-        validarPeriodoNaoFechado(empresaId, req.dataInicio());
-        validarPeriodoNaoFechado(empresaId, req.dataFim());
+        // --Bloqueio de periodo fechado (todos os meses do intervalo)--
+        validarIntervaloNaoFechado(empresaId, req.dataInicio(), req.dataFim());
 
         // --Bloqueio de sobreposição de datas--
         List<OcorrenciaColaborador> sobrepostas = ocorrenciaRepository.findSobrepostas(
@@ -123,6 +125,17 @@ public class OcorrenciaColaboradorService {
 
         // --upload do anexo (se houver)--
         String caminhoAnexo = anexoStorageService.salvarAnexo(arquivo);
+        if (caminhoAnexo != null && TransactionSynchronizationManager.isSynchronizationActive()) {
+            final String caminhoParaRollback = caminhoAnexo;
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status != STATUS_COMMITTED) {
+                        anexoStorageService.excluirAnexo(caminhoParaRollback);
+                    }
+                }
+            });
+        }
         String nomeOriginal = (arquivo != null && !arquivo.isEmpty()) ? arquivo.getOriginalFilename() : null;
         String contentType = (arquivo != null && !arquivo.isEmpty()) ? arquivo.getContentType() : null;
         OcorrenciaColaborador ocorrencia = new OcorrenciaColaborador();
@@ -153,8 +166,7 @@ public class OcorrenciaColaboradorService {
         if (!o.getFuncionario().getEmpresa().getId().equals(empresaId)) {
             throw new AcessoNegadoException("Esta ocorrência não pertence à sua empresa.");
         }
-        validarPeriodoNaoFechado(empresaId, o.getDataInicio());
-        validarPeriodoNaoFechado(empresaId, o.getDataFim());
+        validarIntervaloNaoFechado(empresaId, o.getDataInicio(), o.getDataFim());
         Funcionario funcionario = o.getFuncionario();
         LocalDate inicio = o.getDataInicio();
         LocalDate fim = o.getDataFim();
@@ -173,6 +185,29 @@ public class OcorrenciaColaboradorService {
             LocalDate dataFim
     ) {
         UUID empresaId = securityTenantContext.empresaAtual();
+        Funcionario logado = obterFuncionarioLogado();
+
+        if (logado != null && logado.getPerfilAcesso() == PerfilAcesso.COLABORADOR) {
+            funcionarioId = logado.getId();
+        } else if (logado != null && logado.getPerfilAcesso() == PerfilAcesso.GESTOR) {
+            if (funcionarioId != null && !funcionarioId.equals(logado.getId())) {
+                Funcionario alvo = funcionarioRepository.findByIdAndEmpresaId(funcionarioId, empresaId)
+                        .orElseThrow(() -> new UsuarioNaoEncontradoException("Colaborador não encontrado."));
+                if (alvo.getGestor() == null || !alvo.getGestor().getId().equals(logado.getId())) {
+                    throw new AcessoNegadoException("Gestor só pode visualizar ocorrências de colaboradores da sua própria equipe.");
+                }
+            } else if (funcionarioId == null) {
+                UUID gestorId = logado.getId();
+                return ocorrenciaRepository.findFiltradas(empresaId, null, dataInicio, dataFim)
+                        .stream()
+                        .filter(o -> o.getFuncionario().getId().equals(gestorId)
+                                || (o.getFuncionario().getGestor() != null
+                                && o.getFuncionario().getGestor().getId().equals(gestorId)))
+                        .map(OcorrenciaColaboradorDTO.Response::new)
+                        .toList();
+            }
+        }
+
         return ocorrenciaRepository.findFiltradas(empresaId, funcionarioId, dataInicio, dataFim)
                 .stream()
                 .map(OcorrenciaColaboradorDTO.Response::new)
@@ -180,12 +215,7 @@ public class OcorrenciaColaboradorService {
     }
     @Transactional(readOnly = true)
     public Resource carregarAnexo(UUID ocorrenciaId) {
-        UUID empresaId = securityTenantContext.empresaAtual();
-        OcorrenciaColaborador o = ocorrenciaRepository.findById(ocorrenciaId)
-                .orElseThrow(() -> new IllegalArgumentException("Ocorrência não encontrada."));
-        if (!o.getFuncionario().getEmpresa().getId().equals(empresaId)) {
-            throw new AcessoNegadoException("Acesso negado ao anexo da ocorrência.");
-        }
+        OcorrenciaColaborador o = buscarPorIdComPermissaoAnexo(ocorrenciaId);
         if (o.getCaminhoAnexo() == null || o.getCaminhoAnexo().isBlank()) {
             throw new IllegalArgumentException("Esta ocorrência não possui arquivo anexado.");
         }
@@ -197,11 +227,21 @@ public class OcorrenciaColaboradorService {
     }
     @Transactional(readOnly = true)
     public OcorrenciaColaborador buscarPorId(UUID ocorrenciaId) {
+        return buscarPorIdComPermissaoAnexo(ocorrenciaId);
+    }
+
+    private OcorrenciaColaborador buscarPorIdComPermissaoAnexo(UUID ocorrenciaId) {
         UUID empresaId = securityTenantContext.empresaAtual();
         OcorrenciaColaborador o = ocorrenciaRepository.findById(ocorrenciaId)
                 .orElseThrow(() -> new IllegalArgumentException("Ocorrência não encontrada."));
         if (!o.getFuncionario().getEmpresa().getId().equals(empresaId)) {
-            throw new AcessoNegadoException("Acesso negado.");
+            throw new AcessoNegadoException("Acesso negado ao anexo da ocorrência.");
+        }
+        Funcionario logado = obterFuncionarioLogado();
+        if (logado != null && logado.getPerfilAcesso() != PerfilAcesso.RH) {
+            if (!o.getFuncionario().getId().equals(logado.getId())) {
+                throw new AcessoNegadoException("Apenas o próprio colaborador ou o RH podem acessar o anexo/atestado desta ocorrência.");
+            }
         }
         return o;
     }
@@ -217,8 +257,16 @@ public class OcorrenciaColaboradorService {
             cursor = cursor.plusDays(1);
         }
     }
-    private void validarPeriodoNaoFechado(UUID empresaId, LocalDate data) {
-        String mesReferencia = data.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+    private void validarIntervaloNaoFechado(UUID empresaId, LocalDate inicio, LocalDate fim) {
+        YearMonth mesAtual = YearMonth.from(inicio);
+        YearMonth mesFim = YearMonth.from(fim);
+        while (!mesAtual.isAfter(mesFim)) {
+            validarPeriodoNaoFechado(empresaId, mesAtual);
+            mesAtual = mesAtual.plusMonths(1);
+        }
+    }
+    private void validarPeriodoNaoFechado(UUID empresaId, YearMonth mes) {
+        String mesReferencia = mes.format(DateTimeFormatter.ofPattern("yyyy-MM"));
         Optional<FechamentoPeriodo> fechamentoOpt = fechamentoPeriodoRepository
                 .findFirstByEmpresaIdAndMesReferenciaOrderByDataFechamentoDesc(empresaId, mesReferencia);
         if (fechamentoOpt.isPresent()) {
@@ -227,6 +275,13 @@ public class OcorrenciaColaboradorService {
                 throw new PeriodoFechadoException("O período " + mesReferencia + " encontra-se fechado. Operação não permitida.");
             }
         }
+    }
+    private Funcionario obterFuncionarioLogado() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof FuncionarioUserDetails userDetails) {
+            return userDetails.getFuncionario();
+        }
+        return null;
     }
     private String obterIdentificacaoUsuarioLogado() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

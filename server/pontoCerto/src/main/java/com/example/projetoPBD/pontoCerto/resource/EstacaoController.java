@@ -53,7 +53,11 @@ public class EstacaoController {
     }
 
     @GetMapping("/{estacaoId}/status")
-    public ResponseEntity<Map<String, Object>> statusEstacao(@PathVariable UUID estacaoId) {
+    public ResponseEntity<Map<String, Object>> statusEstacao(
+            @PathVariable UUID estacaoId,
+            HttpServletRequest request
+    ) {
+        rateLimiterService.verificarLimite("estacao-status:" + request.getRemoteAddr(), 60, 60);
         Estacao estacao = estacaoRepository.findById(estacaoId)
                 .orElseThrow(() -> new EquipamentoNaoEncontradoException("Estação não encontrada."));
         return ResponseEntity.ok(Map.of(

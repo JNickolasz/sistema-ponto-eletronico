@@ -96,6 +96,12 @@ public class BancoHorasController {
         if (!alvo.getEmpresa().getId().equals(logado.getEmpresa().getId())) {
             throw new AcessoNegadoException("Acesso negado ao extrato de outra empresa.");
         }
+
+        if (logado.getPerfilAcesso() == PerfilAcesso.GESTOR && !logado.getId().equals(alvoId)) {
+            if (alvo.getGestor() == null || !alvo.getGestor().getId().equals(logado.getId())) {
+                throw new AcessoNegadoException("Gestor só pode consultar o extrato de banco de horas de colaboradores da sua própria equipe.");
+            }
+        }
     }
 
     private LocalDate[] resolverIntervalo(LocalDate dataInicio, LocalDate dataFim, String mesReferencia) {

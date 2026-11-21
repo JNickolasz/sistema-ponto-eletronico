@@ -373,6 +373,10 @@ public class BatidaService {
             throw new AcessoNegadoException("O colaborador selecionado não pertence à sua empresa.");
         }
 
+        if (empresaId != null && batida.getDataHora() != null) {
+            competenciaLockService.validarPeriodoAberto(empresaId, batida.getDataHora().toLocalDate());
+        }
+
         if (batidaRepository.existsByFuncionarioIdAndDataHora(funcionario.getId(), batida.getDataHora())) {
             throw new IllegalArgumentException("Este colaborador já possui uma batida registrada nesta mesma data e hora.");
         }

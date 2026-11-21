@@ -4,6 +4,7 @@ import com.example.projetoPBD.pontoCerto.domain.Empresa;
 import com.example.projetoPBD.pontoCerto.domain.Funcionario;
 import com.example.projetoPBD.pontoCerto.domain.LocalDeTrabalho;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.FuncionarioDTO;
+import com.example.projetoPBD.pontoCerto.repository.BatidaRepository;
 import com.example.projetoPBD.pontoCerto.repository.EmpresaRepository;
 import com.example.projetoPBD.pontoCerto.repository.FuncionarioRepository;
 import com.example.projetoPBD.pontoCerto.repository.LocalDeTrabalhoRepository;
@@ -23,13 +24,22 @@ public class FuncionarioService {
     private final FuncionarioRepository repository;
     private final EmpresaRepository empresaRepository;
     private final LocalDeTrabalhoRepository localDeTrabalhoRepository;
+    private final BatidaRepository batidaRepository;
     private final PasswordEncoder passwordEncoder;
     private final SecurityTenantContext securityTenantContext;
 
-    public FuncionarioService(FuncionarioRepository repository, EmpresaRepository empresaRepository, LocalDeTrabalhoRepository localDeTrabalhoRepository, PasswordEncoder passwordEncoder, SecurityTenantContext securityTenantContext) {
+    public FuncionarioService(
+            FuncionarioRepository repository,
+            EmpresaRepository empresaRepository,
+            LocalDeTrabalhoRepository localDeTrabalhoRepository,
+            BatidaRepository batidaRepository,
+            PasswordEncoder passwordEncoder,
+            SecurityTenantContext securityTenantContext
+    ) {
         this.repository = repository;
         this.empresaRepository = empresaRepository;
         this.localDeTrabalhoRepository = localDeTrabalhoRepository;
+        this.batidaRepository = batidaRepository;
         this.passwordEncoder = passwordEncoder;
         this.securityTenantContext = securityTenantContext;
     }
@@ -75,13 +85,16 @@ public class FuncionarioService {
         if (dto.localTrabalhoId() != null) {
             LocalDeTrabalho local = localDeTrabalhoRepository.findById(dto.localTrabalhoId())
                     .orElseThrow(() -> new RuntimeException("Local de trabalho não encontrado!"));
+            if (local.getEmpresa() == null || !local.getEmpresa().getId().equals(empresa.getId())) {
+                throw new AcessoNegadoException("Acesso negado: local de trabalho não pertence à sua empresa.");
+            }
             funcionario.setLocalDeTrabalho(local);
         }
 
         // Vincula o gestor se tiver sido informado
         if (dto.gestorId() != null) {
-            Funcionario gestor = repository.findById(dto.gestorId())
-                    .orElseThrow(() -> new RuntimeException("Gestor não encontrado!"));
+            Funcionario gestor = repository.findByIdAndEmpresaId(dto.gestorId(), empresa.getId())
+                    .orElseThrow(() -> new AcessoNegadoException("Gestor não encontrado na sua empresa!"));
             funcionario.setGestor(gestor);
         }
 
@@ -109,7 +122,8 @@ public class FuncionarioService {
     }
 
     public FuncionarioDTO.Response desligar(UUID id, FuncionarioDTO.Desligamento dto) {
-        Funcionario funcionario = repository.findById(id)
+        UUID empresaAtual = securityTenantContext.empresaAtual();
+        Funcionario funcionario = repository.findByIdAndEmpresaId(id, empresaAtual)
                 .orElseThrow(() -> new UsuarioNaoEncontradoNaEmpresa("Colaborador não encontrado!"));
 
         if (dto.dataDesligamento() == null) {
@@ -141,7 +155,8 @@ public class FuncionarioService {
     }
 
     public void excluir(UUID id) {
-        Funcionario funcionario = repository.findById(id)
+        UUID empresaAtual = securityTenantContext.empresaAtual();
+        Funcionario funcionario = repository.findByIdAndEmpresaId(id, empresaAtual)
                 .orElseThrow(() -> new UsuarioNaoEncontradoNaEmpresa("Colaborador não encontrado!"));
 
         if (possuiMarcacoes(id)) {
@@ -152,7 +167,7 @@ public class FuncionarioService {
     }
 
     public boolean possuiMarcacoes(UUID funcionarioId) {
-        return false;
+        return batidaRepository.existsByFuncionarioId(funcionarioId);
     }
 
     public java.util.List<FuncionarioDTO.Response> buscar(UUID empresaId, String termo) {

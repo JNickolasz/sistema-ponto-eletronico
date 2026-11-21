@@ -81,10 +81,14 @@ public class AuthController {
                 throw new DisabledException("Colaborador desligado ou inativo.");
             }
         } else {
-            var authToken = new UsernamePasswordAuthenticationToken(loginDTO.usuario(), loginDTO.senha());
-            var authentication = authenticationManager.authenticate(authToken);
-            var userDetails = (FuncionarioUserDetails) authentication.getPrincipal();
-            funcionario = userDetails.getFuncionario();
+            try {
+                var authToken = new UsernamePasswordAuthenticationToken(loginDTO.usuario(), loginDTO.senha());
+                var authentication = authenticationManager.authenticate(authToken);
+                var userDetails = (FuncionarioUserDetails) authentication.getPrincipal();
+                funcionario = userDetails.getFuncionario();
+            } catch (org.springframework.dao.IncorrectResultSizeDataAccessException e) {
+                throw new BadCredentialsException("Informe o subdomínio da sua empresa para fazer login.");
+            }
         }
 
         String token = jwtService.generateToken(funcionario);
