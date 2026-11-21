@@ -2,33 +2,46 @@ package com.example.projetoPBD.pontoCerto.service;
 
 import com.example.projetoPBD.pontoCerto.domain.Batida;
 import com.example.projetoPBD.pontoCerto.domain.Equipamento;
+import com.example.projetoPBD.pontoCerto.domain.Estacao;
 import com.example.projetoPBD.pontoCerto.domain.Funcionario;
 import com.example.projetoPBD.pontoCerto.domain.FuncionarioUserDetails;
 import com.example.projetoPBD.pontoCerto.domain.HistoricoImportacao;
 import com.example.projetoPBD.pontoCerto.domain.enums.StatusBatida;
+import com.example.projetoPBD.pontoCerto.domain.enums.StatusEquipamento;
+import com.example.projetoPBD.pontoCerto.domain.enums.TipoEquipamento;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoOrigem;
+import com.example.projetoPBD.pontoCerto.domain.enums.TipoRegistro;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.BatidaDTO;
 import com.example.projetoPBD.pontoCerto.repository.BatidaRepository;
 import com.example.projetoPBD.pontoCerto.repository.EquipamentoRepository;
+import com.example.projetoPBD.pontoCerto.repository.EstacaoRepository;
 import com.example.projetoPBD.pontoCerto.repository.FuncionarioRepository;
 import com.example.projetoPBD.pontoCerto.repository.HistoricoImportacaoRepository;
 import com.example.projetoPBD.pontoCerto.security.SecurityTenantContext;
 import com.example.projetoPBD.pontoCerto.service.exceptions.AcessoNegadoException;
+import com.example.projetoPBD.pontoCerto.service.exceptions.CredenciaisInvalidasException;
+import com.example.projetoPBD.pontoCerto.service.exceptions.EquipamentoInvalidoException;
 import com.example.projetoPBD.pontoCerto.service.exceptions.EquipamentoNaoEncontradoException;
 import com.example.projetoPBD.pontoCerto.service.exceptions.UsuarioNaoEncontradoException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.springframework.core.io.Resource;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import com.example.projetoPBD.pontoCerto.domain.Inconsistencia;
 import com.example.projetoPBD.pontoCerto.domain.enums.AcaoTratamento;
 import com.example.projetoPBD.pontoCerto.domain.enums.StatusInconsistencia;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoInconsistencia;
 import com.example.projetoPBD.pontoCerto.repository.InconsistenciaRepository;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,12 +53,15 @@ public class BatidaService {
     private final BatidaRepository batidaRepository;
     private final FuncionarioRepository funcionarioRepository;
     private final EquipamentoRepository equipamentoReposity;
+    private final EstacaoRepository estacaoRepository;
     private final HistoricoImportacaoRepository historicoImportacaoRepository;
     private final InconsistenciaRepository inconsistenciaRepository;
     private final InconsistenciaService inconsistenciaService;
     private final ApuracaoDiariaService apuracaoDiariaService;
     private final CompetenciaLockService competenciaLockService;
     private final SecurityTenantContext securityTenantContext;
+    private final PasswordEncoder passwordEncoder;
+    private final AnexoStorageService anexoStorageService;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -54,22 +70,140 @@ public class BatidaService {
             BatidaRepository batidaRepository,
             FuncionarioRepository funcionarioRepository,
             EquipamentoRepository equipamentoReposity,
+            EstacaoRepository estacaoRepository,
             HistoricoImportacaoRepository historicoImportacaoRepository,
             InconsistenciaRepository inconsistenciaRepository,
             InconsistenciaService inconsistenciaService,
             ApuracaoDiariaService apuracaoDiariaService,
             CompetenciaLockService competenciaLockService,
-            SecurityTenantContext securityTenantContext
+            SecurityTenantContext securityTenantContext,
+            PasswordEncoder passwordEncoder,
+            AnexoStorageService anexoStorageService
     ) {
         this.batidaRepository = batidaRepository;
         this.funcionarioRepository = funcionarioRepository;
         this.equipamentoReposity = equipamentoReposity;
+        this.estacaoRepository = estacaoRepository;
         this.historicoImportacaoRepository = historicoImportacaoRepository;
         this.inconsistenciaRepository = inconsistenciaRepository;
         this.inconsistenciaService = inconsistenciaService;
         this.apuracaoDiariaService = apuracaoDiariaService;
         this.competenciaLockService = competenciaLockService;
         this.securityTenantContext = securityTenantContext;
+        this.passwordEncoder = passwordEncoder;
+        this.anexoStorageService = anexoStorageService;
+    }
+
+    /**
+     * Registra marcação pela Estação de Ponto (T07):
+     * - Autentica o colaborador por usuário e senha a cada batida.
+     * - Bloqueia colaborador desligado/inativo.
+     * - Grava exclusivamente a hora do servidor (LocalDateTime.now()).
+     * - Exige e armazena foto junto à marcação.
+     * - Vincula ao equipamento tipo ESTACAO com tipoOrigem = ESTACAO.
+     */
+    @Transactional
+    public BatidaDTO.ComprovanteEstacaoResponse registrarPontoEstacao(
+            UUID estacaoId,
+            String usuario,
+            String senha,
+            MultipartFile foto,
+            String ipCliente
+    ) {
+        if (estacaoId == null) {
+            throw new IllegalArgumentException("O identificador da estação é obrigatório.");
+        }
+        if (usuario == null || usuario.isBlank() || senha == null || senha.isBlank()) {
+            throw new CredenciaisInvalidasException("Usuário e senha do colaborador são obrigatórios.");
+        }
+        if (foto == null || foto.isEmpty()) {
+            throw new IllegalArgumentException("A captura da foto é obrigatória para registrar o ponto na estação.");
+        }
+
+        Estacao estacao = estacaoRepository.findById(estacaoId)
+                .orElseThrow(() -> new EquipamentoNaoEncontradoException("Estação de registro não encontrada."));
+
+        if (estacao.getTipo() != TipoEquipamento.ESTACAO || estacao.getStatus() != StatusEquipamento.ATIVO) {
+            throw new EquipamentoInvalidoException("A estação selecionada encontra-se inativa ou indisponível para registro.");
+        }
+
+        UUID empresaId = estacao.getEmpresa().getId();
+        Funcionario funcionario = funcionarioRepository.findByUsuarioAndEmpresaId(usuario.trim(), empresaId)
+                .orElseThrow(() -> new CredenciaisInvalidasException("Usuário ou senha inválidos."));
+
+        if (!passwordEncoder.matches(senha, funcionario.getSenhaHash())) {
+            throw new CredenciaisInvalidasException("Usuário ou senha inválidos.");
+        }
+
+        LocalDateTime agoraServidor = LocalDateTime.now();
+        LocalDate hoje = agoraServidor.toLocalDate();
+
+        if (funcionario.getDataDesligamento() != null && !funcionario.getDataDesligamento().isAfter(hoje)) {
+            throw new AcessoNegadoException("Colaborador desligado ou inativo. Registro de ponto não permitido.");
+        }
+
+        competenciaLockService.validarPeriodoAberto(empresaId, hoje);
+
+        String caminhoFoto = anexoStorageService.salvarFotoBatida(foto);
+
+        List<Batida> batidasHoje = batidaRepository.findAtivasByFuncionarioIdAndDataHoraBetweenOrderByDataHoraAsc(
+                funcionario.getId(),
+                hoje.atStartOfDay(),
+                hoje.atTime(LocalTime.MAX)
+        );
+        TipoRegistro tipoCalculado = (batidasHoje.size() % 2 == 0) ? TipoRegistro.ENTRADA : TipoRegistro.SAIDA;
+
+        Batida batida = new Batida();
+        batida.setFuncionario(funcionario);
+        batida.setEquipamento(estacao);
+        batida.setDataHora(agoraServidor);
+        batida.setTipoRegistro(tipoCalculado);
+        batida.setStatusBatida(StatusBatida.NORMAL);
+        batida.setTipoOrigem(TipoOrigem.ESTACAO);
+        batida.setFotoUrl(caminhoFoto);
+        batida.setIpRecebido(ipCliente);
+        batida.setNsr(batidaRepository.proximoNsrSequence());
+
+        batida = batidaRepository.saveAndFlush(batida);
+
+        try {
+            inconsistenciaService.analisarDiaColaborador(funcionario, hoje);
+            apuracaoDiariaService.apurarDia(funcionario, hoje);
+        } catch (Exception ignored) {
+        }
+
+        String horaFormatada = agoraServidor.format(DateTimeFormatter.ofPattern("HH:mm"));
+        return new BatidaDTO.ComprovanteEstacaoResponse(
+                batida.getId(),
+                batida.getNsr(),
+                estacao.getId(),
+                estacao.getIdentificacao(),
+                estacao.getEmpresa().getRazaoSocial(),
+                estacao.getEmpresa().getCnpj(),
+                funcionario.getNomeCompleto(),
+                funcionario.getMatricula(),
+                agoraServidor,
+                TipoOrigem.ESTACAO,
+                true,
+                "Ponto registrado com sucesso às " + horaFormatada
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public Resource carregarFotoBatida(UUID batidaId) {
+        UUID empresaId = securityTenantContext.empresaAtual();
+        Batida batida = batidaRepository.findById(batidaId)
+                .orElseThrow(() -> new IllegalArgumentException("Marcação não encontrada."));
+
+        if (batida.getFuncionario() != null && !batida.getFuncionario().getEmpresa().getId().equals(empresaId)) {
+            throw new AcessoNegadoException("Acesso negado à marcação de outra empresa.");
+        }
+
+        Resource recurso = anexoStorageService.carregarComoRecurso(batida.getFotoUrl());
+        if (recurso == null) {
+            throw new IllegalArgumentException("Foto não encontrada para esta marcação.");
+        }
+        return recurso;
     }
 
     @Transactional

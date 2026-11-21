@@ -50,3 +50,6 @@ build/
 *.keystore
 credentials*.json
 firebase*.json
+
+# Uploads locais (fotos de batidas e anexos de ocorrencias)
+uploads/
