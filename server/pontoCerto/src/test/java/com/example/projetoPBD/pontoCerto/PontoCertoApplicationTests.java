@@ -76,7 +76,11 @@ import com.example.projetoPBD.pontoCerto.dto.domaindtos.EspelhoPontoDTO;
 import com.example.projetoPBD.pontoCerto.service.EspelhoService;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.RelatorioDTO;
 import com.example.projetoPBD.pontoCerto.service.RelatorioService;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.ExportacaoFolhaDTO;
+import com.example.projetoPBD.pontoCerto.repository.HistoricoExportacaoFolhaRepository;
+import com.example.projetoPBD.pontoCerto.service.ExportacaoFolhaService;
 import com.example.projetoPBD.pontoCerto.service.exceptions.AcessoNegadoException;
+import com.example.projetoPBD.pontoCerto.service.exceptions.PeriodoNaoFechadoException;
 import org.springframework.core.io.Resource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -194,6 +198,12 @@ class PontoCertoApplicationTests {
 
 	@Autowired
 	private RelatorioService relatorioService;
+
+	@Autowired
+	private ExportacaoFolhaService exportacaoFolhaService;
+
+	@Autowired
+	private HistoricoExportacaoFolhaRepository historicoExportacaoFolhaRepository;
 
 	@Test
 	void contextLoads() {
@@ -2044,6 +2054,101 @@ class PontoCertoApplicationTests {
 
 		// Cleanup
 		inconsistenciaRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+		apuracaoDiariaRepository.deleteAll(List.of(ap1, ap2));
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T20 - Exportação para Folha: Recusa período aberto, bate 100% com Espelho de Ponto, reexportação idêntica e auditoria")
+	void testT20_ExportacaoFolhaCompletaEBatimentoEspelho() {
+		List<Funcionario> todos = funcionarioRepository.findAll();
+		Funcionario rh = todos.stream().filter(f -> f.getPerfilAcesso() == PerfilAcesso.RH).findFirst().orElseThrow();
+		Funcionario colab = todos.stream().filter(f -> f.getPerfilAcesso() == PerfilAcesso.COLABORADOR).findFirst().orElse(rh);
+
+		autenticarComoRh(rh);
+		UUID empresaId = rh.getEmpresa().getId();
+
+		historicoExportacaoFolhaRepository.deleteAll();
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+		inconsistenciaRepository.deleteAll();
+
+		LocalDate dia1 = LocalDate.of(2026, 3, 10);
+		LocalDate dia2 = LocalDate.of(2026, 3, 11);
+		apuracaoDiariaRepository.findByFuncionarioIdAndDataReferencia(colab.getId(), dia1).ifPresent(apuracaoDiariaRepository::delete);
+		apuracaoDiariaRepository.findByFuncionarioIdAndDataReferencia(colab.getId(), dia2).ifPresent(apuracaoDiariaRepository::delete);
+
+		// 1. Antes de fechar o período 2026-03, a exportação deve ser recusada com PeriodoNaoFechadoException
+		assertThrows(PeriodoNaoFechadoException.class, () ->
+				exportacaoFolhaService.exportarFolha("2026-03")
+		);
+
+		// Apuração real em março/2026: 480m normais + 60m extra 50% + 20m noturno no dia 1, e 30m atraso no dia 2
+		ApuracaoDiaria ap1 = new ApuracaoDiaria();
+		ap1.setFuncionario(colab);
+		ap1.setDataReferencia(dia1);
+		ap1.setStatus(StatusApuracaoDiaria.APURADO);
+		ap1.setMinutosPrevistos(480);
+		ap1.setMinutosTrabalhados(540);
+		ap1.setMinutosHoraExtraTotal(60);
+		ap1.setMinutosAdicionalNoturno(20);
+		ap1.setHorasExtrasPorFaixaJson("{\"50%\":60}");
+		ap1.setCalculadoEm(LocalDateTime.now());
+		ap1 = apuracaoDiariaRepository.saveAndFlush(ap1);
+		bancoHorasService.derivarMovimentacoesDaApuracao(ap1);
+
+		ApuracaoDiaria ap2 = new ApuracaoDiaria();
+		ap2.setFuncionario(colab);
+		ap2.setDataReferencia(dia2);
+		ap2.setStatus(StatusApuracaoDiaria.APURADO);
+		ap2.setMinutosPrevistos(480);
+		ap2.setMinutosTrabalhados(450);
+		ap2.setMinutosAtraso(30);
+		ap2.setCalculadoEm(LocalDateTime.now());
+		ap2 = apuracaoDiariaRepository.saveAndFlush(ap2);
+		bancoHorasService.derivarMovimentacoesDaApuracao(ap2);
+
+		// 2. Fecha a competência 2026-03
+		fechamentoPeriodoService.fecharPeriodo(empresaId, "2026-03", true, "Fechamento para folha T20");
+
+		// 3. Exporta duas vezes e valida determinismo (arquivo idêntico e mesmo SHA-256)
+		ExportacaoFolhaDTO.ResumoExportacaoResponse exp1 = exportacaoFolhaService.exportarFolha("2026-03");
+		ExportacaoFolhaDTO.ResumoExportacaoResponse exp2 = exportacaoFolhaService.exportarFolha("2026-03");
+
+		String csv1 = exportacaoFolhaService.montarConteudoCsv("2026-03", exp1.linhas());
+		String csv2 = exportacaoFolhaService.montarConteudoCsv("2026-03", exp2.linhas());
+		assertEquals(csv1, csv2, "Reexportação do mesmo período fechado deve gerar arquivo idêntico");
+		assertEquals(exp1.hashSha256(), exp2.hashSha256());
+
+		// 4. Batimento exato com os totais do Espelho de Ponto (T18)
+		EspelhoPontoDTO.EspelhoMensalResponse espelhoColab = espelhoService.consultarEspelhoMensal(colab.getId(), "2026-03");
+		ExportacaoFolhaDTO.LinhaColaboradorFolha linhaColab = exp1.linhas().stream()
+				.filter(l -> l.funcionarioId().equals(colab.getId()))
+				.findFirst()
+				.orElseThrow();
+
+		int normaisEsperadas = espelhoColab.totais().totalMinutosTrabalhados() - espelhoColab.totais().totalMinutosHoraExtra();
+		assertEquals(normaisEsperadas, linhaColab.horasNormaisMinutos());
+		assertEquals(espelhoColab.totais().horasExtrasPorFaixa().getOrDefault("50%", 0), linhaColab.horasExtras50Minutos());
+		assertEquals(espelhoColab.totais().totalMinutosAdicionalNoturno(), linhaColab.adicionalNoturnoMinutos());
+		assertEquals(espelhoColab.totais().totalMinutosFalta(), linhaColab.faltasMinutos());
+		assertEquals(espelhoColab.totais().totalMinutosAtraso() + espelhoColab.totais().totalMinutosSaidaAntecipada(), linhaColab.atrasosMinutos());
+
+		// 5. Auditoria: 2 exportações registradas com data, autor e período
+		List<ExportacaoFolhaDTO.HistoricoItemResponse> historico = exportacaoFolhaService.listarHistorico("2026-03");
+		assertEquals(2, historico.size());
+		assertEquals("2026-03", historico.get(0).competencia());
+		assertNotNull(historico.get(0).dataHora());
+		assertTrue(historico.get(0).autor().contains(rh.getNomeCompleto()));
+
+		// Cleanup
+		historicoExportacaoFolhaRepository.deleteAll();
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
 		movimentacaoBancoHorasRepository.deleteAll();
 		apuracaoDiariaRepository.deleteAll(List.of(ap1, ap2));
 		SecurityContextHolder.clearContext();
