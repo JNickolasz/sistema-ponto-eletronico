@@ -4,7 +4,9 @@ import com.example.projetoPBD.pontoCerto.domain.enums.StatusBatida;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.BatidaDTO;
 import com.example.projetoPBD.pontoCerto.service.BatidaService;
 import jakarta.validation.Valid;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -52,5 +54,14 @@ public class BatidaController {
             @Valid @RequestBody BatidaDTO.VincularOrfaRequest dto
     ) {
         return ResponseEntity.ok(batidaService.vincularOrfa(id, dto));
+    }
+
+    @PreAuthorize("hasAnyRole('RH', 'GESTOR')")
+    @GetMapping("/batidas/{id}/foto")
+    public ResponseEntity<Resource> visualizarFotoBatida(@PathVariable UUID id) {
+        Resource foto = batidaService.carregarFotoBatida(id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(foto);
     }
 }

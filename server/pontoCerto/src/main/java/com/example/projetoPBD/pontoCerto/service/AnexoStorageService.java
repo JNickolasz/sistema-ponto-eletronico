@@ -14,21 +14,31 @@ import java.util.UUID;
 public class AnexoStorageService {
 
     private final Path diretorioUploads = Paths.get("uploads/ocorrencias").toAbsolutePath().normalize();
+    private final Path diretorioFotosBatidas = Paths.get("uploads/batidas").toAbsolutePath().normalize();
 
     public AnexoStorageService() {
         try {
             Files.createDirectories(diretorioUploads);
+            Files.createDirectories(diretorioFotosBatidas);
         } catch (IOException e) {
             throw new RuntimeException("Não foi possível criar o diretório para armazenamento de anexos.", e);
         }
     }
 
     public String salvarAnexo(MultipartFile arquivo) {
+        return salvarEmDiretorio(arquivo, diretorioUploads, "anexo");
+    }
+
+    public String salvarFotoBatida(MultipartFile foto) {
+        return salvarEmDiretorio(foto, diretorioFotosBatidas, "foto_batida.jpg");
+    }
+
+    private String salvarEmDiretorio(MultipartFile arquivo, Path diretorio, String nomePadrao) {
         if (arquivo == null || arquivo.isEmpty()) {
             return null;
         }
 
-        String nomeOriginal = arquivo.getOriginalFilename() != null ? arquivo.getOriginalFilename() : "anexo";
+        String nomeOriginal = arquivo.getOriginalFilename() != null ? arquivo.getOriginalFilename() : nomePadrao;
         String extensao = "";
         int pontoIndex = nomeOriginal.lastIndexOf('.');
         if (pontoIndex > 0) {
@@ -36,13 +46,13 @@ public class AnexoStorageService {
         }
 
         String nomeArquivoArmazenado = UUID.randomUUID() + extensao;
-        Path caminhoAlvo = diretorioUploads.resolve(nomeArquivoArmazenado);
+        Path caminhoAlvo = diretorio.resolve(nomeArquivoArmazenado);
 
         try {
             Files.copy(arquivo.getInputStream(), caminhoAlvo, StandardCopyOption.REPLACE_EXISTING);
             return caminhoAlvo.toString();
         } catch (IOException e) {
-            throw new RuntimeException("Falha ao salvar anexo no servidor.", e);
+            throw new RuntimeException("Falha ao salvar arquivo no servidor.", e);
         }
     }
 

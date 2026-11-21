@@ -63,6 +63,21 @@ public class BatidaDTO {
         }
     }
 
+    public record ComprovanteEstacaoResponse(
+            UUID batidaId,
+            Long nsr,
+            UUID estacaoId,
+            String estacaoIdentificacao,
+            String nomeEmpresa,
+            String cnpjEmpresa,
+            String nomeFuncionario,
+            String matricula,
+            LocalDateTime dataHoraServidor,
+            TipoOrigem tipoOrigem,
+            boolean fotoCapturada,
+            String mensagem
+    ) {}
+
     public record VincularOrfaRequest(
             @NotNull(message = "ID do funcionário é obrigatório")
             UUID funcionarioId,

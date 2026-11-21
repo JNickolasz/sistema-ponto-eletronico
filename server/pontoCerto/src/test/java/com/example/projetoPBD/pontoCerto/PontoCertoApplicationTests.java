@@ -80,7 +80,13 @@ import com.example.projetoPBD.pontoCerto.dto.domaindtos.ExportacaoFolhaDTO;
 import com.example.projetoPBD.pontoCerto.repository.HistoricoExportacaoFolhaRepository;
 import com.example.projetoPBD.pontoCerto.service.ExportacaoFolhaService;
 import com.example.projetoPBD.pontoCerto.service.exceptions.AcessoNegadoException;
+import com.example.projetoPBD.pontoCerto.service.exceptions.CredenciaisInvalidasException;
 import com.example.projetoPBD.pontoCerto.service.exceptions.PeriodoNaoFechadoException;
+import com.example.projetoPBD.pontoCerto.domain.Estacao;
+import com.example.projetoPBD.pontoCerto.domain.LocalDeTrabalho;
+import com.example.projetoPBD.pontoCerto.repository.EstacaoRepository;
+import com.example.projetoPBD.pontoCerto.repository.LocalDeTrabalhoRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.core.io.Resource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -204,6 +210,15 @@ class PontoCertoApplicationTests {
 
 	@Autowired
 	private HistoricoExportacaoFolhaRepository historicoExportacaoFolhaRepository;
+
+	@Autowired
+	private EstacaoRepository estacaoRepository;
+
+	@Autowired
+	private LocalDeTrabalhoRepository localDeTrabalhoRepository;
+
+	@Autowired
+	private PasswordEncoder passwordEncoder;
 
 	@Test
 	void contextLoads() {
@@ -2151,6 +2166,90 @@ class PontoCertoApplicationTests {
 		fechamentoBancoHorasRepository.deleteAll();
 		movimentacaoBancoHorasRepository.deleteAll();
 		apuracaoDiariaRepository.deleteAll(List.of(ap1, ap2));
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T07 - Estação de Ponto: Autentica colaborador por senha, bloqueia desligado, grava hora do servidor, foto e vínculo com estação")
+	void testT07_EstacaoRegistroPontoPelaTela() throws Exception {
+		Funcionario colaborador = funcionarioRepository.findAll().stream()
+				.filter(f -> f.getPerfilAcesso() == PerfilAcesso.COLABORADOR)
+				.findFirst()
+				.orElseThrow();
+		UUID empresaId = colaborador.getEmpresa().getId();
+
+		// Garante uma Estação ativa cadastrada para a empresa
+		LocalDeTrabalho local = colaborador.getLocalDeTrabalho() != null
+				? colaborador.getLocalDeTrabalho()
+				: localDeTrabalhoRepository.findAll().stream()
+						.filter(l -> l.getEmpresa().getId().equals(empresaId))
+						.findFirst()
+						.orElseThrow();
+
+		Estacao estacao = estacaoRepository.findAll().stream()
+				.filter(e -> e.getEmpresa().getId().equals(empresaId))
+				.findFirst()
+				.orElseGet(() -> {
+					Estacao e = new Estacao();
+					e.setEmpresa(colaborador.getEmpresa());
+					e.setLocalTrabalho(local);
+					e.setCodigo("EST-T07-" + UUID.randomUUID().toString().substring(0, 5));
+					e.setIdentificacao("Estação Corredor T07");
+					return estacaoRepository.saveAndFlush(e);
+				});
+
+		String senhaOriginalHash = colaborador.getSenhaHash();
+		LocalDate desligamentoOriginal = colaborador.getDataDesligamento();
+		colaborador.setSenhaHash(passwordEncoder.encode("senhaT07!"));
+		colaborador.setDataDesligamento(null);
+		funcionarioRepository.saveAndFlush(colaborador);
+
+		MockMultipartFile foto = new MockMultipartFile(
+				"foto", "captura_estacao.jpg", "image/jpeg", "jpeg-bytes-t07".getBytes(StandardCharsets.UTF_8)
+		);
+
+		// 1. Senha incorreta deve recusar
+		assertThrows(CredenciaisInvalidasException.class, () ->
+				batidaService.registrarPontoEstacao(estacao.getId(), colaborador.getUsuario(), "senhaErrada", foto, "127.0.0.1")
+		);
+
+		// 2. Colaborador desligado deve ser bloqueado com mensagem clara
+		colaborador.setDataDesligamento(LocalDate.now().minusDays(1));
+		funcionarioRepository.saveAndFlush(colaborador);
+		assertThrows(AcessoNegadoException.class, () ->
+				batidaService.registrarPontoEstacao(estacao.getId(), colaborador.getUsuario(), "senhaT07!", foto, "127.0.0.1")
+		);
+
+		// 3. Reativa colaborador e registra batida válida na estação (sem autenticação JWT prévia!)
+		SecurityContextHolder.clearContext();
+		colaborador.setDataDesligamento(null);
+		funcionarioRepository.saveAndFlush(colaborador);
+
+		LocalDateTime antes = LocalDateTime.now().minusSeconds(2);
+		BatidaDTO.ComprovanteEstacaoResponse comprovante = batidaService.registrarPontoEstacao(
+				estacao.getId(), colaborador.getUsuario(), "senhaT07!", foto, "192.168.1.50"
+		);
+		LocalDateTime depois = LocalDateTime.now().plusSeconds(2);
+
+		assertNotNull(comprovante);
+		assertNotNull(comprovante.nsr());
+		assertEquals(estacao.getId(), comprovante.estacaoId());
+		assertEquals(TipoOrigem.ESTACAO, comprovante.tipoOrigem());
+		assertTrue(comprovante.fotoCapturada());
+		assertFalse(comprovante.dataHoraServidor().isBefore(antes));
+		assertFalse(comprovante.dataHoraServidor().isAfter(depois));
+
+		// 4. RH consegue recuperar a foto salva vinculada à marcação
+		autenticarComoRh(colaborador);
+		Resource fotoSalva = batidaService.carregarFotoBatida(comprovante.batidaId());
+		assertNotNull(fotoSalva);
+		assertTrue(fotoSalva.exists());
+		assertEquals("jpeg-bytes-t07".getBytes(StandardCharsets.UTF_8).length, fotoSalva.contentLength());
+
+		// Restaura estado original do colaborador
+		colaborador.setSenhaHash(senhaOriginalHash);
+		colaborador.setDataDesligamento(desligamentoOriginal);
+		funcionarioRepository.saveAndFlush(colaborador);
 		SecurityContextHolder.clearContext();
 	}
 }
