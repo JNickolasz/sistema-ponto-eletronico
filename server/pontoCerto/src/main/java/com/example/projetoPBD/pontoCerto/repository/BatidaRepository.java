@@ -26,6 +26,15 @@ public interface BatidaRepository extends JpaRepository<Batida, UUID> {
 
     boolean existsByFuncionarioId(UUID funcionarioId);
 
+    @Query("SELECT COUNT(b) FROM Batida b LEFT JOIN b.funcionario f LEFT JOIN b.equipamento e " +
+            "WHERE (f.empresa.id = :empresaId OR e.empresa.id = :empresaId) " +
+            "AND b.dataHora BETWEEN :inicio AND :fim")
+    long countByEmpresaIdAndDataHoraBetween(
+            @Param("empresaId") UUID empresaId,
+            @Param("inicio") LocalDateTime inicio,
+            @Param("fim") LocalDateTime fim
+    );
+
     boolean existsByFuncionarioIdAndDataHora(UUID funcionarioId, LocalDateTime dataHora);
 
     boolean existsByEquipamentoIdAndNsr(UUID equipamentoId, Long nsr);

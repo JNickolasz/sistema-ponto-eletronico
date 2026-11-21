@@ -1,68 +1,108 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
-import adminService from '../services/adminService';
+import React, { useEffect, useState } from 'react';
 import {
+  AlertTriangle,
+  ArrowLeft,
+  BarChart3,
   Building2,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  HardDrive,
+  Loader2,
+  MapPin,
+  Palette,
   Plus,
   RefreshCw,
-  LogOut,
-  ShieldCheck,
-  CheckCircle2,
-  AlertCircle,
-  ExternalLink,
-  Sparkles,
-  ArrowRight
+  Search,
+  Users,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import adminService from '../services/adminService';
+import { buildTenantUrl } from '../utils/tenantHost';
+import { BRAND_PRESETS } from '../context/ThemeContext';
+import AppShell from '../layouts/AppShell';
+import { Badge, Button, Card, EmptyState, PageHeader } from '../components/ui/Primitives';
 
-export function AdminDashboard() {
-  const { logout, login } = useAuth();
-  const navigate = useNavigate();
+export default function AdminDashboard() {
+  const [aba, setAba] = useState('visao-geral'); // 'visao-geral' | 'nova-empresa' | 'feriados'
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [busca, setBusca] = useState('');
 
-  const [empresas, setEmpresas] = useState([]);
-  const [carregandoEmpresas, setCarregandoEmpresas] = useState(false);
-  const [salvandoEmpresa, setSalvandoEmpresa] = useState(false);
+  // Visão individual de uma empresa selecionada
+  const [empresaDetalhe, setEmpresaDetalhe] = useState(null);
+  const [loadingDetalhe, setLoadingDetalhe] = useState(false);
+  const [editCorPrimaria, setEditCorPrimaria] = useState('#2563eb');
+  const [editLogoUrl, setEditLogoUrl] = useState('');
+  const [salvandoBranding, setSalvandoBranding] = useState(false);
 
-  // Formulário de Empresa
+  // Nova Empresa
   const [razaoSocial, setRazaoSocial] = useState('');
   const [cnpj, setCnpj] = useState('');
   const [subdominio, setSubdominio] = useState('');
   const [endereco, setEndereco] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
+  const [salvandoEmpresa, setSalvandoEmpresa] = useState(false);
 
-  const carregarEmpresas = async () => {
+  // Novo Feriado Nacional Global
+  const [feriadoDesc, setFeriadoDesc] = useState('');
+  const [feriadoData, setFeriadoData] = useState('');
+  const [salvandoFeriado, setSalvandoFeriado] = useState(false);
+
+  const carregarEstatisticas = async () => {
     try {
-      setCarregandoEmpresas(true);
-      const data = await adminService.listarEmpresas();
-      setEmpresas(Array.isArray(data) ? data : []);
+      setLoadingStats(true);
+      const data = await adminService.obterEstatisticas();
+      setStats(data);
     } catch (err) {
-      toast.error('Erro ao carregar lista de empresas: ' + (err.message || ''));
+      toast.error(err?.message || 'Erro ao carregar estatísticas do sistema.');
     } finally {
-      setCarregandoEmpresas(false);
+      setLoadingStats(false);
     }
   };
 
   useEffect(() => {
-    carregarEmpresas();
+    carregarEstatisticas();
   }, []);
 
-  const handlePreencherExemplo = () => {
-    const random = Math.floor(1000 + Math.random() * 9000);
-    setRazaoSocial(`Empresa Exemplo ${random} Ltda`);
-    // CNPJ válido da Petrobras ou Banco do Brasil para passar no validador @CNPJ
-    setCnpj('33.000.167/0001-01');
-    setSubdominio(`empresa${random}`);
-    setEndereco('Av. das Américas, 4200 - Barra da Tijuca, RJ');
-    setLogoUrl('https://placehold.co/150x150/png?text=Logo');
-    toast('Dados de exemplo preenchidos!', { icon: '✨' });
+  const abrirDetalhesEmpresa = async (empresaId) => {
+    try {
+      setLoadingDetalhe(true);
+      const det = await adminService.obterDetalhesEmpresa(empresaId);
+      setEmpresaDetalhe(det);
+      setEditCorPrimaria(det.corPrimaria || '#2563eb');
+      setEditLogoUrl(det.logoUrl || '');
+    } catch (err) {
+      toast.error(err?.message || 'Erro ao carregar detalhes da empresa.');
+    } finally {
+      setLoadingDetalhe(false);
+    }
+  };
+
+  const handleSalvarBranding = async (e) => {
+    e.preventDefault();
+    if (!empresaDetalhe) return;
+    try {
+      setSalvandoBranding(true);
+      const atualizado = await adminService.atualizarBranding(empresaDetalhe.id, {
+        logoUrl: editLogoUrl.trim(),
+        corPrimaria: editCorPrimaria,
+      });
+      setEmpresaDetalhe(atualizado);
+      toast.success('Identidade visual da empresa atualizada no banco!');
+      carregarEstatisticas();
+    } catch (err) {
+      toast.error(err?.message || 'Falha ao salvar personalização.');
+    } finally {
+      setSalvandoBranding(false);
+    }
   };
 
   const handleCadastrarEmpresa = async (e) => {
     e.preventDefault();
-
     if (!razaoSocial.trim() || !cnpj.trim() || !subdominio.trim() || !endereco.trim()) {
-      toast.error('Preencha todos os campos obrigatórios');
+      toast.error('Preencha razão social, CNPJ, subdomínio e endereço.');
       return;
     }
 
@@ -70,281 +110,557 @@ export function AdminDashboard() {
       setSalvandoEmpresa(true);
       await adminService.cadastrarEmpresa({
         razaoSocial: razaoSocial.trim(),
-        cnpj: cnpj.trim(),
+        cnpj: cnpj.replace(/\D/g, ''),
         subdominio: subdominio.trim().toLowerCase(),
         endereco: endereco.trim(),
-        logoUrl: logoUrl.trim() || undefined,
+        logoUrl: logoUrl.trim(),
       });
-
-      toast.success('Empresa cadastrada com sucesso pelo Administrador!');
+      toast.success('Empresa provisionada com sucesso!');
       setRazaoSocial('');
       setCnpj('');
       setSubdominio('');
       setEndereco('');
       setLogoUrl('');
-      await carregarEmpresas();
+      await carregarEstatisticas();
+      setAba('visao-geral');
     } catch (err) {
-      toast.error(err.message || 'Falha ao cadastrar empresa.');
+      toast.error(err?.message || 'Falha ao cadastrar empresa.');
     } finally {
       setSalvandoEmpresa(false);
     }
   };
 
-  const handleSwitchToRh = () => {
-    logout();
-    navigate('/login');
+  const handleCadastrarFeriadoNacional = async (e) => {
+    e.preventDefault();
+    if (!feriadoDesc.trim() || !feriadoData) {
+      toast.error('Informe a descrição e a data do feriado nacional.');
+      return;
+    }
+
+    try {
+      setSalvandoFeriado(true);
+      await adminService.cadastrarFeriadoGlobal({
+        empresaId: null,
+        descricao: feriadoDesc.trim(),
+        data: feriadoData,
+        alcance: 'NACIONAL',
+        uf: null,
+        municipio: null,
+      });
+      toast.success('Feriado nacional cadastrado para todos os tenants!');
+      setFeriadoDesc('');
+      setFeriadoData('');
+    } catch (err) {
+      toast.error(err?.message || 'Falha ao cadastrar feriado nacional.');
+    } finally {
+      setSalvandoFeriado(false);
+    }
   };
 
+  const empresas = stats?.empresas || [];
+  const empresasFiltradas = empresas.filter((e) => {
+    if (!busca.trim()) return true;
+    const t = busca.trim().toLowerCase();
+    return (
+      (e.razaoSocial || '').toLowerCase().includes(t) ||
+      (e.subdominio || '').toLowerCase().includes(t) ||
+      (e.cnpj || '').includes(t)
+    );
+  });
+
+  const navItems = [
+    { type: 'divider', key: 'div-saas', label: 'Plataforma SaaS' },
+    { key: 'visao-geral', label: 'Visão Geral & Empresas', icon: BarChart3, badge: stats?.totalEmpresas },
+    { key: 'nova-empresa', label: 'Nova Empresa', icon: Plus },
+    { key: 'feriados', label: 'Feriados Nacionais', icon: CalendarDays },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-30 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-amber-600 to-amber-400 text-slate-950 font-bold shadow-lg shadow-amber-500/20">
-            <ShieldCheck size={24} />
+    <AppShell
+      brandName="Ponto Certo"
+      brandSubtitle="Administração Global"
+      brandLogoUrl={null}
+      navItems={navItems}
+      activeKey={aba}
+      onSelectNav={(k) => {
+        setAba(k);
+        setEmpresaDetalhe(null);
+      }}
+    >
+      {/* ==================== DETALHE INDIVIDUAL DE UMA EMPRESA ==================== */}
+      {aba === 'visao-geral' && empresaDetalhe && (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Button variant="ghost" size="sm" onClick={() => setEmpresaDetalhe(null)}>
+              <ArrowLeft size={15} />
+              Voltar para todas as empresas
+            </Button>
+
+            <a
+              href={buildTenantUrl(empresaDetalhe.subdominio, '/login')}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <Button variant="primary" size="sm">
+                Abrir portal ({empresaDetalhe.subdominio}.pontocerto)
+                <ExternalLink size={14} />
+              </Button>
+            </a>
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-white leading-none flex items-center gap-2">
-              PontoCerto
-              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                Painel do Administrador Geral
-              </span>
-            </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Gestão Centralizada de Tenants e Cadastro de Empresas
-            </p>
-          </div>
-        </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={handleSwitchToRh}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-950/60 border border-purple-800/60 text-purple-300 hover:bg-purple-900/50 text-xs font-semibold transition-all cursor-pointer shadow-sm"
-            title="Trocar imediatamente para o perfil de RH"
-          >
-            <span>Acessar Painel do RH (admin.rh)</span>
-            <ArrowRight size={14} />
-          </button>
+          <PageHeader
+            title={empresaDetalhe.razaoSocial}
+            description={`CNPJ ${empresaDetalhe.cnpj} · Subdomínio: ${empresaDetalhe.subdominio} · ${empresaDetalhe.endereco || ''}`}
+          />
 
-          <button
-            type="button"
-            onClick={() => {
-              logout();
-              navigate('/login');
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-medium transition-all cursor-pointer"
-          >
-            <LogOut size={14} />
-            <span>Sair</span>
-          </button>
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 space-y-6">
-        {/* Info Banner */}
-        <div className="rounded-2xl bg-amber-950/20 border border-amber-500/20 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 mt-0.5 sm:mt-0">
-              <ShieldCheck size={20} />
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-amber-200">
-                Acesso Mestre Administrativo Ativo
-              </h2>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Você está autenticado como <strong>Admin Geral da Plataforma</strong>. As requisições são autorizadas diretamente via <code className="text-amber-300 bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-800/40">X-Admin-Key</code>, dispensando o uso de Postman.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handlePreencherExemplo}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-semibold transition-all cursor-pointer border border-amber-500/30 whitespace-nowrap"
-          >
-            <Sparkles size={14} /> Preencher Exemplo
-          </button>
-        </div>
-
-        {/* Grid: Cadastro + Listagem */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Formulário de Cadastro */}
-          <div className="lg:col-span-6 bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-sm">
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-800">
-              <Building2 className="text-amber-400" size={20} />
-              <div>
-                <h3 className="text-sm font-bold text-white">Cadastrar Nova Empresa</h3>
-                <p className="text-xs text-slate-400">Endpoint: POST /api/v1/admin/empresas</p>
+          {/* KPIs Individuais da Empresa */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="p-4">
+              <div className="text-xs text-[var(--text-muted)]">Colaboradores Ativos</div>
+              <div className="text-2xl font-bold font-mono-tabular mt-1">
+                {empresaDetalhe.colaboradoresAtivos}
               </div>
-            </div>
+              <div className="text-[11px] text-[var(--text-secondary)] mt-1">
+                RH: {empresaDetalhe.perfis?.RH ?? 0} · Gestores: {empresaDetalhe.perfis?.GESTOR ?? 0} · Colab: {empresaDetalhe.perfis?.COLABORADOR ?? 0}
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-xs text-[var(--text-muted)]">Batidas (Mês / Hoje)</div>
+              <div className="text-2xl font-bold font-mono-tabular mt-1">
+                {empresaDetalhe.batidasMes}
+              </div>
+              <div className="text-[11px] text-[var(--text-secondary)] mt-1">
+                {empresaDetalhe.batidasHoje} registradas hoje
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-xs text-[var(--text-muted)]">Estrutura Física</div>
+              <div className="text-2xl font-bold font-mono-tabular mt-1">
+                {empresaDetalhe.locais?.length ?? 0} locais
+              </div>
+              <div className="text-[11px] text-[var(--text-secondary)] mt-1">
+                {empresaDetalhe.equipamentos?.length ?? 0} equipamento(s)
+              </div>
+            </Card>
+            <Card className="p-4">
+              <div className="text-xs text-[var(--text-muted)]">Inconsistências Abertas</div>
+              <div className="text-2xl font-bold font-mono-tabular mt-1">
+                {empresaDetalhe.inconsistenciasAbertas}
+              </div>
+              <div className="text-[11px] text-[var(--text-secondary)] mt-1">
+                Pendências de ponto
+              </div>
+            </Card>
+          </div>
 
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Personalização White-Label salva no banco */}
+            <Card className="lg:col-span-5 p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <Palette size={17} style={{ color: 'var(--brand-600)' }} />
+                <h2 className="text-sm font-semibold">Personalização White-Label</h2>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)]">
+                Defina a cor primária e o logotipo exibidos automaticamente no portal exclusivo desta empresa.
+              </p>
+
+              <form onSubmit={handleSalvarBranding} className="space-y-4">
+                <div className="space-y-2">
+                  <label className="block text-xs font-medium">Cor principal da marca</label>
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="color"
+                      value={editCorPrimaria}
+                      onChange={(e) => setEditCorPrimaria(e.target.value)}
+                      className="h-9 w-12 rounded-lg border border-[var(--border-subtle)] cursor-pointer bg-transparent"
+                    />
+                    <input
+                      type="text"
+                      value={editCorPrimaria}
+                      onChange={(e) => setEditCorPrimaria(e.target.value)}
+                      className="flex-1 h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-xs font-mono-tabular"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {Object.values(BRAND_PRESETS).map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setEditCorPrimaria(p.swatch)}
+                        className="h-6 w-6 rounded-full border border-black/15 cursor-pointer"
+                        style={{ backgroundColor: p.swatch }}
+                        title={p.label}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-medium">URL ou caminho do logotipo</label>
+                  <input
+                    type="text"
+                    value={editLogoUrl}
+                    onChange={(e) => setEditLogoUrl(e.target.value)}
+                    placeholder="/logos/vertice.svg ou https://..."
+                    className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-xs font-mono-tabular"
+                  />
+                </div>
+
+                <Button type="submit" variant="primary" className="w-full" disabled={salvandoBranding}>
+                  {salvandoBranding && <Loader2 size={14} className="animate-spin" />}
+                  Salvar Personalização no Banco
+                </Button>
+              </form>
+            </Card>
+
+            {/* Locais e Equipamentos da empresa */}
+            <div className="lg:col-span-7 space-y-6">
+              <Card className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <MapPin size={16} style={{ color: 'var(--brand-600)' }} />
+                  <h3 className="text-sm font-semibold">Locais de Trabalho</h3>
+                </div>
+                {empresaDetalhe.locais?.length ? (
+                  <div className="divide-y divide-[var(--border-subtle)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+                    {empresaDetalhe.locais.map((l) => (
+                      <div key={l.id} className="px-3.5 py-2.5 flex items-center justify-between text-xs">
+                        <span className="font-medium">{l.nome}</span>
+                        <span className="text-[var(--text-secondary)]">{l.municipio}/{l.uf}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[var(--text-muted)]">Nenhum local cadastrado.</p>
+                )}
+              </Card>
+
+              <Card className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <HardDrive size={16} style={{ color: 'var(--brand-600)' }} />
+                  <h3 className="text-sm font-semibold">Equipamentos &amp; Estações</h3>
+                </div>
+                {empresaDetalhe.equipamentos?.length ? (
+                  <div className="divide-y divide-[var(--border-subtle)] border border-[var(--border-subtle)] rounded-lg overflow-hidden">
+                    {empresaDetalhe.equipamentos.map((eq) => (
+                      <div key={eq.id} className="px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                        <div>
+                          <div className="font-medium">{eq.identificacao}</div>
+                          <div className="text-[11px] font-mono-tabular text-[var(--text-muted)]">
+                            {eq.codigo} · UUID: {eq.id}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge tone={eq.status === 'ATIVO' ? 'success' : 'neutral'}>{eq.tipo}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[var(--text-muted)]">Nenhum equipamento cadastrado.</p>
+                )}
+              </Card>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ==================== VISÃO GERAL GLOBAL DO SAAS ==================== */}
+      {aba === 'visao-geral' && !empresaDetalhe && (
+        <div className="space-y-6">
+          <PageHeader
+            title="Visão Geral da Plataforma"
+            description="Acompanhe indicadores consolidados de todas as empresas clientes e inspecione cada ambiente individualmente."
+            actions={
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" size="sm" onClick={carregarEstatisticas} disabled={loadingStats}>
+                  <RefreshCw size={14} className={loadingStats ? 'animate-spin' : ''} />
+                  Atualizar
+                </Button>
+                <Button variant="primary" size="sm" onClick={() => setAba('nova-empresa')}>
+                  <Plus size={14} />
+                  Nova Empresa
+                </Button>
+              </div>
+            }
+          />
+
+          {loadingStats ? (
+            <Card className="p-12 flex justify-center">
+              <Loader2 size={24} className="animate-spin text-[var(--text-muted)]" />
+            </Card>
+          ) : (
+            <>
+              {/* Global SaaS KPIs */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <Card className="p-5">
+                  <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                    <span>Empresas Clientes</span>
+                    <Building2 size={16} />
+                  </div>
+                  <div className="text-2xl font-bold font-mono-tabular mt-2">
+                    {stats?.totalEmpresas ?? 0}
+                  </div>
+                  <div className="text-[11px] text-[var(--text-secondary)] mt-1">
+                    {stats?.totalLocaisTrabalho ?? 0} locais · {stats?.totalEquipamentos ?? 0} equip.
+                  </div>
+                </Card>
+
+                <Card className="p-5">
+                  <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                    <span>Colaboradores</span>
+                    <Users size={16} />
+                  </div>
+                  <div className="text-2xl font-bold font-mono-tabular mt-2">
+                    {stats?.colaboradoresAtivos ?? 0}
+                  </div>
+                  <div className="text-[11px] text-[var(--text-secondary)] mt-1">
+                    {stats?.totalColaboradores ?? 0} cadastrados ({stats?.colaboradoresDesligados ?? 0} desligados)
+                  </div>
+                </Card>
+
+                <Card className="p-5">
+                  <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                    <span>Batidas ({stats?.competenciaAtual})</span>
+                    <Clock size={16} />
+                  </div>
+                  <div className="text-2xl font-bold font-mono-tabular mt-2">
+                    {stats?.batidasMes ?? 0}
+                  </div>
+                  <div className="text-[11px] text-emerald-600 dark:text-emerald-400 mt-1">
+                    {stats?.batidasHoje ?? 0} registradas hoje
+                  </div>
+                </Card>
+
+                <Card className="p-5">
+                  <div className="flex items-center justify-between text-xs text-[var(--text-muted)]">
+                    <span>Inconsistências Abertas</span>
+                    <AlertTriangle size={16} />
+                  </div>
+                  <div className="text-2xl font-bold font-mono-tabular mt-2">
+                    {stats?.inconsistenciasAbertas ?? 0}
+                  </div>
+                  <div className="text-[11px] text-[var(--text-secondary)] mt-1">
+                    Em todas as empresas
+                  </div>
+                </Card>
+              </div>
+
+              {/* Tabela de Empresas */}
+              <Card className="overflow-hidden">
+                <div className="p-4 border-b border-[var(--border-subtle)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold">Empresas Cadastradas</h2>
+                    <p className="text-xs text-[var(--text-secondary)]">
+                      Clique em uma empresa para ver métricas individuais, equipamentos e personalizar cor/logo.
+                    </p>
+                  </div>
+                  <div className="relative w-full sm:w-64">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+                    <input
+                      type="text"
+                      value={busca}
+                      onChange={(e) => setBusca(e.target.value)}
+                      placeholder="Buscar empresa ou subdomínio..."
+                      className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] pl-8 pr-3 text-xs"
+                    />
+                  </div>
+                </div>
+
+                {empresasFiltradas.length === 0 ? (
+                  <EmptyState
+                    icon={Building2}
+                    title="Nenhuma empresa encontrada"
+                    description="Cadastre uma nova empresa cliente para começar."
+                  />
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[var(--surface-subtle)] border-b border-[var(--border-subtle)] text-[var(--text-muted)] uppercase">
+                        <tr>
+                          <th className="px-4 py-3 font-semibold">Empresa</th>
+                          <th className="px-4 py-3 font-semibold">Subdomínio</th>
+                          <th className="px-4 py-3 font-semibold text-right">Colaboradores</th>
+                          <th className="px-4 py-3 font-semibold text-right">Batidas/Mês</th>
+                          <th className="px-4 py-3 font-semibold text-right">Pendências</th>
+                          <th className="px-4 py-3 font-semibold text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-subtle)]">
+                        {empresasFiltradas.map((emp) => (
+                          <tr key={emp.id} className="hover:bg-[var(--surface-hover)] transition-colors">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2.5">
+                                <span
+                                  className="h-3 w-3 rounded-full shrink-0 border border-black/15"
+                                  style={{ backgroundColor: emp.corPrimaria || '#2563eb' }}
+                                  title={`Cor: ${emp.corPrimaria}`}
+                                />
+                                <div>
+                                  <div className="font-semibold text-[var(--text-primary)]">
+                                    {emp.razaoSocial}
+                                  </div>
+                                  <div className="text-[11px] font-mono-tabular text-[var(--text-muted)]">
+                                    CNPJ {emp.cnpj}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 font-mono-tabular">
+                              <a
+                                href={buildTenantUrl(emp.subdominio, '/login')}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 hover:underline"
+                                style={{ color: 'var(--brand-600)' }}
+                              >
+                                {emp.subdominio}.pontocerto
+                                <ExternalLink size={11} />
+                              </a>
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono-tabular">
+                              {emp.colaboradoresAtivos} / {emp.totalColaboradores}
+                            </td>
+                            <td className="px-4 py-3 text-right font-mono-tabular font-medium">
+                              {emp.batidasMes}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Badge tone={emp.inconsistenciasAbertas > 0 ? 'warning' : 'success'}>
+                                {emp.inconsistenciasAbertas > 0
+                                  ? `${emp.inconsistenciasAbertas} aberta(s)`
+                                  : 'Em dia'}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                disabled={loadingDetalhe}
+                                onClick={() => abrirDetalhesEmpresa(emp.id)}
+                              >
+                                Detalhes &amp; Marca
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Card>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ==================== PROVISIONAR NOVA EMPRESA ==================== */}
+      {aba === 'nova-empresa' && (
+        <div className="space-y-6">
+          <PageHeader
+            title="Provisionar Nova Empresa"
+            description="Crie um novo tenant isolado com seu próprio subdomínio."
+          />
+
+          <Card className="max-w-xl p-6">
             <form onSubmit={handleCadastrarEmpresa} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Razão Social *
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Razão Social *</label>
                 <input
                   type="text"
-                  required
-                  placeholder="Ex: Petrobras Distribuidora S.A."
                   value={razaoSocial}
                   onChange={(e) => setRazaoSocial(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  placeholder="Ex: Horizonte Logística Ltda"
+                  className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm"
                 />
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    CNPJ Válido *
-                  </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">CNPJ *</label>
                   <input
                     type="text"
-                    required
-                    placeholder="00.000.000/0000-00"
                     value={cnpj}
                     onChange={(e) => setCnpj(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                    placeholder="00.000.000/0001-00"
+                    className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm font-mono-tabular"
                   />
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    Subdomínio Único *
-                  </label>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium">Subdomínio *</label>
                   <input
                     type="text"
-                    required
-                    placeholder="ex: petrobras"
                     value={subdominio}
                     onChange={(e) => setSubdominio(e.target.value)}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    placeholder="horizonte"
+                    className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm font-mono-tabular"
                   />
                 </div>
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Endereço Completo *
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Endereço *</label>
                 <input
                   type="text"
-                  required
-                  placeholder="Ex: Av. Paulista, 1000 - Bela Vista, São Paulo - SP"
                   value={endereco}
                   onChange={(e) => setEndereco(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  placeholder="Av. Principal, 100 — Cidade/UF"
+                  className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm"
                 />
               </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  URL da Logomarca (Opcional)
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">URL do Logotipo (opcional)</label>
                 <input
                   type="text"
-                  placeholder="https://..."
                   value={logoUrl}
                   onChange={(e) => setLogoUrl(e.target.value)}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  placeholder="/logos/empresa.svg ou https://..."
+                  className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm"
                 />
               </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  disabled={salvandoEmpresa}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-amber-600/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {salvandoEmpresa ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-950 border-t-transparent" />
-                      <span>Cadastrando Empresa...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={16} />
-                      <span>Cadastrar Empresa no Sistema</span>
-                    </>
-                  )}
-                </button>
-              </div>
+              <Button type="submit" variant="primary" disabled={salvandoEmpresa}>
+                {salvandoEmpresa ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />}
+                Provisionar Empresa
+              </Button>
             </form>
-          </div>
-
-          {/* Listagem de Empresas */}
-          <div className="lg:col-span-6 bg-slate-900/60 border border-slate-800/80 rounded-2xl p-6 shadow-xl backdrop-blur-sm flex flex-col">
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
-              <div>
-                <h3 className="text-sm font-bold text-white">Empresas Cadastradas ({empresas.length})</h3>
-                <p className="text-xs text-slate-400">Total de tenants ativos no banco de dados</p>
-              </div>
-              <button
-                type="button"
-                onClick={carregarEmpresas}
-                disabled={carregandoEmpresas}
-                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer"
-                title="Recarregar lista de empresas"
-              >
-                <RefreshCw size={16} className={carregandoEmpresas ? 'animate-spin' : ''} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto max-h-[440px] space-y-3 pr-1">
-              {carregandoEmpresas ? (
-                <div className="flex flex-col items-center justify-center py-12 text-slate-400 space-y-3">
-                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-                  <p className="text-xs">Consultando empresas no banco...</p>
-                </div>
-              ) : empresas.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <Building2 size={36} className="mx-auto text-slate-600 mb-2" />
-                  <p className="text-sm font-medium">Nenhuma empresa cadastrada</p>
-                  <p className="text-xs mt-1">Utilize o formulário ao lado para cadastrar a primeira empresa.</p>
-                </div>
-              ) : (
-                empresas.map((emp) => (
-                  <div
-                    key={emp.id}
-                    className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-amber-500/40 transition-all flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 font-bold text-xs">
-                        <Building2 size={18} />
-                      </div>
-                      <div>
-                        <div className="text-xs font-semibold text-slate-200">
-                          {emp.razaoSocial}
-                        </div>
-                        <div className="text-[11px] text-slate-500 font-mono">
-                          ID: {emp.id}
-                        </div>
-                      </div>
-                    </div>
-                    <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 bg-emerald-950/40 border border-emerald-800/40 px-2 py-0.5 rounded-full font-medium">
-                      <CheckCircle2 size={12} /> Ativa
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-slate-800/80 text-xs text-slate-400 flex items-center justify-between">
-              <span>Pronto para vincular locais de trabalho?</span>
-              <button
-                type="button"
-                onClick={handleSwitchToRh}
-                className="text-amber-400 hover:text-amber-300 font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                Abrir Painel RH →
-              </button>
-            </div>
-          </div>
+          </Card>
         </div>
-      </main>
-    </div>
+      )}
+
+      {/* ==================== FERIADOS NACIONAIS ==================== */}
+      {aba === 'feriados' && (
+        <div className="space-y-6">
+          <PageHeader
+            title="Feriados Nacionais (Globais)"
+            description="Feriados nacionais cadastrados aqui aparecem automaticamente no calendário de todas as empresas do SaaS."
+          />
+
+          <Card className="max-w-lg p-6">
+            <h2 className="text-sm font-semibold mb-4">Novo Feriado Nacional</h2>
+            <form onSubmit={handleCadastrarFeriadoNacional} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Descrição *</label>
+                <input
+                  type="text"
+                  value={feriadoDesc}
+                  onChange={(e) => setFeriadoDesc(e.target.value)}
+                  placeholder="Ex: Independência do Brasil"
+                  className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">Data *</label>
+                <input
+                  type="date"
+                  value={feriadoData}
+                  onChange={(e) => setFeriadoData(e.target.value)}
+                  className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm font-mono-tabular"
+                />
+              </div>
+              <Button type="submit" variant="primary" disabled={salvandoFeriado}>
+                {salvandoFeriado ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+                Cadastrar Feriado Nacional
+              </Button>
+            </form>
+          </Card>
+        </div>
+      )}
+    </AppShell>
   );
 }
-
-export default AdminDashboard;

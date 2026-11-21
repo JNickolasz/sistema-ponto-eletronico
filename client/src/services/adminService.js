@@ -1,26 +1,37 @@
 import api from './api';
 
+function adminHeaders() {
+  const key = localStorage.getItem('adminKey') || '';
+  return { headers: { 'X-Admin-Key': key } };
+}
+
 export const adminService = {
-  /**
-   * Lista todas as empresas cadastradas via rota administrativa
-   */
   async listarEmpresas() {
-    return await api.get('/admin/empresas');
+    return await api.get('/admin/empresas', adminHeaders());
   },
 
-  /**
-   * Cadastra uma nova empresa cliente no sistema
-   * @param {{razaoSocial: string, subdominio: string, cnpj: string, endereco: string, logoUrl?: string}} dados
-   */
   async cadastrarEmpresa(dados) {
-    const payload = {
-      razaoSocial: dados.razaoSocial?.trim(),
-      subdominio: dados.subdominio?.trim()?.toLowerCase(),
-      cnpj: dados.cnpj?.trim(),
-      endereco: dados.endereco?.trim(),
-      logoUrl: dados.logoUrl?.trim() || undefined,
-    };
-    return await api.post('/admin/empresas', payload);
+    return await api.post('/admin/empresas', dados, adminHeaders());
+  },
+
+  async obterEstatisticas() {
+    return await api.get('/admin/estatisticas', adminHeaders());
+  },
+
+  async obterDetalhesEmpresa(empresaId) {
+    return await api.get(`/admin/empresas/${empresaId}/detalhes`, adminHeaders());
+  },
+
+  async atualizarBranding(empresaId, { logoUrl, corPrimaria, corSecundaria }) {
+    return await api.patch(
+      `/admin/empresas/${empresaId}/branding`,
+      { logoUrl, corPrimaria, corSecundaria },
+      adminHeaders()
+    );
+  },
+
+  async cadastrarFeriadoGlobal(dto) {
+    return await api.post('/admin/feriados', dto, adminHeaders());
   },
 };
 

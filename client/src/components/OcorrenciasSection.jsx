@@ -239,7 +239,7 @@ export default function OcorrenciasSection({ funcionarios = [] }) {
         <div>
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
             <FileText className="w-6 h-6 text-indigo-600" />
-            Ocorrências, Licenças e Abonos (T15)
+            Ocorrências, Licenças e Abonos
           </h2>
           <p className="text-sm text-gray-500">
             Atestados médicos, férias e faltas justificadas com cálculo de abono integral ou parcial e auditoria.

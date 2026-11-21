@@ -136,3 +136,25 @@ export function formatarPis(pis) {
     .replace(/(\d{5})(\d)/, '$1.$2')
     .replace(/(\d{2})(\d{1})$/, '$1-$2');
 }
+
+export function formatarCnpj(cnpj) {
+  if (!cnpj) return '';
+  const limpo = String(cnpj).replace(/\D/g, '').slice(0, 14);
+  return limpo
+    .replace(/^(\d{2})(\d)/, '$1.$2')
+    .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d)/, '.$1/$2')
+    .replace(/(\d{4})(\d)/, '$1-$2');
+}
+
+export function formatarNsr(nsr) {
+  if (nsr === null || nsr === undefined || nsr === '') return '000000000';
+  return String(nsr).padStart(9, '0');
+}
+
+export function formatarDataHora(dataHora) {
+  if (!dataHora) return '—';
+  const d = new Date(dataHora);
+  if (Number.isNaN(d.getTime())) return String(dataHora);
+  return d.toLocaleString('pt-BR');
+}
