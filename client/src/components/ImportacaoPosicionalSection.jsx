@@ -353,10 +353,10 @@ export default function ImportacaoPosicionalSection({
           </div>
           <div>
             <h2 className="text-lg font-bold text-white">
-              Importação de Arquivo Posicional AFD (T09)
+              Importação de Arquivo de Ponto (AFD)
             </h2>
             <p className="text-xs text-slate-400">
-              Leitura posicional por <code className="text-indigo-300">substring</code>, validação de cabeçalho/trailer, conferência prévia e gravação <code className="text-emerald-300">@Transactional</code>.
+              Envie arquivos posicionais (.txt) de relógios REP com conferência prévia antes da gravação definitiva.
             </p>
           </div>
         </div>
@@ -462,36 +462,8 @@ export default function ImportacaoPosicionalSection({
                         Etapa 1: Selecionar Equipamento e Arquivo (.txt)
                       </h3>
                       <p className="text-xs text-slate-400 mt-0.5">
-                        Aciona <span className="font-mono text-indigo-300">POST /api/v1/importacao/preview</span> (nenhum dado é salvo nesta etapa)
+                        Os dados são analisados em prévia antes de qualquer gravação no banco.
                       </p>
-                    </div>
-
-                    {/* Botões de Geração Rápida de Arquivo Posicional para Testes */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => handleGerarArquivoExemplo('MISTO')}
-                        className="text-[11px] px-2.5 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 transition-colors cursor-pointer flex items-center gap-1"
-                        title="Gera arquivo com cabeçalho, batidas válidas, 1 repetida, 1 recusada e trailer"
-                      >
-                        <Sparkles size={12} /> + Lote Misto (Teste)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleGerarArquivoExemplo('SOMENTE_VALIDAS')}
-                        className="text-[11px] px-2.5 py-1.5 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-colors cursor-pointer"
-                        title="Gera arquivo apenas com batidas válidas"
-                      >
-                        + Lote 100% Válido
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleGerarArquivoExemplo('INVALIDO_SEM_TRAILER')}
-                        className="text-[11px] px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-colors cursor-pointer"
-                        title="Gera arquivo sem trailer tipo 9 para testar rejeição"
-                      >
-                        + Sem Trailer (Erro)
-                      </button>
                     </div>
                   </div>
 
@@ -605,33 +577,33 @@ export default function ImportacaoPosicionalSection({
                 <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl space-y-4">
                   <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
                     <HardDrive size={18} />
-                    <span>Especificação do Leitor Posicional (Substring)</span>
+                    <span>Layout do Arquivo Posicional (.txt)</span>
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">
-                    O motor <code className="text-indigo-300">ProcessadorArquivoPosicional</code> lê o arquivo linha a linha usando <code className="text-indigo-300">BufferedReader</code> e extrai os campos por índices fixos:
+                    Estrutura padrão esperada para os registros exportados pelo relógio de ponto:
                   </p>
 
                   <div className="space-y-2.5 text-xs font-mono">
                     <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-                      <span className="text-indigo-400 font-bold">linha.substring(0, 1)</span>
+                      <span className="text-indigo-400 font-bold">Posição 1 (Tipo de Registro)</span>
                       <p className="text-slate-400 font-sans text-[11px] mt-0.5">
-                        Tipo do Registro: <strong>&apos;1&apos;</strong> = Cabeçalho (1ª linha), <strong>&apos;3&apos;</strong> = Batida de Ponto, <strong>&apos;9&apos;</strong> = Trailer/Totalizador (última linha).
+                        <strong>&apos;1&apos;</strong> = Cabeçalho (1ª linha), <strong>&apos;3&apos;</strong> = Marcação de Ponto, <strong>&apos;9&apos;</strong> = Trailer/Totalizador (última linha).
                       </p>
                     </div>
                     <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-                      <span className="text-emerald-400 font-bold">linha.substring(1, 9)</span>
+                      <span className="text-emerald-400 font-bold">Posições 2 a 9 (Data)</span>
                       <p className="text-slate-400 font-sans text-[11px] mt-0.5">
-                        Data da batida no formato <code className="text-slate-200">ddMMyyyy</code> (8 caracteres).
+                        Data da batida no formato <code className="text-slate-200">ddMMyyyy</code> (8 dígitos).
                       </p>
                     </div>
                     <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-                      <span className="text-amber-400 font-bold">linha.substring(9, 13)</span>
+                      <span className="text-amber-400 font-bold">Posições 10 a 13 (Horário)</span>
                       <p className="text-slate-400 font-sans text-[11px] mt-0.5">
-                        Horário da batida no formato <code className="text-slate-200">HHmm</code> (4 caracteres).
+                        Horário da batida no formato <code className="text-slate-200">HHmm</code> (4 dígitos).
                       </p>
                     </div>
                     <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800">
-                      <span className="text-purple-400 font-bold">linha.substring(13, 24)</span>
+                      <span className="text-purple-400 font-bold">Posições 14 a 24 (Identificador)</span>
                       <p className="text-slate-400 font-sans text-[11px] mt-0.5">
                         PIS/PASEP ou Matrícula do colaborador (11 caracteres).
                       </p>
@@ -719,7 +691,7 @@ export default function ImportacaoPosicionalSection({
                       {previewData.totalRecusadas}
                     </div>
                     <p className="text-[11px] text-rose-200/70 mt-1">
-                      Gravadas como órfãs p/ vínculo posterior (T10)
+                      Gravadas como órfãs para vínculo posterior
                     </p>
                   </div>
                   <div className="p-3 rounded-2xl bg-rose-500/20 text-rose-400">
@@ -925,7 +897,7 @@ export default function ImportacaoPosicionalSection({
                   Histórico de Importações Realizadas
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Consulta <span className="font-mono text-indigo-300">GET /api/v1/importacao/historico</span>
+                  Registro de arquivos processados, totais de marcações e auditoria por equipamento.
                 </p>
               </div>
             </div>
@@ -938,7 +910,7 @@ export default function ImportacaoPosicionalSection({
                   className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-xs font-semibold text-amber-300 transition-colors cursor-pointer"
                 >
                   <AlertTriangle size={13} />
-                  <span>Tratar Batidas Órfãs (T10)</span>
+                  <span>Tratar Batidas Órfãs</span>
                 </button>
               )}
               <button

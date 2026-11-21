@@ -185,7 +185,7 @@ export default function BatidasOrfasSection({
           </div>
           <div>
             <h2 className="text-lg font-bold text-white">
-              Tratamento de Batidas Órfãs (T10)
+              Tratamento de Batidas Órfãs
             </h2>
             <p className="text-xs text-slate-400">
               Marcações recebidas sem colaborador identificado ficam guardadas como órfãs até confirmação manual do RH com registro de autor, data e motivo.

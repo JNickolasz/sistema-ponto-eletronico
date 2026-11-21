@@ -231,7 +231,7 @@ export default function BancoHorasSection({
         <div>
           <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
             <TrendingUp className="w-6 h-6 text-indigo-600" />
-            Banco de Horas & Extrato de Compensação (T16)
+            Banco de Horas &amp; Extrato de Compensação
           </h2>
           <p className="text-sm text-gray-500">
             Cálculo derivado da apuração diária, compensações justificadas e congelamento imutável por período fechado.

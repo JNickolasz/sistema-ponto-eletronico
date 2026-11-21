@@ -1,11 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import Navbar from '../components/Navbar';
+import AppShell from '../layouts/AppShell';
 import ImportacaoPosicionalSection from '../components/ImportacaoPosicionalSection';
 import BatidasOrfasSection from '../components/BatidasOrfasSection';
 import FilaInconsistenciasSection from '../components/FilaInconsistenciasSection';
 import ApuracaoEspelhoSection from '../components/ApuracaoEspelhoSection';
 import OcorrenciasSection from '../components/OcorrenciasSection';
 import BancoHorasSection from '../components/BancoHorasSection';
+import FechamentoPeriodoSection from '../features/rh/FechamentoPeriodoSection';
+import RelatoriosSection from '../features/rh/RelatoriosSection';
+import ExportacaoFolhaSection from '../features/rh/ExportacaoFolhaSection';
+import LocaisSection from '../features/rh/LocaisSection';
+import EquipamentosSection from '../features/rh/EquipamentosSection';
+import ColaboradoresSection from '../features/rh/ColaboradoresSection';
 import rhService from '../services/rhService';
 import batidaService from '../services/batidaService';
 import equipamentoService from '../services/equipamentoService';
@@ -51,8 +57,11 @@ import {
   Search,
   Upload,
   History,
+  Lock,
+  BarChart3,
+  FileSpreadsheet,
+  UserCheck,
 } from 'lucide-react';
-import { FormControl, Select, MenuItem } from '@mui/material';
 import toast from 'react-hot-toast';
 
 export function RhDashboard() {
@@ -1006,1589 +1015,81 @@ export function RhDashboard() {
     toast(`Faça login com o usuário: ${usr.usuario}`, { icon: '🔑', duration: 6000 });
   };
 
+  const handleSelectAba = (novaAba) => {
+    setAbaAtiva(novaAba);
+    if (novaAba === 'feriados') {
+      carregarCalendarioFeriados();
+      carregarCalendarioPF();
+    } else if (novaAba === 'batidas-orfas') {
+      carregarContagemOrfas();
+    } else if (novaAba === 'apuracao' && !colaboradorApuracaoId && funcionariosEmpresa.length > 0) {
+      setColaboradorApuracaoId(funcionariosEmpresa[0].id);
+    }
+  };
+
+  const empresaNomeAtual =
+    empresas.find((e) => e.id === empresaIdSelecionada)?.razaoSocial || undefined;
+
+  const rhNavItems = [
+    { type: 'divider', key: 'div-cad', label: 'Estrutura & Pessoas' },
+    { key: 'locais', label: 'Locais de Trabalho', icon: MapPin, badge: locaisTrabalho.length || undefined },
+    { key: 'equipamentos', label: 'Equipamentos', icon: HardDrive, badge: equipamentos.length || undefined },
+    { key: 'usuarios', label: 'Colaboradores', icon: UserPlus, badge: funcionariosEmpresa.length || undefined },
+    { key: 'jornadas', label: 'Jornadas & Escalas', icon: Clock },
+    { key: 'feriados', label: 'Feriados & Calendário', icon: CalendarCheck },
+    { type: 'divider', key: 'div-op', label: 'Operação & Apuração' },
+    { key: 'importacao', label: 'Importação REP / AFD', icon: Upload },
+    { key: 'historico-importacao', label: 'Histórico Importação', icon: History },
+    { key: 'batidas-orfas', label: 'Batidas Órfãs', icon: AlertCircle, badge: orfasPendentesCount || undefined },
+    { key: 'inconsistencias', label: 'Inconsistências', icon: Flag },
+    { key: 'apuracao', label: 'Espelho & Apuração', icon: CalendarDays },
+    { key: 'ocorrencias', label: 'Ocorrências & Abonos', icon: Calendar },
+    { key: 'banco-horas', label: 'Banco de Horas', icon: Layers },
+    { type: 'divider', key: 'div-fech', label: 'Fechamento & Folha' },
+    { key: 'fechamento', label: 'Fechamento de Período', icon: Lock },
+    { key: 'relatorios', label: 'Relatórios Gerenciais', icon: BarChart3 },
+    { key: 'folha', label: 'Exportação de Folha', icon: FileSpreadsheet },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
-      <Navbar />
+    <AppShell
+      brandName={empresaNomeAtual}
+      brandSubtitle="Departamento Pessoal (RH)"
+      navItems={rhNavItems}
+      activeKey={abaAtiva}
+      onSelectNav={handleSelectAba}
+    >
+      <div className="space-y-6">
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        {/* Header do Painel */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800/80 pb-6">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400">
-                <ShieldCheck size={24} />
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                  Painel de Recursos Humanos (RH)
-                </h1>
-                <p className="text-sm text-slate-400 mt-0.5">
-                  Gerenciamento corporativo, locais de trabalho e credenciais de acesso.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={recarregarPainel}
-              disabled={loadingPainel}
-              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 border border-slate-700/80 px-4 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw size={14} className={loadingPainel ? 'animate-spin' : ''} />
-              Recarregar Painel
-            </button>
-          </div>
-        </div>
-
-        {/* Backend Response Card (GET /api/v1/rh/painel) */}
-        <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-6 backdrop-blur-xl">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Terminal size={18} className="text-purple-400" />
-              <h2 className="text-base font-semibold text-slate-100">
-                Resposta do Endpoint: <span className="font-mono text-purple-300">GET /api/v1/rh/painel</span>
-              </h2>
-            </div>
-            {painelData && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-400 border border-emerald-500/20">
-                <CheckCircle2 size={12} /> 200 OK - Autorizado
-              </span>
-            )}
-            {painelError && (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-400 border border-red-500/20">
-                <AlertCircle size={12} /> Erro de Comunicação
-              </span>
-            )}
-          </div>
-
-          {loadingPainel ? (
-            <div className="flex items-center gap-3 py-4 text-slate-400 text-sm">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-purple-500 border-t-transparent" />
-              <span>Consultando endpoint do backend...</span>
-            </div>
-          ) : painelError ? (
-            <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm">
-              {painelError}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-slate-950/60 rounded-xl p-3.5 border border-slate-800">
-                <span className="text-xs text-slate-400">Mensagem da API</span>
-                <p className="text-sm font-semibold text-purple-300 mt-1">
-                  {painelData?.mensagem || '—'}
-                </p>
-              </div>
-              <div className="bg-slate-950/60 rounded-xl p-3.5 border border-slate-800">
-                <span className="text-xs text-slate-400">Usuário Autenticado</span>
-                <p className="text-sm font-semibold text-slate-200 mt-1 font-mono">
-                  {painelData?.usuarioLogado || user?.usuario || '—'}
-                </p>
-              </div>
-              <div className="bg-slate-950/60 rounded-xl p-3.5 border border-slate-800">
-                <span className="text-xs text-slate-400">Permissões (Authorities)</span>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {painelData?.permissoes?.map((p, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 rounded bg-purple-900/40 text-purple-200 text-xs font-mono border border-purple-700/30"
-                    >
-                      {p.authority}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Abas de Navegação */}
-        <div className="flex border-b border-slate-800 space-x-6">
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('locais')}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'locais'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Building2 size={18} />
-            <span>Locais de Trabalho</span>
-            {locaisTrabalho.length > 0 && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-indigo-500/20 text-indigo-300 font-mono">
-                {locaisTrabalho.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('equipamentos')}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'equipamentos'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <HardDrive size={18} />
-            <span>Equipamentos (T02)</span>
-            {equipamentos.length > 0 && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-indigo-500/20 text-indigo-300 font-mono">
-                {equipamentos.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('usuarios')}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'usuarios'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <UserPlus size={18} />
-            <span>Usuários e Acessos</span>
-            {usuariosCadastrados.length > 0 && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-slate-800 text-slate-300 font-mono">
-                {usuariosCadastrados.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('jornadas')}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'jornadas'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Calendar size={18} />
-            <span>Jornadas & Escalas (T04)</span>
-            {(jornadas.length > 0 || escalas.length > 0) && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-500/20 text-emerald-300 font-mono">
-                {jornadas.length + escalas.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAbaAtiva('feriados');
-              carregarCalendarioFeriados();
-              carregarCalendarioPF();
-            }}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'feriados'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <CalendarCheck size={18} />
-            <span>Feriados & Facultativos (T05)</span>
-            {(feriadosList.length > 0 || pontosFacultativosList.length > 0) && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-300 font-mono">
-                {feriadosList.length + pontosFacultativosList.length}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('importacao')}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'importacao'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Upload size={18} />
-            <span>Importação AFD (T09)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('historico-importacao')}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'historico-importacao'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <History size={18} />
-            <span>Histórico de Importações</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAbaAtiva('batidas-orfas');
-              carregarContagemOrfas();
-            }}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'batidas-orfas'
-                ? 'border-amber-500 text-amber-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <AlertCircle size={18} />
-            <span>Batidas Órfãs (T10)</span>
-            {orfasPendentesCount > 0 && (
-              <span className="px-2 py-0.5 text-xs rounded-full bg-amber-500/20 text-amber-300 font-mono">
-                {orfasPendentesCount}
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('inconsistencias')}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'inconsistencias'
-                ? 'border-rose-500 text-rose-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Layers size={18} />
-            <span>Inconsistências & Fechamento (T12)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('apuracao')}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'apuracao'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Clock size={18} />
-            <span>Apuração & Espelho (T14)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('ocorrencias')}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'ocorrencias'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <CalendarCheck size={18} />
-            <span>Ocorrências & Abonos (T15)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAbaAtiva('banco-horas')}
-            className={`pb-3.5 px-1 text-sm font-semibold flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
-              abaAtiva === 'banco-horas'
-                ? 'border-indigo-500 text-indigo-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <History size={18} />
-            <span>Banco de Horas (T16)</span>
-          </button>
-        </div>
-
-        {/* Conteúdo da Aba 1: Locais de Trabalho (Issue 2) */}
         {abaAtiva === 'locais' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Coluna do Formulário de Local de Trabalho */}
-            <div className="lg:col-span-7">
-              <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
-                      <Building2 size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white">Cadastrar Local de Trabalho</h3>
-                      <p className="text-xs text-slate-400">
-                        Dispara requisição para <span className="font-mono text-indigo-300">POST /api/v1/locais-trabalho</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Exemplos Rápidos */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => handlePreencherExemploLocal('MATRIZ')}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
-                    >
-                      + Matriz
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePreencherExemploLocal('FILIAL')}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
-                    >
-                      + Filial
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePreencherExemploLocal('OBRA')}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
-                    >
-                      + Obra
-                    </button>
-                  </div>
-                </div>
-
-                <form onSubmit={handleCadastrarLocal} className="space-y-4">
-                  {/* Select da Empresa com botão de Admin */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                        Empresa Vinculada (MUI Select) *
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setModalEmpresaAberto(true)}
-                        className="inline-flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 font-semibold transition-colors cursor-pointer"
-                        title="Cadastrar nova empresa cliente via API Admin"
-                      >
-                        <Plus size={14} /> + Nova Empresa (Admin)
-                      </button>
-                    </div>
-
-                    <FormControl fullWidth size="small">
-                      <Select
-                        displayEmpty
-                        value={empresaIdSelecionada}
-                        onChange={(e) => setEmpresaIdSelecionada(e.target.value)}
-                        renderValue={(selected) => {
-                          if (!selected) {
-                            return <span className="text-slate-500 text-sm">Selecione a empresa...</span>;
-                          }
-                          const found = empresas.find((e) => e.id === selected);
-                          return found ? found.razaoSocial : selected;
-                        }}
-                        sx={{
-                          color: '#f8fafc',
-                          backgroundColor: 'rgba(2, 6, 23, 0.6)',
-                          borderRadius: '0.75rem',
-                          '.MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'rgba(51, 65, 85, 0.8)',
-                          },
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#6366f1',
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#6366f1',
-                          },
-                          '.MuiSvgIcon-root': {
-                            color: '#94a3b8',
-                          },
-                        }}
-                        MenuProps={{
-                          slotProps: {
-                            paper: {
-                              sx: {
-                                bgcolor: '#0f172a',
-                                color: '#f8fafc',
-                                border: '1px solid #334155',
-                                borderRadius: '0.75rem',
-                              },
-                            },
-                          },
-                        }}
-                      >
-                        {empresas.length === 0 ? (
-                          <MenuItem disabled value="">
-                            Nenhuma empresa encontrada (clique em "+ Nova Empresa" acima)
-                          </MenuItem>
-                        ) : (
-                          empresas.map((emp) => (
-                            <MenuItem key={emp.id} value={emp.id} sx={{ '&:hover': { bgcolor: '#1e293b' } }}>
-                              {emp.razaoSocial}
-                            </MenuItem>
-                          ))
-                        )}
-                      </Select>
-                    </FormControl>
-                  </div>
-
-                  {/* Nome do Local */}
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                      Nome do Local de Trabalho *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={nomeLocal}
-                      onChange={(e) => setNomeLocal(e.target.value)}
-                      placeholder="Ex: Matriz Centro, Filial Zona Sul, Obra Residencial Parque"
-                      className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Endereço */}
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                      Endereço Completo *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={enderecoLocal}
-                      onChange={(e) => setEnderecoLocal(e.target.value)}
-                      placeholder="Ex: Av. Paulista, 1000 - Bela Vista"
-                      className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Município e UF */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                        Município
-                      </label>
-                      <input
-                        type="text"
-                        value={municipioLocal}
-                        onChange={(e) => setMunicipioLocal(e.target.value)}
-                        placeholder="Ex: São Paulo"
-                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                        UF (Estado)
-                      </label>
-                      <input
-                        type="text"
-                        maxLength={2}
-                        value={ufLocal}
-                        onChange={(e) => setUfLocal(e.target.value)}
-                        placeholder="SP"
-                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none uppercase"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="pt-3">
-                    <button
-                      type="submit"
-                      disabled={submittingLocal}
-                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 focus:outline-none transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      {submittingLocal ? (
-                        <>
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          <span>Cadastrando Local...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Plus size={16} />
-                          <span>Cadastrar Local de Trabalho</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-
-            {/* Coluna da Listagem de Locais Cadastrados */}
-            <div className="lg:col-span-5 space-y-4">
-              <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Building2 size={18} className="text-indigo-400" />
-                    <h3 className="text-base font-bold text-white">Locais de Trabalho Cadastrados</h3>
-                  </div>
-                  <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full font-mono">
-                    Total: {locaisTrabalho.length}
-                  </span>
-                </div>
-
-                {loadingLocais ? (
-                  <div className="flex items-center justify-center gap-2 py-8 text-slate-400 text-sm">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-                    <span>Carregando locais de trabalho...</span>
-                  </div>
-                ) : locaisTrabalho.length === 0 ? (
-                  <div className="text-center py-8 px-4 rounded-xl border border-dashed border-slate-800 text-slate-400 text-sm">
-                    <MapPin size={32} className="mx-auto mb-2 text-slate-600" />
-                    <p>Nenhum local de trabalho cadastrado ainda.</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Use o formulário ao lado para cadastrar a Matriz, Filiais ou Obras da empresa!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                    {locaisTrabalho.map((local) => (
-                      <div
-                        key={local.id}
-                        className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-colors"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-sm text-slate-200 flex items-center gap-1.5">
-                            <Building2 size={14} className="text-indigo-400" />
-                            {local.nome}
-                          </span>
-                          <span className="text-[10px] font-medium px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                            {local.razaoSocialEmpresa || 'Empresa Vinculada'}
-                          </span>
-                        </div>
-                        <div className="text-xs text-slate-400 flex items-center gap-1 mt-1.5">
-                          <MapPin size={12} className="text-slate-500 shrink-0" />
-                          <span className="truncate">
-                            {local.endereco}
-                            {local.municipio ? ` - ${local.municipio}/${local.uf}` : ''}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-slate-500 font-mono mt-1">
-                          ID: #{local.id}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Card Explicativo da Tarefa T02 */}
-              <div className="rounded-2xl bg-indigo-950/30 border border-indigo-900/40 p-5 text-xs text-indigo-300/90 space-y-2">
-                <div className="font-semibold text-indigo-200 flex items-center justify-between text-sm">
-                  <span className="flex items-center gap-1.5">
-                    <Briefcase size={16} /> Tarefa T02 - Papel dos Locais:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setAbaAtiva('equipamentos')}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 underline font-normal cursor-pointer"
-                  >
-                    Ir para Equipamentos &rarr;
-                  </button>
-                </div>
-                <p className="text-slate-300 leading-relaxed">
-                  Toda marcação de ponto deve ter uma origem física conhecida. Cada local cadastrado (Matriz, Filial, Obra) receberá seus <strong>Equipamentos</strong> (Relógio AFD ou Estação Web) para registrar as batidas.
-                </p>
-              </div>
-            </div>
-          </div>
+          <LocaisSection
+            empresaId={empresaIdSelecionada}
+            empresaNome={empresaNomeAtual}
+            locais={locaisTrabalho}
+            loading={loadingLocais}
+            onAtualizado={carregarEmpresasELocais}
+          />
         )}
 
-        {/* Conteúdo da Aba Equipamentos (T02 - Issues #16, #17, #18) */}
         {abaAtiva === 'equipamentos' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Coluna do Formulário de Equipamento */}
-            <div className="lg:col-span-7">
-              <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
-                      <HardDrive size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white">Cadastrar Equipamento de Registro</h3>
-                      <p className="text-xs text-slate-400">
-                        Dispara requisição para <span className="font-mono text-indigo-300">POST /api/v1/equipamentos</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Exemplos Rápidos */}
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => handlePreencherExemploEquipamento('RELOGIO')}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      <Clock size={12} /> + Exemplo Relógio
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePreencherExemploEquipamento('ESTACAO')}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer flex items-center gap-1"
-                    >
-                      <Monitor size={12} /> + Exemplo Estação
-                    </button>
-                  </div>
-                </div>
-
-                <form onSubmit={handleCadastrarEquipamento} className="space-y-4">
-                  {/* Select do Local de Trabalho */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                        Local de Trabalho Vinculado *
-                      </label>
-                      {locaisTrabalho.length === 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setAbaAtiva('locais')}
-                          className="text-xs text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
-                        >
-                          Cadastre um local primeiro
-                        </button>
-                      )}
-                    </div>
-
-                    <FormControl fullWidth size="small">
-                      <Select
-                        displayEmpty
-                        value={localTrabalhoIdEquipamento}
-                        onChange={(e) => setLocalTrabalhoIdEquipamento(e.target.value)}
-                        renderValue={(selected) => {
-                          if (!selected) {
-                            return <span className="text-slate-500 text-sm">Selecione o local de instalação...</span>;
-                          }
-                          const found = locaisTrabalho.find((l) => l.id === selected);
-                          return found
-                            ? `${found.nome} (${found.razaoSocialEmpresa || 'Empresa'})`
-                            : selected;
-                        }}
-                        sx={{
-                          color: '#f8fafc',
-                          backgroundColor: 'rgba(2, 6, 23, 0.6)',
-                          borderRadius: '0.75rem',
-                          '.MuiOutlinedInput-notchedOutline': {
-                            borderColor: 'rgba(51, 65, 85, 0.8)',
-                          },
-                          '&:hover .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#6366f1',
-                          },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                            borderColor: '#6366f1',
-                          },
-                          '.MuiSvgIcon-root': {
-                            color: '#94a3b8',
-                          },
-                        }}
-                        MenuProps={{
-                          slotProps: {
-                            paper: {
-                              sx: {
-                                bgcolor: '#0f172a',
-                                color: '#f8fafc',
-                                border: '1px solid #334155',
-                                borderRadius: '0.75rem',
-                              },
-                            },
-                          },
-                        }}
-                      >
-                        {locaisTrabalho.length === 0 ? (
-                          <MenuItem disabled value="">
-                            Nenhum local cadastrado. Acesse a aba "Locais de Trabalho" para criar um.
-                          </MenuItem>
-                        ) : (
-                          locaisTrabalho.map((local) => (
-                            <MenuItem key={local.id} value={local.id} sx={{ '&:hover': { bgcolor: '#1e293b' } }}>
-                              {local.nome} — {local.razaoSocialEmpresa || 'Empresa'} ({local.municipio || ''}/{local.uf || ''})
-                            </MenuItem>
-                          ))
-                        )}
-                      </Select>
-                    </FormControl>
-                  </div>
-
-                  {/* Seleção do Tipo de Equipamento (Cards clicáveis) */}
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-2">
-                      Tipo de Equipamento *
-                    </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setTipoEquipamento('RELOGIO')}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-                          tipoEquipamento === 'RELOGIO'
-                            ? 'bg-indigo-950/60 border-indigo-500 ring-1 ring-indigo-500/50'
-                            : 'bg-slate-950/50 border-slate-800 hover:border-slate-700'
-                        }`}
-                      >
-                        <div
-                          className={`p-2 rounded-lg ${
-                            tipoEquipamento === 'RELOGIO'
-                              ? 'bg-indigo-500 text-white'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}
-                        >
-                          <Clock size={18} />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-sm text-slate-100 flex items-center gap-1.5">
-                            Relógio Físico (AFD)
-                            {tipoEquipamento === 'RELOGIO' && (
-                              <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded">
-                                Selecionado
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            Aparelho de parede. Exige número de fabricação único por empresa.
-                          </p>
-                        </div>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTipoEquipamento('ESTACAO');
-                          setNumFabricacaoEquipamento('');
-                        }}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-                          tipoEquipamento === 'ESTACAO'
-                            ? 'bg-sky-950/60 border-sky-500 ring-1 ring-sky-500/50'
-                            : 'bg-slate-950/50 border-slate-800 hover:border-slate-700'
-                        }`}
-                      >
-                        <div
-                          className={`p-2 rounded-lg ${
-                            tipoEquipamento === 'ESTACAO'
-                              ? 'bg-sky-500 text-white'
-                              : 'bg-slate-800 text-slate-400'
-                          }`}
-                        >
-                          <Monitor size={18} />
-                        </div>
-                        <div>
-                          <div className="font-semibold text-sm text-slate-100 flex items-center gap-1.5">
-                            Estação Web (Tablet/PC)
-                            {tipoEquipamento === 'ESTACAO' && (
-                              <span className="text-[10px] bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded">
-                                Selecionado
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-slate-400 mt-0.5">
-                            Terminal de corredor ou browser. Serial de fabricação nulo (Issue #16).
-                          </p>
-                        </div>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Código Único do Equipamento */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                        Código do Equipamento
-                      </label>
-                      <span className="text-[11px] text-slate-400">
-                        Opcional (gerado automaticamente se vazio)
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      value={codigoEquipamento}
-                      onChange={(e) => setCodigoEquipamento(e.target.value)}
-                      placeholder="Ex: EQ-01, REP-10023, EST-05"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/60 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono"
-                    />
-                  </div>
-
-                  {/* Identificação do Equipamento */}
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                      Identificação do Equipamento *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={identificacaoEquipamento}
-                      onChange={(e) => setIdentificacaoEquipamento(e.target.value)}
-                      placeholder="Ex: Catraca Entrada Principal, REP-001, Tablet Recepção B"
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950/60 border border-slate-700/80 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-
-                  {/* Número de Fabricação */}
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                        Número de Fabricação (Serial) {tipoEquipamento === 'RELOGIO' ? '*' : ''}
-                      </label>
-                      <span className="text-[11px] text-slate-400">
-                        {tipoEquipamento === 'RELOGIO' ? (
-                          <span className="text-amber-400/90 font-medium">Obrigatório e único por empresa</span>
-                        ) : (
-                          <span className="text-slate-500">Ignorado para Estação Web (Issue #16)</span>
-                        )}
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      disabled={tipoEquipamento === 'ESTACAO'}
-                      required={tipoEquipamento === 'RELOGIO'}
-                      value={tipoEquipamento === 'ESTACAO' ? '' : numFabricacaoEquipamento}
-                      onChange={(e) => setNumFabricacaoEquipamento(e.target.value)}
-                      placeholder={
-                        tipoEquipamento === 'RELOGIO'
-                          ? 'Ex: REP-987654321, 000140028900012'
-                          : 'Não aplicável para Estação Web (será salvo como null)'
-                      }
-                      className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-100 focus:outline-none transition-all ${
-                        tipoEquipamento === 'ESTACAO'
-                          ? 'bg-slate-950/30 border-slate-800/60 text-slate-500 cursor-not-allowed italic'
-                          : 'bg-slate-950/60 border-slate-700/80 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500'
-                      }`}
-                    />
-                  </div>
-
-                  {/* Botão de Envio */}
-                  <div className="pt-2">
-                    <button
-                      type="submit"
-                      disabled={submittingEquipamento || locaisTrabalho.length === 0}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {submittingEquipamento ? (
-                        <>
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          <span>Cadastrando Equipamento...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Plus size={16} />
-                          <span>Cadastrar Equipamento</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-
-            {/* Coluna da Listagem de Equipamentos Cadastrados */}
-            <div className="lg:col-span-5 space-y-4">
-              <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <HardDrive size={18} className="text-indigo-400" />
-                    <h3 className="text-base font-bold text-white">Equipamentos Cadastrados</h3>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => carregarEquipamentos()}
-                      disabled={loadingEquipamentos}
-                      title="Recarregar equipamentos"
-                      className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
-                    >
-                      <RefreshCw size={13} className={loadingEquipamentos ? 'animate-spin' : ''} />
-                    </button>
-                    <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full font-mono">
-                      Total: {equipamentos.length}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Filtro por Local */}
-                {locaisTrabalho.length > 0 && (
-                  <div className="flex items-center gap-2 mb-3 px-1">
-                    <Filter size={13} className="text-slate-500 shrink-0" />
-                    <select
-                      value={filtroLocalEquipamento}
-                      onChange={(e) => setFiltroLocalEquipamento(e.target.value)}
-                      className="w-full text-xs bg-slate-950/80 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-300 focus:outline-none focus:border-indigo-500 cursor-pointer"
-                    >
-                      <option value="">Todos os locais de trabalho</option>
-                      {locaisTrabalho.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.nome} ({l.razaoSocialEmpresa || 'Empresa'})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {loadingEquipamentos ? (
-                  <div className="flex items-center justify-center gap-2 py-8 text-slate-400 text-sm">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-                    <span>Carregando equipamentos...</span>
-                  </div>
-                ) : equipamentos.length === 0 ? (
-                  <div className="text-center py-8 px-4 rounded-xl border border-dashed border-slate-800 text-slate-400 text-sm">
-                    <HardDrive size={32} className="mx-auto mb-2 text-slate-600" />
-                    <p>Nenhum equipamento cadastrado ainda.</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Cadastre o primeiro relógio ou estação web usando o formulário ao lado!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
-                    {(filtroLocalEquipamento
-                      ? equipamentos.filter((eq) => eq.localTrabalhoId === filtroLocalEquipamento)
-                      : equipamentos
-                    ).map((eq) => {
-                      const isAtivo = eq.status === 'ATIVO';
-                      const isRelogio = eq.tipo === 'RELOGIO';
-
-                      return (
-                        <div
-                          key={eq.id}
-                          className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-all space-y-2.5"
-                        >
-                          {/* Cabeçalho do Card */}
-                          <div className="flex items-center justify-between gap-2">
-                            {/* Badge Tipo */}
-                            <span
-                              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-md ${
-                                isRelogio
-                                  ? 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
-                                  : 'bg-sky-500/20 text-sky-300 border border-sky-500/30'
-                              }`}
-                            >
-                              {isRelogio ? <Clock size={12} /> : <Monitor size={12} />}
-                              {isRelogio ? 'Relógio AFD' : 'Estação Web'}
-                            </span>
-
-                            {/* Badge Status */}
-                            <span
-                              className={`inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                isAtivo
-                                  ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-slate-800 text-slate-400 border border-slate-700'
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  isAtivo ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
-                                }`}
-                              />
-                              {eq.status}
-                            </span>
-                          </div>
-
-                          {/* Identificação e Local */}
-                          <div>
-                            <h4 className="font-bold text-sm text-slate-100">{eq.identificacao}</h4>
-                            <div className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                              <Building2 size={12} className="text-slate-500 shrink-0" />
-                              <span className="truncate">
-                                {eq.localTrabalhoNome || 'Local não identificado'}
-                                {eq.empresaRazaoSocial ? ` • ${eq.empresaRazaoSocial}` : ''}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Serial & Marcações */}
-                          <div className="grid grid-cols-2 gap-2 pt-1">
-                            <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800/80">
-                              <span className="text-[10px] text-slate-500 block uppercase font-semibold">
-                                Número Fabricação
-                              </span>
-                              <span className="text-xs font-mono font-medium text-slate-200 truncate flex items-center gap-1 mt-0.5">
-                                <Hash size={11} className="text-slate-500 shrink-0" />
-                                {eq.numFabricacao || '— (Nulo / Estação)'}
-                              </span>
-                            </div>
-
-                            <div className="p-2 rounded-lg bg-slate-900/90 border border-slate-800/80">
-                              <span className="text-[10px] text-slate-500 block uppercase font-semibold">
-                                Marcações (Issue #18)
-                              </span>
-                              <span className="text-xs font-mono font-bold text-indigo-300 block mt-0.5">
-                                {eq.totalMarcacoes ?? 0} marcações
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Ações (Desativação Lógica - Issue #17) */}
-                          <div className="flex items-center justify-between pt-1 border-t border-slate-800/60 text-[11px]">
-                            <span className="text-[10px] text-slate-500 font-mono">
-                              ID: #{eq.id?.slice(0, 8)}...
-                            </span>
-
-                            <button
-                              type="button"
-                              onClick={() => handleAlternarStatusEquipamento(eq)}
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                                isAtivo
-                                  ? 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20'
-                                  : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20'
-                              }`}
-                              title={
-                                isAtivo
-                                  ? 'Desativar equipamento sem apagar marcações (PATCH status=INATIVO)'
-                                  : 'Reativar equipamento (PATCH status=ATIVO)'
-                              }
-                            >
-                              <Power size={11} />
-                              {isAtivo ? 'Desativar (Soft Delete)' : 'Reativar'}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Card Explicativo das Regras da Tarefa T02 */}
-              <div className="rounded-2xl bg-indigo-950/30 border border-indigo-900/40 p-5 text-xs text-indigo-300/90 space-y-2">
-                <div className="font-semibold text-indigo-200 flex items-center gap-1.5 text-sm">
-                  <Briefcase size={16} /> Tarefa T02 - Critérios Atendidos:
-                </div>
-                <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px] leading-relaxed">
-                  <li>
-                    <strong>Critério 4 (Issue #16):</strong> Relógio exige número de fabricação único por empresa; Estações Web ignoram e salvam como nulo.
-                  </li>
-                  <li>
-                    <strong>Critério 5 (Issue #17):</strong> Equipamentos são desativados via <code>PATCH /status</code> sem exclusão física, preservando histórico de marcações.
-                  </li>
-                  <li>
-                    <strong>Critério 6 (Issue #18):</strong> A listagem exibe o contador <code>totalMarcacoes</code> para cada equipamento cadastrado.
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </div>
+          <EquipamentosSection
+            locais={locaisTrabalho}
+            equipamentos={equipamentos}
+            loading={loadingEquipamentos}
+            onAtualizado={() => carregarEquipamentos()}
+          />
         )}
 
-        {/* Conteúdo da Aba 2: Usuários e Acessos (T01) */}
         {abaAtiva === 'usuarios' && (
-          <div className="space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              {/* Coluna do Formulário de Usuários */}
-              <div className="lg:col-span-7">
-              <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
-                      <UserPlus size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-white">Cadastrar Novo Usuário</h3>
-                      <p className="text-xs text-slate-400">
-                        Dispara requisição real para <span className="font-mono text-indigo-300">POST /api/v1/rh/adicionar</span>
-                      </p>
-                    </div>
-                  </div>
+          <ColaboradoresSection
+            locais={locaisTrabalho}
+            funcionarios={funcionariosEmpresa}
+            loading={loadingFuncionarios}
+            onAtualizado={() => empresaIdSelecionada && carregarFuncionarios(empresaIdSelecionada)}
+          />
+        )}
 
-                  {/* Botões de Preenchimento Rápido */}
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => handlePreencherExemplo('COLABORADOR')}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
-                    >
-                      + Colaborador
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePreencherExemplo('GESTOR')}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
-                    >
-                      + Gestor
-                    </button>
-                  </div>
-                </div>
-
-                <form onSubmit={handleCadastrar} className="space-y-4 mt-6">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                      Nome Completo *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={nomeCompleto}
-                      onChange={(e) => setNomeCompleto(e.target.value)}
-                      placeholder="Ex: Carlos Eduardo de Oliveira"
-                      className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                        Usuário (Username) *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={usuario}
-                        onChange={(e) => setUsuario(e.target.value)}
-                        placeholder="Ex: carlos.oliveira"
-                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                        Senha Inicial *
-                      </label>
-                      <input
-                        type="password"
-                        required
-                        value={senha}
-                        onChange={(e) => setSenha(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Linha PIS/PASEP e CPF com geradores rápidos */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                          PIS / PASEP * (11 Dígitos)
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setPisPasep(formatarPis(gerarPisValido()))}
-                          className="text-[10px] text-amber-400 hover:text-amber-300 underline cursor-pointer"
-                        >
-                          Gerar Válido
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        value={pisPasep}
-                        onChange={(e) => setPisPasep(e.target.value)}
-                        placeholder="000.00000.00-0"
-                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 font-mono placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                          CPF * (Receita Federal)
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setCpf(formatarCpf(gerarCpfValido()))}
-                          className="text-[10px] text-amber-400 hover:text-amber-300 underline cursor-pointer"
-                        >
-                          Gerar Válido
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        value={cpf}
-                        onChange={(e) => setCpf(e.target.value)}
-                        placeholder="000.000.000-00"
-                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 font-mono placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Linha Matrícula e Data de Admissão */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300">
-                          Matrícula Única *
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => setMatricula(`MAT-${Math.floor(1000 + Math.random() * 9000)}`)}
-                          className="text-[10px] text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
-                        >
-                          Gerar Código
-                        </button>
-                      </div>
-                      <input
-                        type="text"
-                        required
-                        value={matricula}
-                        onChange={(e) => setMatricula(e.target.value)}
-                        placeholder="Ex: MAT-1024"
-                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 font-mono placeholder-slate-500 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                        Data de Admissão
-                      </label>
-                      <input
-                        type="date"
-                        value={dataAdmissao}
-                        onChange={(e) => setDataAdmissao(e.target.value)}
-                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Vínculo de Local de Trabalho e Gestor */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                        Local de Trabalho Vinculado
-                      </label>
-                      <select
-                        value={localTrabalhoIdFuncionario}
-                        onChange={(e) => setLocalTrabalhoIdFuncionario(e.target.value)}
-                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
-                      >
-                        <option value="">Nenhum local selecionado</option>
-                        {locaisTrabalho.map((loc) => (
-                          <option key={loc.id} value={loc.id}>
-                            {loc.nome} ({loc.municipio || 'S/M'} - {loc.uf || 'S/UF'})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                        Gestor Direto (Opcional)
-                      </label>
-                      <select
-                        value={gestorIdFuncionario}
-                        onChange={(e) => setGestorIdFuncionario(e.target.value)}
-                        className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
-                      >
-                        <option value="">Sem gestor imediato</option>
-                        {funcionariosEmpresa
-                          .filter((f) => f.perfilAcesso === 'GESTOR')
-                          .map((g) => (
-                            <option key={g.id} value={g.id}>
-                              {g.nomeCompleto} ({g.usuario})
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                      Perfil de Acesso (Role) *
-                    </label>
-                    <select
-                      value={perfilAcesso}
-                      onChange={(e) => setPerfilAcesso(e.target.value)}
-                      className="w-full rounded-xl border border-slate-700/80 bg-slate-950/60 px-3.5 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none cursor-pointer"
-                    >
-                      <option value="COLABORADOR">COLABORADOR - Registro de ponto e consulta de espelho</option>
-                      <option value="GESTOR">GESTOR - Supervisão de equipes e espelhos</option>
-                      <option value="RH">RH - Gestão global e cadastro de funcionários</option>
-                    </select>
-                  </div>
-
-                  <div className="pt-3">
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-600/25 focus:outline-none transition-all cursor-pointer disabled:opacity-50"
-                    >
-                      {submitting ? (
-                        <>
-                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          <span>Enviando para o Backend...</span>
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus size={16} />
-                          <span>Criar Funcionário no Backend</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-
-            {/* Coluna de Usuários Cadastrados para Teste Rápido */}
-            <div className="lg:col-span-5 space-y-4">
-              <div className="rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Sparkles size={18} className="text-amber-400" />
-                    <h3 className="text-base font-bold text-white">Usuários Criados para Teste</h3>
-                  </div>
-                  <span className="text-xs text-slate-400 bg-slate-800 px-2.5 py-1 rounded-full">
-                    Total: {usuariosCadastrados.length}
-                  </span>
-                </div>
-
-                {usuariosCadastrados.length === 0 ? (
-                  <div className="text-center py-8 px-4 rounded-xl border border-dashed border-slate-800 text-slate-400 text-sm">
-                    <UserPlus size={32} className="mx-auto mb-2 text-slate-600" />
-                    <p>Nenhum novo funcionário criado nesta sessão ainda.</p>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Cadastre um COLABORADOR ou GESTOR ao lado para testar as outras telas!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
-                    {usuariosCadastrados.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-slate-700 transition-colors flex items-center justify-between"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-sm text-slate-200">
-                              {item.nomeCompleto}
-                            </span>
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                                item.perfilAcesso === 'COLABORADOR'
-                                  ? 'bg-emerald-500/20 text-emerald-400'
-                                  : item.perfilAcesso === 'GESTOR'
-                                  ? 'bg-blue-500/20 text-blue-400'
-                                  : 'bg-purple-500/20 text-purple-400'
-                              }`}
-                            >
-                              {item.perfilAcesso}
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-400 font-mono mt-0.5">
-                            Login: <span className="text-indigo-300 font-semibold">{item.usuario}</span> | ID #{item.id}
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleTestarLoginNovo(item)}
-                          className="inline-flex items-center gap-1 rounded-lg bg-indigo-600/20 border border-indigo-500/30 px-2.5 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all cursor-pointer"
-                          title="Desconectar e logar como este usuário"
-                        >
-                          <KeyRound size={12} />
-                          Testar
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Guia de Acessos rápidos */}
-              <div className="rounded-2xl bg-indigo-950/30 border border-indigo-900/40 p-5 text-xs text-indigo-300/90 space-y-2">
-                <div className="font-semibold text-indigo-200 flex items-center gap-1.5 text-sm">
-                  <Briefcase size={16} /> Fluxo de Teste Recomendado:
-                </div>
-                <ol className="list-decimal list-inside space-y-1 text-slate-300 pl-1">
-                  <li>Cadastre um <strong>COLABORADOR</strong> com o formulário ao lado.</li>
-                  <li>Cadastre um <strong>GESTOR</strong> com o formulário ao lado.</li>
-                  <li>Clique em <strong>Testar</strong> no card do usuário para ir à tela de login.</li>
-                  <li>Faça login e veja a tela do painel exclusiva do perfil correspondente!</li>
-                </ol>
-              </div>
-            </div>
-          </div>
-
-          {/* Seção Completa: Colaboradores da Empresa Cadastrados no Banco */}
-          <div className="mt-8 rounded-2xl bg-slate-900/80 border border-slate-800 p-6 shadow-xl backdrop-blur-xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400">
-                  <Briefcase size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    Colaboradores Cadastrados na Empresa
-                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-slate-800 text-slate-300">
-                      {funcionariosEmpresa.length}
-                    </span>
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Gestão corporativa, desligamento e exclusão de colaboradores
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className="relative">
-                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={termoBuscaFuncionario}
-                    onChange={(e) => setTermoBuscaFuncionario(e.target.value)}
-                    placeholder="Filtrar por nome, usuário, matrícula..."
-                    className="rounded-xl border border-slate-700 bg-slate-950/80 pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:border-indigo-500 focus:outline-none w-64"
-                  />
-                </div>
-                <button
-                  type="button"
-                  onClick={() => carregarFuncionarios(empresaIdSelecionada || (empresas[0] && empresas[0].id))}
-                  disabled={loadingFuncionarios}
-                  className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors cursor-pointer"
-                  title="Recarregar colaboradores"
-                >
-                  <RefreshCw size={14} className={loadingFuncionarios ? 'animate-spin' : ''} />
-                </button>
-              </div>
-            </div>
-
-            {loadingFuncionarios ? (
-              <div className="flex items-center justify-center py-12 text-slate-400 text-xs gap-2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-                Carregando colaboradores da empresa...
-              </div>
-            ) : funcionariosEmpresa.length === 0 ? (
-              <div className="text-center py-10 text-slate-500 text-xs">
-                Nenhum colaborador encontrado para a empresa selecionada. Cadastre o primeiro acima!
-              </div>
-            ) : (
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full text-left text-xs text-slate-300">
-                  <thead className="bg-slate-950/60 text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-                    <tr>
-                      <th className="py-3 px-3">Colaborador</th>
-                      <th className="py-3 px-3">Perfil</th>
-                      <th className="py-3 px-3">CPF / PIS-PASEP</th>
-                      <th className="py-3 px-3">Matrícula</th>
-                      <th className="py-3 px-3">Admissão</th>
-                      <th className="py-3 px-3">Status</th>
-                      <th className="py-3 px-3 text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/60">
-                    {funcionariosEmpresa
-                      .filter((f) => {
-                        if (!termoBuscaFuncionario.trim()) return true;
-                        const t = termoBuscaFuncionario.toLowerCase();
-                        return (
-                          f.nomeCompleto?.toLowerCase().includes(t) ||
-                          f.usuario?.toLowerCase().includes(t) ||
-                          f.matricula?.toLowerCase().includes(t) ||
-                          f.cpf?.includes(t) ||
-                          f.pis_pasep?.includes(t)
-                        );
-                      })
-                      .map((f) => (
-                        <tr key={f.id} className="hover:bg-slate-800/30 transition-colors">
-                          <td className="py-3 px-3">
-                            <div className="font-semibold text-white">{f.nomeCompleto}</div>
-                            <div className="text-[11px] text-slate-400 font-mono">@{f.usuario}</div>
-                          </td>
-                          <td className="py-3 px-3">
-                            <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                                f.perfilAcesso === 'COLABORADOR'
-                                  ? 'bg-emerald-500/20 text-emerald-400'
-                                  : f.perfilAcesso === 'GESTOR'
-                                  ? 'bg-blue-500/20 text-blue-400'
-                                  : 'bg-purple-500/20 text-purple-400'
-                              }`}
-                            >
-                              {f.perfilAcesso}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 font-mono text-[11px] text-slate-400">
-                            <div>CPF: {formatarCpf(f.cpf) || f.cpf || '—'}</div>
-                            <div>PIS: {formatarPis(f.pis_pasep) || f.pis_pasep || '—'}</div>
-                          </td>
-                          <td className="py-3 px-3 font-mono text-indigo-300 font-medium">
-                            {f.matricula || '—'}
-                          </td>
-                          <td className="py-3 px-3 text-slate-400">
-                            {f.dataAdmissao || '—'}
-                          </td>
-                          <td className="py-3 px-3">
-                            {f.dataDesligamento ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-950/60 text-red-400 border border-red-800/40">
-                                Desligado ({f.dataDesligamento})
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-950/60 text-emerald-400 border border-emerald-800/40">
-                                Ativo
-                              </span>
-                            )}
-                          </td>
-                          <td className="py-3 px-3 text-right">
-                            <div className="flex items-center justify-end gap-1.5">
-                              {!f.dataDesligamento && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleAbrirDesligamento(f)}
-                                  className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors cursor-pointer"
-                                  title="Registrar desligamento do colaborador"
-                                >
-                                  <UserMinus size={13} />
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => handleExcluirFuncionario(f)}
-                                disabled={excluindoFuncionarioId === f.id}
-                                className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 transition-colors cursor-pointer disabled:opacity-50"
-                                title="Excluir colaborador (sem marcações)"
-                              >
-                                {excluindoFuncionarioId === f.id ? (
-                                  <div className="h-3 w-3 animate-spin rounded-full border border-red-400 border-t-transparent" />
-                                ) : (
-                                  <Trash2 size={13} />
-                                )}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleTestarLoginNovo(f)}
-                                className="p-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 transition-colors cursor-pointer"
-                                title="Testar login como este colaborador"
-                              >
-                                <KeyRound size={13} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-
-          {/* Modal de Desligamento de Colaborador */}
-          {modalDesligamentoAberto && funcionarioParaDesligar && (
-            <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <UserMinus size={20} className="text-amber-400" />
-                    <h3 className="text-base font-bold text-white">Desligar Colaborador</h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setModalDesligamentoAberto(false)}
-                    className="text-slate-400 hover:text-white"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-
-                <p className="text-xs text-slate-300">
-                  Confirmar desligamento de <strong>{funcionarioParaDesligar.nomeCompleto}</strong> (login: <code className="text-indigo-300">{funcionarioParaDesligar.usuario}</code>). Após o desligamento, novas batidas de ponto posteriores a esta data serão impedidas.
-                </p>
-
-                <form onSubmit={handleConfirmarDesligamento} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1">
-                      Data de Desligamento *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={dataDesligamentoInput}
-                      onChange={(e) => setDataDesligamentoInput(e.target.value)}
-                      className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="flex gap-2 justify-end pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setModalDesligamentoAberto(false)}
-                      className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submittingDesligar}
-                      className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-semibold text-white shadow-lg shadow-amber-600/30 cursor-pointer disabled:opacity-50"
-                    >
-                      {submittingDesligar ? 'Desligando...' : 'Confirmar Desligamento'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
+        <div className="theme-harmonized space-y-6">
       {/* Conteúdo da Aba 5: Feriados & Pontos Facultativos (T05) */}
       {abaAtiva === 'feriados' && (
         <div className="space-y-8">
@@ -2603,12 +1104,9 @@ export function RhDashboard() {
                     <h3 className="text-lg font-bold text-white">
                       Gestão de Feriados e Pontos Facultativos
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                      Tarefa T05
-                    </span>
                   </div>
                   <p className="text-xs text-slate-400">
-                    Cadastro e consulta de feriados (Nacional, Estadual, Municipal) e pontos facultativos com impacto no cálculo da jornada
+                    Feriados nacionais aparecem automaticamente. Cadastre abaixo feriados estaduais, municipais e pontos facultativos da sua empresa.
                   </p>
                 </div>
               </div>
@@ -2640,18 +1138,6 @@ export function RhDashboard() {
                       <Flag size={16} className="text-amber-400" />
                       <h4 className="text-sm font-bold text-white">Cadastrar Novo Feriado</h4>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDescricaoFeriado('Dia da Proclamação da República');
-                        setDataFeriado('2026-11-15');
-                        setAlcanceFeriado('NACIONAL');
-                        toast('Exemplo de Feriado preenchido!', { icon: '🇧🇷' });
-                      }}
-                      className="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
-                    >
-                      Exemplo Nacional
-                    </button>
                   </div>
 
                   <form onSubmit={handleCadastrarFeriado} className="space-y-3">
@@ -2688,11 +1174,10 @@ export function RhDashboard() {
                           Alcance *
                         </label>
                         <select
-                          value={alcanceFeriado}
+                          value={alcanceFeriado === 'NACIONAL' ? 'MUNICIPAL' : alcanceFeriado}
                           onChange={(e) => setAlcanceFeriado(e.target.value)}
                           className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
                         >
-                          <option value="NACIONAL">NACIONAL (Geral)</option>
                           <option value="ESTADUAL">ESTADUAL (Exige UF)</option>
                           <option value="MUNICIPAL">MUNICIPAL (UF + Município)</option>
                         </select>
@@ -2751,18 +1236,6 @@ export function RhDashboard() {
                       <Clock size={16} className="text-indigo-400" />
                       <h4 className="text-sm font-bold text-white">Cadastrar Ponto Facultativo</h4>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setDescricaoPF('Quarta-feira de Cinzas (até 14h)');
-                        setDataPF('2026-02-18');
-                        setAlcancePF('NACIONAL');
-                        toast('Exemplo de Ponto Facultativo preenchido!', { icon: '✨' });
-                      }}
-                      className="text-[10px] px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
-                    >
-                      Exemplo
-                    </button>
                   </div>
 
                   <form onSubmit={handleCadastrarPontoFacultativo} className="space-y-3">
@@ -3021,13 +1494,10 @@ export function RhDashboard() {
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="text-lg font-bold text-white">Simulador de Horário Previsto do Dia</h3>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        Critério Principal T04
-                      </span>
+                      <h3 className="text-lg font-bold text-white">Consulta de Horário Previsto</h3>
                     </div>
                     <p className="text-xs text-slate-400">
-                      Testa a rota <span className="font-mono text-indigo-300">GET /api/v1/regimes-trabalho/horario-previsto?funcionarioId=...&data=...</span>
+                      Verifique a jornada, escala ou folga prevista para qualquer colaborador em uma data específica.
                     </p>
                   </div>
                 </div>
@@ -3051,30 +1521,21 @@ export function RhDashboard() {
                       Colaborador *
                     </label>
                     {funcionariosEmpresa.length > 0 ? (
-                      <FormControl fullWidth size="small">
-                        <Select
-                          value={funcionarioIdConsulta}
-                          onChange={(e) => {
-                            setFuncionarioIdConsulta(e.target.value);
-                            setFuncionarioIdRegime(e.target.value);
-                          }}
-                          sx={{
-                            color: '#f8fafc',
-                            backgroundColor: 'rgba(2, 6, 23, 0.6)',
-                            borderRadius: '0.75rem',
-                            '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(51, 65, 85, 0.8)' },
-                            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1' },
-                            '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1' },
-                            '.MuiSvgIcon-root': { color: '#94a3b8' },
-                          }}
-                        >
-                          {funcionariosEmpresa.map((f) => (
-                            <MenuItem key={f.id} value={f.id}>
-                              {f.nomeCompleto} ({f.usuario || f.matricula}) - {f.perfilAcesso}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
+                      <select
+                        value={funcionarioIdConsulta}
+                        onChange={(e) => {
+                          setFuncionarioIdConsulta(e.target.value);
+                          setFuncionarioIdRegime(e.target.value);
+                        }}
+                        className="w-full h-10 rounded-xl border border-slate-700 bg-slate-950/60 px-3 text-sm text-slate-100 focus:outline-none"
+                      >
+                        <option value="">Selecione um colaborador...</option>
+                        {funcionariosEmpresa.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.nomeCompleto} ({f.usuario || f.matricula}) - {f.perfilAcesso}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       <input
                         type="text"
@@ -3650,27 +2111,18 @@ export function RhDashboard() {
                         Colaborador *
                       </label>
                       {funcionariosEmpresa.length > 0 ? (
-                        <FormControl fullWidth size="small">
-                          <Select
-                            value={funcionarioIdRegime}
-                            onChange={(e) => setFuncionarioIdRegime(e.target.value)}
-                            sx={{
-                              color: '#f8fafc',
-                              backgroundColor: 'rgba(2, 6, 23, 0.6)',
-                              borderRadius: '0.75rem',
-                              '.MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(51, 65, 85, 0.8)' },
-                              '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1' },
-                              '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#6366f1' },
-                              '.MuiSvgIcon-root': { color: '#94a3b8' },
-                            }}
-                          >
-                            {funcionariosEmpresa.map((f) => (
-                              <MenuItem key={f.id} value={f.id}>
-                                {f.nomeCompleto} ({f.usuario || f.matricula})
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
+                        <select
+                          value={funcionarioIdRegime}
+                          onChange={(e) => setFuncionarioIdRegime(e.target.value)}
+                          className="w-full h-10 rounded-xl border border-slate-700 bg-slate-950/60 px-3 text-sm text-slate-100 focus:outline-none"
+                        >
+                          <option value="">Selecione um colaborador...</option>
+                          {funcionariosEmpresa.map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.nomeCompleto} ({f.usuario || f.matricula})
+                            </option>
+                          ))}
+                        </select>
                       ) : (
                         <input
                           type="text"
@@ -3869,6 +2321,12 @@ export function RhDashboard() {
           />
         )}
 
+        </div>
+
+        {abaAtiva === 'fechamento' && <FechamentoPeriodoSection />}
+        {abaAtiva === 'relatorios' && <RelatoriosSection />}
+        {abaAtiva === 'folha' && <ExportacaoFolhaSection />}
+
         {/* Modal de Cadastro de Nova Empresa (Admin) */}
         {modalEmpresaAberto && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -4007,8 +2465,8 @@ export function RhDashboard() {
             </div>
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AppShell>
   );
 }
 

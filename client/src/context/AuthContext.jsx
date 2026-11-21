@@ -7,12 +7,13 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(() => authService.getToken());
   const [loading] = useState(false);
 
-  const login = async (usuario, senha) => {
-    const data = await authService.login(usuario, senha);
+  const login = async (usuario, senha, subdominio = '') => {
+    const data = await authService.login(usuario, senha, subdominio);
     setUser({
       usuario: data.usuario,
       perfil: data.perfil,
       tipo: data.tipo,
+      subdominio: data.subdominio || null,
     });
     setToken(data.token);
     return data;

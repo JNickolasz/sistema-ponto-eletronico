@@ -256,7 +256,7 @@ export default function FilaInconsistenciasSection({
             </div>
             <div>
               <h2 className="text-lg font-bold text-white">
-                Fila de Inconsistências e Fechamento (T12)
+                Fila de Inconsistências de Ponto
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
                 Toda divergência entra automaticamente na fila. Nada é resolvido em silêncio: ação, autor, data e motivo ficam auditados.

@@ -7,16 +7,17 @@ export const authService = {
    * @param {string} senha
    * @returns {Promise<{token: string, tipo: string, usuario: string, perfil: string}>}
    */
-  async login(usuario, senha) {
+  async login(usuario, senha, subdominio = '') {
     const trimmedUsuario = (usuario || '').trim();
     const trimmedSenha = (senha || '').trim();
+    const trimmedSubdominio = (subdominio || '').trim().toLowerCase();
 
     if (!trimmedUsuario || !trimmedSenha) {
       throw new Error('Usuário e senha são obrigatórios');
     }
 
     // Verificação de Acesso Admin da Plataforma via Chave Mestra (validada exclusivamente no backend)
-    if (trimmedUsuario.toLowerCase() === 'admin') {
+    if (trimmedUsuario.toLowerCase() === 'admin' && !trimmedSubdominio) {
       try {
         await api.get('/admin/empresas', {
           headers: { 'X-Admin-Key': trimmedSenha },
@@ -32,6 +33,7 @@ export const authService = {
         usuario: 'admin',
         perfil: 'ADMIN',
         tipo: 'Administrador da Plataforma',
+        subdominio: null,
       };
       localStorage.setItem('adminKey', trimmedSenha);
       localStorage.setItem('token', 'admin-session-token');
@@ -42,7 +44,15 @@ export const authService = {
       };
     }
 
-    const data = await api.post('/auth/login', { usuario: trimmedUsuario, senha: trimmedSenha });
+    const payload = { usuario: trimmedUsuario, senha: trimmedSenha };
+    if (trimmedSubdominio) {
+      payload.subdominio = trimmedSubdominio;
+    }
+
+    const data = await api.post('/auth/login', payload, trimmedSubdominio
+      ? { headers: { 'X-Tenant-Subdomain': trimmedSubdominio } }
+      : undefined
+    );
     if (data.token) {
       localStorage.setItem('token', data.token);
       localStorage.removeItem('adminKey');
@@ -50,9 +60,10 @@ export const authService = {
         usuario: data.usuario,
         perfil: data.perfil,
         tipo: data.tipo,
+        subdominio: trimmedSubdominio || null,
       }));
     }
-    return data;
+    return { ...data, subdominio: trimmedSubdominio || null };
   },
 
   logout() {

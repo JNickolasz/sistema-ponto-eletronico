@@ -4,6 +4,7 @@ package com.example.projetoPBD.pontoCerto.resource;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EmpresaDTO;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.FeriadoDTO;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.PontoFacultativoDTO;
+import com.example.projetoPBD.pontoCerto.service.AdminDashboardService;
 import com.example.projetoPBD.pontoCerto.service.EmpresaService;
 import com.example.projetoPBD.pontoCerto.service.FeriadoService;
 import com.example.projetoPBD.pontoCerto.service.PontoFacultativoService;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import com.example.projetoPBD.pontoCerto.dto.EntityResponse;
 
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -23,15 +25,41 @@ public class AdminController {
     private final EmpresaService empresaService;
     private final FeriadoService feriadoService;
     private final PontoFacultativoService pontoFacultativoService;
+    private final AdminDashboardService adminDashboardService;
 
     public AdminController(
             EmpresaService empresaService,
             FeriadoService feriadoService,
-            PontoFacultativoService pontoFacultativoService
+            PontoFacultativoService pontoFacultativoService,
+            AdminDashboardService adminDashboardService
     ) {
         this.empresaService = empresaService;
         this.feriadoService = feriadoService;
         this.pontoFacultativoService = pontoFacultativoService;
+        this.adminDashboardService = adminDashboardService;
+    }
+
+    @GetMapping("/estatisticas")
+    public ResponseEntity<Map<String, Object>> obterEstatisticas() {
+        return ResponseEntity.ok(adminDashboardService.obterEstatisticasGlobais());
+    }
+
+    @GetMapping("/empresas/{id}/detalhes")
+    public ResponseEntity<Map<String, Object>> obterDetalhesEmpresa(@PathVariable UUID id) {
+        return ResponseEntity.ok(adminDashboardService.obterDetalhesEmpresa(id));
+    }
+
+    @PatchMapping("/empresas/{id}/branding")
+    public ResponseEntity<Map<String, Object>> atualizarBranding(
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> body
+    ) {
+        return ResponseEntity.ok(adminDashboardService.atualizarBranding(
+                id,
+                body.get("logoUrl"),
+                body.get("corPrimaria"),
+                body.get("corSecundaria")
+        ));
     }
 
     @PostMapping("/empresas")
