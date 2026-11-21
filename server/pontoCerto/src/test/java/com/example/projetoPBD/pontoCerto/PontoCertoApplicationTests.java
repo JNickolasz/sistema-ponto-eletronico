@@ -74,6 +74,8 @@ import com.example.projetoPBD.pontoCerto.service.CompetenciaLockService;
 import com.example.projetoPBD.pontoCerto.service.FechamentoPeriodoService;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.EspelhoPontoDTO;
 import com.example.projetoPBD.pontoCerto.service.EspelhoService;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.RelatorioDTO;
+import com.example.projetoPBD.pontoCerto.service.RelatorioService;
 import com.example.projetoPBD.pontoCerto.service.exceptions.AcessoNegadoException;
 import org.springframework.core.io.Resource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -189,6 +191,9 @@ class PontoCertoApplicationTests {
 
 	@Autowired
 	private EspelhoService espelhoService;
+
+	@Autowired
+	private RelatorioService relatorioService;
 
 	@Test
 	void contextLoads() {
@@ -1919,6 +1924,128 @@ class PontoCertoApplicationTests {
 		assertNotNull(espelhoService.consultarEspelhoMensal(subordinado.getId(), "2026-11"));
 		assertNotNull(espelhoService.consultarEspelhoMensal(gestor.getId(), "2026-11"));
 
+		SecurityContextHolder.clearContext();
+	}
+
+	@Test
+	@DisplayName("T19 - Relatórios Integrados: Horas Extras, Absenteísmo, Banco de Horas, Pendências (abertas/tratadas) e CSVs")
+	void testT19_RelatoriosIntegradosECsv() {
+		List<Funcionario> todos = funcionarioRepository.findAll();
+		Funcionario rh = todos.stream().filter(f -> f.getPerfilAcesso() == PerfilAcesso.RH).findFirst().orElseThrow();
+		Funcionario gestor = todos.stream().filter(f -> f.getPerfilAcesso() == PerfilAcesso.GESTOR).findFirst().orElseThrow();
+		Funcionario subordinado = todos.stream()
+				.filter(f -> f.getPerfilAcesso() == PerfilAcesso.COLABORADOR && f.getGestor() != null && f.getGestor().getId().equals(gestor.getId()))
+				.findFirst()
+				.orElseGet(() -> {
+					Funcionario c = todos.stream().filter(f -> f.getPerfilAcesso() == PerfilAcesso.COLABORADOR).findFirst().orElseThrow();
+					c.setGestor(gestor);
+					return funcionarioRepository.saveAndFlush(c);
+				});
+
+		autenticarComoRh(rh);
+		historicoFechamentoPeriodoRepository.deleteAll();
+		fechamentoPeriodoRepository.deleteAll();
+		fechamentoBancoHorasRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+		inconsistenciaRepository.deleteAll();
+
+		LocalDate dia1 = LocalDate.of(2026, 4, 6);
+		LocalDate dia2 = LocalDate.of(2026, 4, 7);
+		apuracaoDiariaRepository.findByFuncionarioIdAndDataReferencia(subordinado.getId(), dia1).ifPresent(apuracaoDiariaRepository::delete);
+		apuracaoDiariaRepository.findByFuncionarioIdAndDataReferencia(subordinado.getId(), dia2).ifPresent(apuracaoDiariaRepository::delete);
+
+		// Dia 1: 60 min extra -> gera crédito no banco de horas também
+		ApuracaoDiaria ap1 = new ApuracaoDiaria();
+		ap1.setFuncionario(subordinado);
+		ap1.setDataReferencia(dia1);
+		ap1.setStatus(StatusApuracaoDiaria.APURADO);
+		ap1.setMinutosPrevistos(480);
+		ap1.setMinutosTrabalhados(540);
+		ap1.setMinutosHoraExtraTotal(60);
+		ap1.setHorasExtrasPorFaixaJson("{\"50%\":60}");
+		ap1.setCalculadoEm(LocalDateTime.now());
+		ap1 = apuracaoDiariaRepository.saveAndFlush(ap1);
+		bancoHorasService.derivarMovimentacoesDaApuracao(ap1);
+
+		// Dia 2: 30 min atraso
+		ApuracaoDiaria ap2 = new ApuracaoDiaria();
+		ap2.setFuncionario(subordinado);
+		ap2.setDataReferencia(dia2);
+		ap2.setStatus(StatusApuracaoDiaria.APURADO);
+		ap2.setMinutosPrevistos(480);
+		ap2.setMinutosTrabalhados(450);
+		ap2.setMinutosAtraso(30);
+		ap2.setCalculadoEm(LocalDateTime.now());
+		ap2 = apuracaoDiariaRepository.saveAndFlush(ap2);
+		bancoHorasService.derivarMovimentacoesDaApuracao(ap2);
+
+		// Pendência aberta + tratada
+		Inconsistencia incA = new Inconsistencia();
+		incA.setEmpresa(subordinado.getEmpresa());
+		incA.setFuncionario(subordinado);
+		incA.setTipo(TipoInconsistencia.DIA_IMPAR);
+		incA.setSituacao(StatusInconsistencia.ABERTA);
+		incA.setDataReferencia(dia1);
+		incA.setDataHoraOrigem(dia1.atTime(8, 0));
+		incA.setChaveDeduplicacao("T19_ABERTA_" + UUID.randomUUID());
+		incA.setDescricaoOrigem("Batida ímpar T19");
+		inconsistenciaRepository.saveAndFlush(incA);
+
+		Inconsistencia incT = new Inconsistencia();
+		incT.setEmpresa(subordinado.getEmpresa());
+		incT.setFuncionario(subordinado);
+		incT.setTipo(TipoInconsistencia.FORA_DA_JORNADA);
+		incT.setSituacao(StatusInconsistencia.RESOLVIDA);
+		incT.setDataReferencia(dia2);
+		incT.setDataHoraOrigem(dia2.atTime(8, 0));
+		incT.setChaveDeduplicacao("T19_TRATADA_" + UUID.randomUUID());
+		incT.setDescricaoOrigem("Feriado T19");
+		incT.setAcaoTomada(AcaoTratamento.ABONAR_DIA);
+		incT.setTratadoPor("RH Teste");
+		incT.setTratadoEm(LocalDateTime.now());
+		inconsistenciaRepository.saveAndFlush(incT);
+
+		// Autentica como Gestor para testar todos os 4 relatórios
+		SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+				new FuncionarioUserDetails(gestor), null, List.of(new SimpleGrantedAuthority("ROLE_GESTOR"))
+		));
+
+		RelatorioDTO.HorasExtrasRelatorioResponse relHe = relatorioService.gerarRelatorioHorasExtras(
+				null, null, "2026-04", null, null);
+		assertEquals(60, relHe.totalMinutosExtrasGeral());
+		assertTrue(relatorioService.exportarHorasExtrasCsv(null, null, "2026-04", null, null).contains(subordinado.getNomeCompleto()));
+
+		RelatorioDTO.AbsenteismoRelatorioResponse relAbs = relatorioService.gerarRelatorioAbsenteismo(
+				null, null, "2026-04", null, null);
+		assertEquals(30, relAbs.totalMinutosAtrasoGeral());
+		assertTrue(relatorioService.exportarAbsenteismoCsv(null, null, "2026-04", null, null).contains(subordinado.getNomeCompleto()));
+
+		RelatorioDTO.BancoHorasRelatorioResponse relBh = relatorioService.gerarRelatorioBancoHoras(
+				null, null, "2026-04", null, null);
+		assertEquals(30, relBh.saldoGeralMinutos());
+		assertTrue(relatorioService.exportarBancoHorasCsv(null, null, "2026-04", null, null).contains(subordinado.getNomeCompleto()));
+
+		RelatorioDTO.PendenciasRelatorioResponse relPend = relatorioService.gerarRelatorioPendencias(
+				null, null, "2026-04", null, null);
+		assertEquals(1, relPend.totalAbertas());
+		assertEquals(1, relPend.totalTratadas());
+		assertTrue(relatorioService.exportarPendenciasCsv(null, null, "2026-04", null, null).contains("ABERTA"));
+
+		// Isolamento: gestor não pode consultar equipe de outro gestor; colaborador não pode consultar relatórios
+		assertThrows(AcessoNegadoException.class, () ->
+				relatorioService.gerarRelatorioHorasExtras(null, null, "2026-04", null, rh.getId())
+		);
+		SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+				new FuncionarioUserDetails(subordinado), null, List.of(new SimpleGrantedAuthority("ROLE_COLABORADOR"))
+		));
+		assertThrows(AcessoNegadoException.class, () ->
+				relatorioService.gerarRelatorioPendencias(null, null, "2026-04", null, null)
+		);
+
+		// Cleanup
+		inconsistenciaRepository.deleteAll();
+		movimentacaoBancoHorasRepository.deleteAll();
+		apuracaoDiariaRepository.deleteAll(List.of(ap1, ap2));
 		SecurityContextHolder.clearContext();
 	}
 }
