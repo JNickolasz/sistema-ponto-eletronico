@@ -30,8 +30,10 @@ public class JwtService {
             Algorithm algorithm = Algorithm.HMAC256(secret);
             return JWT.create()
                     .withIssuer(issuer)
-                    .withSubject(funcionario.getUsuario())
-                    .withClaim("id", funcionario.getId().toString()) // Não precisa estar aqui, subject já é Funcionario
+                    .withSubject(funcionario.getId().toString())
+                    .withClaim("id", funcionario.getId().toString())
+                    .withClaim("usuario", funcionario.getUsuario())
+                    .withClaim("empresaId", funcionario.getEmpresa().getId().toString())
                     .withClaim("ROLE", funcionario.getPerfilAcesso().name())
                     .withExpiresAt(new Date(System.currentTimeMillis() + expiration))
                     .sign(algorithm);

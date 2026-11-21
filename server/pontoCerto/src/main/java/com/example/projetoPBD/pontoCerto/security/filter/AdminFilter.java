@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 
 @Component
 public class AdminFilter extends OncePerRequestFilter {
@@ -26,7 +28,10 @@ public class AdminFilter extends OncePerRequestFilter {
 
         String key = request.getHeader("X-Admin-Key");
 
-        if (key == null || (!key.equals(adminKey))) {
+        if (key == null || adminKey == null || !MessageDigest.isEqual(
+                key.getBytes(StandardCharsets.UTF_8),
+                adminKey.getBytes(StandardCharsets.UTF_8)
+        )) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }

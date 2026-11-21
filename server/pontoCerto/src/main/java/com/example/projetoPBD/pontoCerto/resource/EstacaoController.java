@@ -4,6 +4,7 @@ import com.example.projetoPBD.pontoCerto.domain.Estacao;
 import com.example.projetoPBD.pontoCerto.domain.enums.StatusEquipamento;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.BatidaDTO;
 import com.example.projetoPBD.pontoCerto.repository.EstacaoRepository;
+import com.example.projetoPBD.pontoCerto.security.RateLimiterService;
 import com.example.projetoPBD.pontoCerto.service.BatidaService;
 import com.example.projetoPBD.pontoCerto.service.exceptions.EquipamentoNaoEncontradoException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,10 +24,16 @@ public class EstacaoController {
 
     private final BatidaService batidaService;
     private final EstacaoRepository estacaoRepository;
+    private final RateLimiterService rateLimiterService;
 
-    public EstacaoController(BatidaService batidaService, EstacaoRepository estacaoRepository) {
+    public EstacaoController(
+            BatidaService batidaService,
+            EstacaoRepository estacaoRepository,
+            RateLimiterService rateLimiterService
+    ) {
         this.batidaService = batidaService;
         this.estacaoRepository = estacaoRepository;
+        this.rateLimiterService = rateLimiterService;
     }
 
     @PostMapping(value = "/bater-ponto", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -38,6 +45,7 @@ public class EstacaoController {
             HttpServletRequest request
     ) {
         String ipCliente = request.getRemoteAddr();
+        rateLimiterService.verificarLimite("estacao:" + estacaoId + ":" + ipCliente, 30, 60);
         BatidaDTO.ComprovanteEstacaoResponse comprovante = batidaService.registrarPontoEstacao(
                 estacaoId, usuario, senha, foto, ipCliente
         );

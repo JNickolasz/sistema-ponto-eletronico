@@ -1,7 +1,9 @@
 package com.example.projetoPBD.pontoCerto.resource;
 
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.FeriadoDTO;
+import com.example.projetoPBD.pontoCerto.security.SecurityTenantContext;
 import com.example.projetoPBD.pontoCerto.service.FeriadoService;
+import com.example.projetoPBD.pontoCerto.service.exceptions.AcessoNegadoException;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,9 +18,11 @@ import java.util.UUID;
 public class FeriadoController {
 
     private final FeriadoService feriadoService;
+    private final SecurityTenantContext securityTenantContext;
 
-    public FeriadoController(FeriadoService feriadoService) {
+    public FeriadoController(FeriadoService feriadoService, SecurityTenantContext securityTenantContext) {
         this.feriadoService = feriadoService;
+        this.securityTenantContext = securityTenantContext;
     }
 
     @PostMapping
@@ -49,7 +53,12 @@ public class FeriadoController {
             @RequestParam(value = "municipio", required = false) String municipio,
             @RequestParam(value = "empresaId", required = false) UUID empresaId) {
 
-        List<FeriadoDTO.Response> calendario = feriadoService.buscarCalendarioAnual(ano, uf, municipio, empresaId);
+        UUID empresaAtual = securityTenantContext.empresaAtual();
+        if (empresaId != null && !empresaId.equals(empresaAtual)) {
+            throw new AcessoNegadoException("Acesso negado: não é permitido consultar calendário de outra empresa.");
+        }
+
+        List<FeriadoDTO.Response> calendario = feriadoService.buscarCalendarioAnual(ano, uf, municipio, empresaAtual);
         return ResponseEntity.ok(calendario);
     }
 }

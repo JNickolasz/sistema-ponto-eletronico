@@ -16,4 +16,6 @@ public interface EmpresaRepository extends JpaRepository<Empresa, UUID> {
 
     boolean existsBySubDominio(String subdominio);
 
+    Optional<Empresa> findBySubDominioIgnoreCase(String subdominio);
+
 }

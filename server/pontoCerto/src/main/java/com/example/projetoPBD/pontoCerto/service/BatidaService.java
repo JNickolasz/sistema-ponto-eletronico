@@ -25,6 +25,8 @@ import com.example.projetoPBD.pontoCerto.service.exceptions.EquipamentoNaoEncont
 import com.example.projetoPBD.pontoCerto.service.exceptions.UsuarioNaoEncontradoException;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -50,6 +52,7 @@ import java.util.UUID;
 
 @Service
 public class BatidaService {
+    private static final Logger log = LoggerFactory.getLogger(BatidaService.class);
     private final BatidaRepository batidaRepository;
     private final FuncionarioRepository funcionarioRepository;
     private final EquipamentoRepository equipamentoReposity;
@@ -169,7 +172,8 @@ public class BatidaService {
         try {
             inconsistenciaService.analisarDiaColaborador(funcionario, hoje);
             apuracaoDiariaService.apurarDia(funcionario, hoje);
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.error("Falha ao analisar/apurar dia {} após batida na estação para colaborador {}", hoje, funcionario.getId(), e);
         }
 
         String horaFormatada = agoraServidor.format(DateTimeFormatter.ofPattern("HH:mm"));
@@ -273,7 +277,9 @@ public class BatidaService {
         try {
             inconsistenciaService.analisarDiaColaborador(funcionario, batida.getDataHora().toLocalDate());
             apuracaoDiariaService.apurarDia(funcionario, batida.getDataHora().toLocalDate());
-        } catch (Exception ignored) {
+        } catch (Exception e) {
+            log.error("Falha ao analisar/apurar dia {} após registro de batida para colaborador {}",
+                    batida.getDataHora().toLocalDate(), funcionario.getId(), e);
         }
 
         return new BatidaDTO.ComprovanteResponse(batida);

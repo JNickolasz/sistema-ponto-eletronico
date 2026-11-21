@@ -21,14 +21,14 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String usernameOrId) throws UsernameNotFoundException {
-        Funcionario funcionario = funcionarioRepository.findByUsuario(usernameOrId)
-                .or(() -> {
-                    try {
-                        return funcionarioRepository.findById(UUID.fromString(usernameOrId));
-                    } catch (IllegalArgumentException e) {
-                        return Optional.empty();
-                    }
-                })
+        Optional<Funcionario> porId = Optional.empty();
+        try {
+            porId = funcionarioRepository.findById(UUID.fromString(usernameOrId));
+        } catch (IllegalArgumentException ignored) {
+        }
+
+        Funcionario funcionario = porId
+                .or(() -> funcionarioRepository.findByUsuario(usernameOrId))
                 .orElseThrow(() -> new UsernameNotFoundException("Credenciais inválidas."));
         return new FuncionarioUserDetails(funcionario);
     }

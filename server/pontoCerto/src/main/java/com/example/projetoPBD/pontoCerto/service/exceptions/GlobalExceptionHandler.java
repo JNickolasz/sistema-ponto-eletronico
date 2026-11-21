@@ -170,6 +170,11 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, ex);
     }
 
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<String> handleException(TooManyRequestsException ex) {
+        return buildResponse(HttpStatus.TOO_MANY_REQUESTS, ex);
+    }
+
     @ExceptionHandler(OcorrenciaConflitoException.class)
     public ResponseEntity<String> handleException(OcorrenciaConflitoException ex) {
         return buildResponse(HttpStatus.CONFLICT, ex);

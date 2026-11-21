@@ -1,8 +1,9 @@
 package com.example.projetoPBD.pontoCerto.resource;
 
-import com.example.projetoPBD.pontoCerto.domain.Inconsistencia;
 import com.example.projetoPBD.pontoCerto.domain.enums.TipoInconsistencia;
+import com.example.projetoPBD.pontoCerto.dto.domaindtos.FechamentoPeriodoDTO;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.InconsistenciaDTO;
+import com.example.projetoPBD.pontoCerto.service.FechamentoPeriodoService;
 import com.example.projetoPBD.pontoCerto.service.InconsistenciaService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -10,7 +11,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import javax.swing.*;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -21,9 +21,14 @@ import java.util.UUID;
 public class InconsistenciaController {
 
     private final InconsistenciaService inconsistenciaService;
+    private final FechamentoPeriodoService fechamentoPeriodoService;
 
-    public InconsistenciaController(InconsistenciaService inconsistenciaService){
+    public InconsistenciaController(
+            InconsistenciaService inconsistenciaService,
+            FechamentoPeriodoService fechamentoPeriodoService
+    ){
         this.inconsistenciaService = inconsistenciaService;
+        this.fechamentoPeriodoService = fechamentoPeriodoService;
     }
 
     @GetMapping
@@ -63,7 +68,26 @@ public class InconsistenciaController {
     public ResponseEntity<InconsistenciaDTO.FechamentoResponse> fecharPeriodo(
             @Valid @RequestBody InconsistenciaDTO.FechamentoRequest dto
     ) {
-        return ResponseEntity.ok(inconsistenciaService.fecharPeriodo(dto));
+        // Delega para FechamentoPeriodoService (T17) garantindo trilha de auditoria e congelamento do Banco de Horas
+        FechamentoPeriodoDTO.FechamentoDetalheResponse det = fechamentoPeriodoService.fecharPeriodo(
+                new FechamentoPeriodoDTO.FecharRequest(
+                        dto.mesReferencia(),
+                        dto.confirmarComPendencias(),
+                        null
+                )
+        );
+        return ResponseEntity.ok(new InconsistenciaDTO.FechamentoResponse(
+                det.id(),
+                det.competencia(),
+                det.dataInicio(),
+                det.dataFim(),
+                det.fechadoEm(),
+                det.fechadoPor(),
+                det.status(),
+                det.quantidadePendenciasAbertas(),
+                det.ressalvaOuAviso(),
+                det.quantidadePendenciasAbertas() > 0
+        ));
     }
 
     @GetMapping("/fechamentos")

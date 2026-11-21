@@ -12,6 +12,8 @@ import com.example.projetoPBD.pontoCerto.service.exceptions.AcessoNegadoExceptio
 import com.example.projetoPBD.pontoCerto.service.exceptions.OcorrenciaConflitoException;
 import com.example.projetoPBD.pontoCerto.service.exceptions.PeriodoFechadoException;
 import com.example.projetoPBD.pontoCerto.service.exceptions.UsuarioNaoEncontradoException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.Resource;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,6 +30,7 @@ import java.util.UUID;
 
 @Service
 public class OcorrenciaColaboradorService {
+    private static final Logger log = LoggerFactory.getLogger(OcorrenciaColaboradorService.class);
 
     private final OcorrenciaColaboradorRepository ocorrenciaRepository;
     private final TipoOcorrenciaRepository tipoOcorrenciaRepository;
@@ -207,7 +210,10 @@ public class OcorrenciaColaboradorService {
         while (!cursor.isAfter(fim)) {
             try {
                 apuracaoDiariaService.apurarDia(funcionario, cursor);
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                log.error("Falha ao recalcular apuração do dia {} após ocorrência para colaborador {}",
+                        cursor, funcionario.getId(), e);
+            }
             cursor = cursor.plusDays(1);
         }
     }

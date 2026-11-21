@@ -7,5 +7,11 @@ public record LoginDTO(
         String usuario,
 
         @NotBlank(message = "A senha é obrigatória")
-        String senha
-) {}
+        String senha,
+
+        String subdominio
+) {
+    public LoginDTO(String usuario, String senha) {
+        this(usuario, senha, null);
+    }
+}
