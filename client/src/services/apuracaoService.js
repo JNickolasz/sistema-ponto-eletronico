@@ -1,4 +1,6 @@
-import api from './api';
+import api, { API_BASE } from './api';
+
+const BACKEND_ROOT = API_BASE.replace(/\/api\/v1\/?$/, '');
 
 export const apuracaoService = {
   consultar: async ({ funcionarioId, dataInicio, dataFim, mesReferencia }) => {
@@ -9,12 +11,12 @@ export const apuracaoService = {
     if (mesReferencia) params.append('mesReferencia', mesReferencia);
 
     const qs = params.toString() ? `?${params.toString()}` : '';
-    const response = await api.get(`/apuracao${qs}`);
+    const response = await api.get(`${BACKEND_ROOT}/api/apuracao${qs}`);
     return response?.data || response;
   },
 
   recalcular: async ({ funcionarioId, dataInicio, dataFim }) => {
-    const response = await api.post('/apuracao/recalcular', {
+    const response = await api.post(`${BACKEND_ROOT}/api/apuracao/recalcular`, {
       funcionarioId,
       dataInicio,
       dataFim,

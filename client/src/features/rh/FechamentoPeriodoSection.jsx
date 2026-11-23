@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import fechamentoService from '../../services/fechamentoService';
+import { formatarDataHora } from '../../utils/brazilianDocuments';
 import { Badge, Button, Card, EmptyState, PageHeader } from '../../components/ui/Primitives';
 import Modal from '../../components/ui/Modal';
 
@@ -91,15 +92,28 @@ export default function FechamentoPeriodoSection() {
     }
   };
 
-  const estaFechado =
-    previa?.status === 'CONCLUIDO' ||
-    previa?.status === 'CONCLUIDO_COM_PENDENCIAS' ||
-    previa?.fechado === true;
+  const fechamentoAtual = historico.find(
+    (h) => (h.competencia || h.mesReferencia) === competencia
+  );
 
+  const statusAtual =
+    previa?.statusAtual ||
+    previa?.status ||
+    fechamentoAtual?.status ||
+    'ABERTO';
+
+  const estaFechado =
+    previa?.periodoFechado === true ||
+    statusAtual === 'CONCLUIDO' ||
+    statusAtual === 'CONCLUIDO_COM_PENDENCIAS';
+
+  const pendenciasLista = Array.isArray(previa?.pendenciasAbertas)
+    ? previa.pendenciasAbertas
+    : [];
   const totalPendencias =
-    (previa?.inconsistenciasAbertas ?? 0) +
-    (previa?.batidasOrfasPendentes ?? 0) +
-    (previa?.solicitacoesPendentes ?? 0);
+    previa?.totalPendenciasAbertas ?? pendenciasLista.length;
+  const qtdOrfas = pendenciasLista.filter((p) => p.tipo === 'ORFA').length;
+  const qtdOutrasInconsistencias = Math.max(0, totalPendencias - qtdOrfas);
 
   return (
     <div className="space-y-6">
@@ -112,9 +126,14 @@ export default function FechamentoPeriodoSection() {
               type="month"
               value={competencia}
               onChange={(e) => setCompetencia(e.target.value)}
-              className="h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm font-mono-tabular"
+              className="min-h-10 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm font-mono-tabular"
             />
-            <Button variant="secondary" size="sm" onClick={() => carregarTudo(competencia)} disabled={loading}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => carregarTudo(competencia)}
+              disabled={loading}
+            >
               <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
               Atualizar
             </Button>
@@ -130,44 +149,54 @@ export default function FechamentoPeriodoSection() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Checklist & Action */}
           <Card className="lg:col-span-7 p-6 space-y-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold">Prévia da Competência {competencia}</h2>
+                <h2 className="text-base font-bold">Prévia da Competência {competencia}</h2>
                 <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                  Verificação de inconsistências, batidas órfãs e solicitações em aberto.
+                  Verificação de pendências de apuração, batidas órfãs e bloqueio mensal.
                 </p>
               </div>
-              <Badge tone={estaFechado ? 'success' : totalPendencias > 0 ? 'warning' : 'brand'}>
-                {estaFechado ? <Lock size={11} /> : <LockOpen size={11} />}
-                {estaFechado ? 'Fechado' : 'Aberto'}
+              <Badge
+                tone={
+                  statusAtual === 'CONCLUIDO'
+                    ? 'success'
+                    : statusAtual === 'CONCLUIDO_COM_PENDENCIAS'
+                      ? 'brand'
+                      : totalPendencias > 0
+                        ? 'warning'
+                        : 'neutral'
+                }
+              >
+                {estaFechado ? <Lock size={12} /> : <LockOpen size={12} />}
+                {statusAtual === 'CONCLUIDO'
+                  ? 'Fechado'
+                  : statusAtual === 'CONCLUIDO_COM_PENDENCIAS'
+                    ? 'Fechado c/ Pendências'
+                    : 'Aberto'}
               </Badge>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-3.5">
-                <div className="text-[11px] text-[var(--text-muted)]">Inconsistências abertas</div>
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-3.5">
+                <div className="text-xs text-[var(--text-muted)]">Total de pendências</div>
+                <div className="text-2xl font-bold font-mono-tabular mt-1">{totalPendencias}</div>
+              </div>
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-3.5">
+                <div className="text-xs text-[var(--text-muted)]">Inconsistências</div>
                 <div className="text-2xl font-bold font-mono-tabular mt-1">
-                  {previa?.inconsistenciasAbertas ?? 0}
+                  {qtdOutrasInconsistencias}
                 </div>
               </div>
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-3.5">
-                <div className="text-[11px] text-[var(--text-muted)]">Batidas órfãs</div>
-                <div className="text-2xl font-bold font-mono-tabular mt-1">
-                  {previa?.batidasOrfasPendentes ?? 0}
-                </div>
-              </div>
-              <div className="rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-page)] p-3.5">
-                <div className="text-[11px] text-[var(--text-muted)]">Ajustes pendentes</div>
-                <div className="text-2xl font-bold font-mono-tabular mt-1">
-                  {previa?.solicitacoesPendentes ?? 0}
-                </div>
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-page)] p-3.5">
+                <div className="text-xs text-[var(--text-muted)]">Batidas órfãs</div>
+                <div className="text-2xl font-bold font-mono-tabular mt-1">{qtdOrfas}</div>
               </div>
             </div>
 
             {!estaFechado ? (
-              <div className="space-y-4 pt-2 border-t border-[var(--border-subtle)]">
+              <div className="space-y-4 pt-3 border-t border-[var(--border-subtle)]">
                 {totalPendencias > 0 && (
-                  <label className="flex items-start gap-2.5 rounded-lg border border-amber-200 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/30 p-3 text-xs cursor-pointer">
+                  <label className="flex items-start gap-2.5 rounded-xl border border-amber-200 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-950/30 p-3.5 text-xs cursor-pointer">
                     <input
                       type="checkbox"
                       checked={confirmarComPendencias}
@@ -175,20 +204,23 @@ export default function FechamentoPeriodoSection() {
                       className="mt-0.5"
                     />
                     <span className="text-amber-900 dark:text-amber-200">
-                      <AlertTriangle size={13} className="inline mr-1" />
-                      Estou ciente das {totalPendencias} pendência(s) aberta(s) e autorizo o fechamento com ressalva.
+                      <AlertTriangle size={14} className="inline mr-1" />
+                      Estou ciente das <strong>{totalPendencias}</strong> pendência(s) aberta(s) e
+                      autorizo o fechamento com ressalva auditada.
                     </span>
                   </label>
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium">Observação de fechamento (opcional)</label>
+                  <label className="block text-xs font-semibold">
+                    Observação de fechamento (opcional)
+                  </label>
                   <textarea
                     rows={2}
                     value={observacao}
                     onChange={(e) => setObservacao(e.target.value)}
                     placeholder="Ex: Conferido com lideranças e liberado para folha."
-                    className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] p-2.5 text-sm"
+                    className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-3 text-sm"
                   />
                 </div>
 
@@ -197,27 +229,43 @@ export default function FechamentoPeriodoSection() {
                   onClick={handleFechar}
                   disabled={submitting || (totalPendencias > 0 && !confirmarComPendencias)}
                 >
-                  {submitting ? <Loader2 size={15} className="animate-spin" /> : <Lock size={15} />}
+                  {submitting ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />}
                   Fechar Competência {competencia}
                 </Button>
               </div>
             ) : (
-              <div className="pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2 text-xs text-emerald-700 dark:text-emerald-400">
-                  <CheckCircle2 size={16} />
-                  Competência bloqueada para alterações e pronta para exportação da folha.
+              <div className="pt-4 border-t border-[var(--border-subtle)] space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-start gap-2.5 text-xs text-emerald-700 dark:text-emerald-400">
+                    <CheckCircle2 size={18} className="shrink-0 mt-0.5" />
+                    <div>
+                      <div className="font-bold text-sm">
+                        Competência {competencia} congelada e bloqueada
+                      </div>
+                      <div className="text-[var(--text-secondary)] mt-0.5">
+                        Alterações retroativas estão bloqueadas e a exportação da folha está liberada.
+                      </div>
+                    </div>
+                  </div>
+                  <Button variant="secondary" size="sm" onClick={() => setModalReabrir(true)}>
+                    <LockOpen size={15} />
+                    Reabrir Período
+                  </Button>
                 </div>
-                <Button variant="secondary" size="sm" onClick={() => setModalReabrir(true)}>
-                  <LockOpen size={14} />
-                  Reabrir Período
-                </Button>
+
+                {fechamentoAtual?.ressalvaOuAviso && (
+                  <div className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-subtle)] text-xs text-[var(--text-secondary)]">
+                    <strong className="text-[var(--text-primary)]">Ressalva / Observação:</strong>{' '}
+                    {fechamentoAtual.ressalvaOuAviso}
+                  </div>
+                )}
               </div>
             )}
           </Card>
 
           {/* History */}
           <Card className="lg:col-span-5 p-6">
-            <h2 className="text-sm font-semibold mb-4">Histórico de Competências</h2>
+            <h2 className="text-base font-bold mb-4">Histórico de Competências</h2>
             {historico.length === 0 ? (
               <EmptyState
                 icon={Lock}
@@ -226,29 +274,47 @@ export default function FechamentoPeriodoSection() {
               />
             ) : (
               <div className="divide-y divide-[var(--border-subtle)] border border-[var(--border-subtle)] rounded-xl overflow-hidden">
-                {historico.map((item) => (
-                  <div key={item.id || item.mesReferencia} className="p-3.5 flex items-center justify-between text-xs">
-                    <div>
-                      <div className="font-semibold font-mono-tabular">
-                        {item.mesReferencia || item.competencia}
-                      </div>
-                      <div className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                        {item.responsavel || 'RH'}
-                      </div>
-                    </div>
-                    <Badge
-                      tone={
-                        item.status === 'REABERTO'
-                          ? 'warning'
-                          : item.status === 'CONCLUIDO_COM_PENDENCIAS'
-                          ? 'brand'
-                          : 'success'
-                      }
+                {historico.map((item) => {
+                  const compItem = item.competencia || item.mesReferencia;
+                  const selecionada = compItem === competencia;
+                  return (
+                    <button
+                      type="button"
+                      key={item.id || compItem}
+                      onClick={() => compItem && setCompetencia(compItem)}
+                      className={`w-full text-left p-3.5 flex items-center justify-between gap-3 text-xs transition-colors cursor-pointer ${
+                        selecionada
+                          ? 'bg-[var(--surface-subtle)]'
+                          : 'hover:bg-[var(--surface-hover)]'
+                      }`}
                     >
-                      {item.status}
-                    </Badge>
-                  </div>
-                ))}
+                      <div className="min-w-0">
+                        <div className="font-bold font-mono-tabular text-sm text-[var(--text-primary)]">
+                          {compItem}
+                        </div>
+                        <div className="text-xs text-[var(--text-muted)] mt-0.5 truncate">
+                          {item.fechadoPor || item.responsavel || 'RH'}
+                          {item.fechadoEm ? ` · ${formatarDataHora(item.fechadoEm)}` : ''}
+                        </div>
+                      </div>
+                      <Badge
+                        tone={
+                          item.status === 'ABERTO'
+                            ? 'warning'
+                            : item.status === 'CONCLUIDO_COM_PENDENCIAS'
+                              ? 'brand'
+                              : 'success'
+                        }
+                      >
+                        {item.status === 'CONCLUIDO'
+                          ? 'Fechado'
+                          : item.status === 'CONCLUIDO_COM_PENDENCIAS'
+                            ? 'Fechado c/ Pend.'
+                            : item.status}
+                      </Badge>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </Card>
@@ -263,7 +329,7 @@ export default function FechamentoPeriodoSection() {
       >
         <form onSubmit={handleReabrir} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium">Motivo da reabertura *</label>
+            <label className="block text-sm font-semibold">Motivo da reabertura *</label>
             <textarea
               rows={3}
               required
@@ -271,7 +337,7 @@ export default function FechamentoPeriodoSection() {
               value={motivoReabertura}
               onChange={(e) => setMotivoReabertura(e.target.value)}
               placeholder="Descreva o motivo para reabrir o período fechado..."
-              className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] p-2.5 text-sm"
+              className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-3 text-sm"
             />
           </div>
           <div className="flex justify-end gap-2">
@@ -279,7 +345,7 @@ export default function FechamentoPeriodoSection() {
               Cancelar
             </Button>
             <Button type="submit" variant="danger" disabled={submitting}>
-              {submitting ? <Loader2 size={14} className="animate-spin" /> : <LockOpen size={14} />}
+              {submitting ? <Loader2 size={15} className="animate-spin" /> : <LockOpen size={15} />}
               Confirmar Reabertura
             </Button>
           </div>

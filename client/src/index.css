@@ -1,12 +1,12 @@
 @import "tailwindcss";
 
-/* Tailwind v4 dark variant synchronized with <meta name="color-scheme"> */
+/* Tailwind v4 dark variant synchronized with <meta name="color-scheme"> and data-theme */
 @custom-variant dark {
-  &:where(:root:has(> head > meta[name="color-scheme"][content="dark"]) *) {
+  &:where(:root[data-theme="dark"] *, :root:has(> head > meta[name="color-scheme"][content="dark"]) *) {
     @slot;
   }
   @media (prefers-color-scheme: dark) {
-    &:where(:root:has(> head > meta[name="color-scheme"][content="light dark"]) *) {
+    &:where(:root:not([data-theme="light"]):has(> head > meta[name="color-scheme"][content="light dark"]) *) {
       @slot;
     }
   }
@@ -260,7 +260,8 @@ dialog::backdrop {
   transform: scale(1);
 }
 
-/* Harmoniza seções legadas com os tokens claro/escuro e cor White-Label da empresa */
+/* Harmoniza seções legadas (claras e escuras) com os tokens Claro/Escuro e cor White-Label da empresa */
+.theme-harmonized .bg-white,
 .theme-harmonized .bg-slate-900,
 .theme-harmonized .bg-slate-900\/80,
 .theme-harmonized .bg-slate-900\/90,
@@ -288,58 +289,97 @@ dialog::backdrop {
 .theme-harmonized .bg-slate-800\/60,
 .theme-harmonized .bg-slate-800\/50,
 .theme-harmonized .bg-slate-800\/40,
+.theme-harmonized .bg-slate-700,
+.theme-harmonized .bg-slate-50,
+.theme-harmonized .bg-slate-50\/50,
+.theme-harmonized .bg-slate-50\/80,
+.theme-harmonized .bg-slate-100,
+.theme-harmonized .bg-gray-50,
+.theme-harmonized .bg-gray-50\/80,
+.theme-harmonized .bg-gray-100,
+.theme-harmonized .bg-gray-200,
+.theme-harmonized .bg-indigo-950\/50,
 .theme-harmonized .bg-indigo-950\/40,
 .theme-harmonized .bg-indigo-950\/30,
-.theme-harmonized .bg-amber-950\/30,
-.theme-harmonized .bg-amber-950\/20,
-.theme-harmonized .bg-rose-950\/30,
-.theme-harmonized .bg-rose-950\/40,
-.theme-harmonized .bg-emerald-950\/30,
-.theme-harmonized .bg-emerald-950\/40 {
+.theme-harmonized .bg-indigo-50,
+.theme-harmonized .bg-indigo-50\/60,
+.theme-harmonized .bg-indigo-50\/70,
+.theme-harmonized .bg-indigo-100,
+.theme-harmonized .bg-purple-50,
+.theme-harmonized .bg-purple-50\/60,
+.theme-harmonized .bg-blue-50,
+.theme-harmonized .bg-blue-100 {
   background-color: var(--surface-subtle) !important;
+}
+
+.theme-harmonized .hover\:bg-slate-50:hover,
+.theme-harmonized .hover\:bg-slate-100:hover,
+.theme-harmonized .hover\:bg-gray-50:hover,
+.theme-harmonized .hover\:bg-gray-100:hover,
+.theme-harmonized .hover\:bg-slate-700:hover,
+.theme-harmonized .hover\:bg-slate-800:hover {
+  background-color: var(--surface-hover) !important;
 }
 
 .theme-harmonized .border-slate-800,
 .theme-harmonized .border-slate-800\/80,
 .theme-harmonized .border-slate-700,
 .theme-harmonized .border-slate-700\/80,
-.theme-harmonized .border-amber-500\/30,
+.theme-harmonized .border-slate-200,
+.theme-harmonized .border-slate-200\/70,
+.theme-harmonized .border-slate-200\/80,
+.theme-harmonized .border-slate-100,
+.theme-harmonized .border-slate-300,
+.theme-harmonized .border-gray-100,
+.theme-harmonized .border-gray-200,
+.theme-harmonized .border-gray-200\/80,
+.theme-harmonized .border-indigo-100,
+.theme-harmonized .border-indigo-200,
+.theme-harmonized .border-indigo-200\/70,
+.theme-harmonized .border-indigo-200\/80,
+.theme-harmonized .border-indigo-500\/20,
 .theme-harmonized .border-indigo-500\/30,
-.theme-harmonized .border-emerald-500\/30,
-.theme-harmonized .border-rose-500\/30 {
+.theme-harmonized .border-indigo-800\/30,
+.theme-harmonized .border-purple-200\/70,
+.theme-harmonized .border-purple-500\/20,
+.theme-harmonized .border-purple-500\/30,
+.theme-harmonized .border-blue-200,
+.theme-harmonized .divide-slate-100 > * + *,
+.theme-harmonized .divide-slate-200 > * + *,
+.theme-harmonized .divide-slate-800\/70 > * + *,
+.theme-harmonized .divide-gray-100 > * + * {
   border-color: var(--border-subtle) !important;
 }
 
-.theme-harmonized .text-rose-300 {
-  color: light-dark(#be123c, #fda4af) !important;
-}
-
-.theme-harmonized .text-emerald-300,
-.theme-harmonized .text-emerald-400 {
-  color: light-dark(#047857, #34d399) !important;
-}
-
-.theme-harmonized .text-amber-300,
-.theme-harmonized .text-amber-400 {
-  color: light-dark(#b45309, #fbbf24) !important;
-}
-
-.theme-harmonized .text-white,
+/* Textos principais, secundários e sutis (escuras e claras) */
+.theme-harmonized .text-white:not(button):not(.bg-red-600):not(.bg-rose-600):not(.bg-amber-600):not(.bg-emerald-600):not(.bg-indigo-600):not(.bg-purple-600),
 .theme-harmonized .text-slate-100,
-.theme-harmonized .text-slate-200 {
+.theme-harmonized .text-slate-200,
+.theme-harmonized .text-slate-900,
+.theme-harmonized .text-slate-800,
+.theme-harmonized .text-gray-900,
+.theme-harmonized .text-gray-800 {
   color: var(--text-primary) !important;
 }
 
 .theme-harmonized .text-slate-300,
-.theme-harmonized .text-slate-400 {
+.theme-harmonized .text-slate-400,
+.theme-harmonized .text-slate-700,
+.theme-harmonized .text-slate-600,
+.theme-harmonized .text-gray-700,
+.theme-harmonized .text-gray-600 {
   color: var(--text-secondary) !important;
 }
 
-.theme-harmonized .text-slate-500 {
+.theme-harmonized .text-slate-500,
+.theme-harmonized .text-gray-500,
+.theme-harmonized .text-gray-400 {
   color: var(--text-muted) !important;
 }
 
+/* Cores de destaque de marca (White-Label) */
 .theme-harmonized .bg-indigo-600,
+.theme-harmonized .bg-indigo-700,
 .theme-harmonized .bg-purple-600,
 .theme-harmonized .bg-emerald-600 {
   background-color: var(--brand-600) !important;
@@ -348,16 +388,128 @@ dialog::backdrop {
 }
 
 .theme-harmonized .bg-indigo-600:hover,
+.theme-harmonized .bg-indigo-700:hover,
 .theme-harmonized .bg-purple-600:hover,
 .theme-harmonized .bg-emerald-600:hover {
   background-color: var(--brand-700) !important;
 }
 
-.theme-harmonized .text-indigo-400,
+.theme-harmonized .bg-rose-600,
+.theme-harmonized .bg-red-600 {
+  color: #ffffff !important;
+}
+
+.theme-harmonized .bg-amber-600 {
+  color: #ffffff !important;
+}
+
+.theme-harmonized .text-indigo-200,
 .theme-harmonized .text-indigo-300,
+.theme-harmonized .text-indigo-400,
+.theme-harmonized .text-indigo-500,
+.theme-harmonized .text-indigo-600,
+.theme-harmonized .text-indigo-700,
+.theme-harmonized .text-indigo-800,
+.theme-harmonized .text-indigo-900,
+.theme-harmonized .text-purple-300,
 .theme-harmonized .text-purple-400,
-.theme-harmonized .text-purple-300 {
-  color: var(--brand-600) !important;
+.theme-harmonized .text-purple-600,
+.theme-harmonized .text-purple-700,
+.theme-harmonized .text-purple-900,
+.theme-harmonized .text-blue-700,
+.theme-harmonized .text-blue-800,
+.theme-harmonized .text-blue-900 {
+  color: light-dark(var(--brand-700), #93c5fd) !important;
+}
+
+/* Badges e caixas semânticas (Sucesso, Alerta, Erro) em Light e Dark */
+.theme-harmonized .bg-rose-50,
+.theme-harmonized .bg-rose-50\/20,
+.theme-harmonized .bg-rose-50\/60,
+.theme-harmonized .bg-rose-50\/70,
+.theme-harmonized .bg-rose-100,
+.theme-harmonized .bg-rose-950\/30,
+.theme-harmonized .bg-rose-950\/40,
+.theme-harmonized .bg-red-50,
+.theme-harmonized .bg-red-950\/60,
+.theme-harmonized .bg-red-900\/50 {
+  background-color: light-dark(#fff1f2, rgba(136, 19, 55, 0.28)) !important;
+}
+
+.theme-harmonized .bg-emerald-50,
+.theme-harmonized .bg-emerald-50\/60,
+.theme-harmonized .bg-emerald-50\/70,
+.theme-harmonized .bg-emerald-100,
+.theme-harmonized .bg-emerald-950\/20,
+.theme-harmonized .bg-emerald-950\/30,
+.theme-harmonized .bg-emerald-950\/40 {
+  background-color: light-dark(#ecfdf5, rgba(6, 78, 59, 0.28)) !important;
+}
+
+.theme-harmonized .bg-amber-50,
+.theme-harmonized .bg-amber-50\/30,
+.theme-harmonized .bg-amber-50\/60,
+.theme-harmonized .bg-amber-100,
+.theme-harmonized .bg-amber-950\/20,
+.theme-harmonized .bg-amber-950\/30 {
+  background-color: light-dark(#fffbeb, rgba(120, 53, 15, 0.28)) !important;
+}
+
+.theme-harmonized .border-rose-200,
+.theme-harmonized .border-rose-200\/70,
+.theme-harmonized .border-rose-200\/80,
+.theme-harmonized .border-rose-500\/30,
+.theme-harmonized .border-red-200,
+.theme-harmonized .border-red-800\/40 {
+  border-color: light-dark(#fecdd3, rgba(244, 63, 94, 0.35)) !important;
+}
+
+.theme-harmonized .border-emerald-200,
+.theme-harmonized .border-emerald-200\/70,
+.theme-harmonized .border-emerald-200\/80,
+.theme-harmonized .border-emerald-500\/30 {
+  border-color: light-dark(#a7f3d0, rgba(16, 185, 129, 0.35)) !important;
+}
+
+.theme-harmonized .border-amber-200,
+.theme-harmonized .border-amber-200\/70,
+.theme-harmonized .border-amber-200\/80,
+.theme-harmonized .border-amber-300,
+.theme-harmonized .border-amber-500\/30 {
+  border-color: light-dark(#fde68a, rgba(245, 158, 11, 0.35)) !important;
+}
+
+.theme-harmonized .text-rose-200\/70,
+.theme-harmonized .text-rose-300,
+.theme-harmonized .text-rose-400,
+.theme-harmonized .text-rose-600,
+.theme-harmonized .text-rose-700,
+.theme-harmonized .text-rose-800,
+.theme-harmonized .text-rose-900,
+.theme-harmonized .text-red-300,
+.theme-harmonized .text-red-700 {
+  color: light-dark(#be123c, #fda4af) !important;
+}
+
+.theme-harmonized .text-emerald-200\/70,
+.theme-harmonized .text-emerald-300,
+.theme-harmonized .text-emerald-400,
+.theme-harmonized .text-emerald-600,
+.theme-harmonized .text-emerald-700,
+.theme-harmonized .text-emerald-800,
+.theme-harmonized .text-emerald-900 {
+  color: light-dark(#047857, #6ee7b7) !important;
+}
+
+.theme-harmonized .text-amber-200,
+.theme-harmonized .text-amber-200\/70,
+.theme-harmonized .text-amber-300,
+.theme-harmonized .text-amber-400,
+.theme-harmonized .text-amber-600,
+.theme-harmonized .text-amber-700,
+.theme-harmonized .text-amber-800,
+.theme-harmonized .text-amber-900 {
+  color: light-dark(#b45309, #fcd34d) !important;
 }
 
 .theme-harmonized input,
@@ -366,94 +518,6 @@ dialog::backdrop {
   background-color: var(--surface-card) !important;
   color: var(--text-primary) !important;
   border-color: var(--border-subtle) !important;
-}
-
-/* Harmoniza seções originalmente claras (Espelho, Banco de Horas, Ocorrências) com o tema Claro/Escuro */
-.theme-harmonized .bg-white {
-  background-color: var(--surface-card) !important;
-}
-
-.theme-harmonized .bg-slate-50,
-.theme-harmonized .bg-slate-50\/50,
-.theme-harmonized .bg-slate-50\/80,
-.theme-harmonized .bg-slate-100,
-.theme-harmonized .bg-indigo-50,
-.theme-harmonized .bg-purple-50,
-.theme-harmonized .bg-blue-50 {
-  background-color: var(--surface-subtle) !important;
-}
-
-.theme-harmonized .hover\:bg-slate-50:hover,
-.theme-harmonized .hover\:bg-slate-100:hover {
-  background-color: var(--surface-hover) !important;
-}
-
-.theme-harmonized .border-slate-200,
-.theme-harmonized .border-slate-100,
-.theme-harmonized .border-slate-300,
-.theme-harmonized .border-indigo-200,
-.theme-harmonized .divide-slate-100 > * + *,
-.theme-harmonized .divide-slate-200 > * + * {
-  border-color: var(--border-subtle) !important;
-}
-
-.theme-harmonized .text-slate-900,
-.theme-harmonized .text-slate-800 {
-  color: var(--text-primary) !important;
-}
-
-.theme-harmonized .text-slate-700,
-.theme-harmonized .text-slate-600 {
-  color: var(--text-secondary) !important;
-}
-
-.theme-harmonized .text-indigo-600,
-.theme-harmonized .text-indigo-700,
-.theme-harmonized .text-purple-600,
-.theme-harmonized .text-purple-700 {
-  color: var(--brand-600) !important;
-}
-
-.theme-harmonized .bg-rose-50,
-.theme-harmonized .bg-red-50 {
-  background-color: light-dark(#fff1f2, rgba(136, 19, 55, 0.28)) !important;
-}
-
-.theme-harmonized .bg-emerald-50 {
-  background-color: light-dark(#ecfdf5, rgba(6, 78, 59, 0.28)) !important;
-}
-
-.theme-harmonized .bg-amber-50 {
-  background-color: light-dark(#fffbeb, rgba(120, 53, 15, 0.28)) !important;
-}
-
-.theme-harmonized .border-rose-200,
-.theme-harmonized .border-red-200 {
-  border-color: light-dark(#fecdd3, rgba(244, 63, 94, 0.35)) !important;
-}
-
-.theme-harmonized .border-emerald-200 {
-  border-color: light-dark(#a7f3d0, rgba(16, 185, 129, 0.35)) !important;
-}
-
-.theme-harmonized .border-amber-200 {
-  border-color: light-dark(#fde68a, rgba(245, 158, 11, 0.35)) !important;
-}
-
-.theme-harmonized .text-rose-700,
-.theme-harmonized .text-rose-800,
-.theme-harmonized .text-red-700 {
-  color: light-dark(#be123c, #fda4af) !important;
-}
-
-.theme-harmonized .text-emerald-700,
-.theme-harmonized .text-emerald-800 {
-  color: light-dark(#047857, #6ee7b7) !important;
-}
-
-.theme-harmonized .text-amber-700,
-.theme-harmonized .text-amber-800 {
-  color: light-dark(#b45309, #fcd34d) !important;
 }
 
 @media print {

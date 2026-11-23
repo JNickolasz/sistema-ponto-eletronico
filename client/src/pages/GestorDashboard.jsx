@@ -80,9 +80,8 @@ export function GestorDashboard() {
 
     try {
       setModalAnalise((prev) => ({ ...prev, loading: true }));
-      await solicitacaoAjusteService.analisar(modalAnalise.item.id, {
+      await solicitacaoAjusteService.analisarSolicitacao(modalAnalise.item.id, {
         status: modalAnalise.acao,
-        decisao: modalAnalise.acao,
         justificativaGestor: modalAnalise.justificativa.trim(),
       });
       toast.success(

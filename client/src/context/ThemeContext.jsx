@@ -63,9 +63,18 @@ function applyBrandHex(primaryHex, secondaryHex = null) {
   const base = /^#[0-9a-fA-F]{6}$/.test(primaryHex || '') ? primaryHex : '#2563eb';
   const dark = /^#[0-9a-fA-F]{6}$/.test(secondaryHex || '') ? secondaryHex : darkenHex(base, 0.16);
   const root = document.documentElement;
-  root.style.setProperty('--brand-50', tintHex(base, 0.92));
-  root.style.setProperty('--brand-100', tintHex(base, 0.84));
-  root.style.setProperty('--brand-200', tintHex(base, 0.70));
+  root.style.setProperty(
+    '--brand-50',
+    `light-dark(${tintHex(base, 0.92)}, color-mix(in srgb, ${base} 18%, #141418))`
+  );
+  root.style.setProperty(
+    '--brand-100',
+    `light-dark(${tintHex(base, 0.84)}, color-mix(in srgb, ${base} 28%, #141418))`
+  );
+  root.style.setProperty(
+    '--brand-200',
+    `light-dark(${tintHex(base, 0.70)}, color-mix(in srgb, ${base} 42%, #141418))`
+  );
   root.style.setProperty('--brand-500', base);
   root.style.setProperty('--brand-600', base);
   root.style.setProperty('--brand-700', dark);
@@ -116,7 +125,9 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     applyMetaScheme(storedScheme);
-  }, [storedScheme]);
+    document.documentElement.style.colorScheme = resolvedScheme;
+    document.documentElement.dataset.theme = resolvedScheme;
+  }, [storedScheme, resolvedScheme]);
 
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');

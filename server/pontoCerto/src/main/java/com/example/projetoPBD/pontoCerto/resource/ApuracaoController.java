@@ -21,7 +21,7 @@ import java.time.YearMonth;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/apuracao")
+@RequestMapping({"/api/v1/apuracao", "/api/apuracao"})
 public class ApuracaoController {
 
     private final ApuracaoDiariaService apuracaoDiariaService;
