@@ -74,11 +74,23 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                         SecurityContextHolder
                                 .getContext()
                                 .setAuthentication(authentication);
+                    } else {
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                        response.setContentType("application/json;charset=UTF-8");
+                        response.getWriter().write(
+                                "{\"codigo\":\"USUARIO_DESLIGADO\",\"message\":\"Acesso revogado: usuário desligado ou inativo.\"}"
+                        );
+                        return;
                     }
 
                 } catch (UsernameNotFoundException ignored) {
                     // Token válido, mas usuário não existe mais.
-                    System.out.println("Usuário não encontrado no JWT: " + usuario);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write(
+                            "{\"codigo\":\"USUARIO_INEXISTENTE\",\"message\":\"Sessão encerrada: usuário não encontrado.\"}"
+                    );
+                    return;
                 }
             }
         }

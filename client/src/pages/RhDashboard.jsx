@@ -137,22 +137,22 @@ export function RhDashboard() {
   const [pontosFacultativosList, setPontosFacultativosList] = useState([]);
   const [loadingPontosFacultativos, setLoadingPontosFacultativos] = useState(false);
   const [anoCalendario, setAnoCalendario] = useState(new Date().getFullYear());
-  const [ufFiltro, setUfFiltro] = useState('SP');
-  const [municipioFiltro, setMunicipioFiltro] = useState('São Paulo');
+  const [ufFiltro, setUfFiltro] = useState('');
+  const [municipioFiltro, setMunicipioFiltro] = useState('');
 
   // Formulário Feriado
   const [descricaoFeriado, setDescricaoFeriado] = useState('');
   const [dataFeriado, setDataFeriado] = useState(new Date().toISOString().split('T')[0]);
-  const [alcanceFeriado, setAlcanceFeriado] = useState('NACIONAL');
-  const [ufFeriado, setUfFeriado] = useState('SP');
+  const [alcanceFeriado, setAlcanceFeriado] = useState('ESTADUAL');
+  const [ufFeriado, setUfFeriado] = useState('');
   const [municipioFeriado, setMunicipioFeriado] = useState('');
   const [submittingFeriado, setSubmittingFeriado] = useState(false);
 
   // Formulário Ponto Facultativo
   const [descricaoPF, setDescricaoPF] = useState('');
   const [dataPF, setDataPF] = useState(new Date().toISOString().split('T')[0]);
-  const [alcancePF, setAlcancePF] = useState('NACIONAL');
-  const [ufPF, setUfPF] = useState('SP');
+  const [alcancePF, setAlcancePF] = useState('ESTADUAL');
+  const [ufPF, setUfPF] = useState('');
   const [municipioPF, setMunicipioPF] = useState('');
   const [submittingPF, setSubmittingPF] = useState(false);
 
@@ -1174,12 +1174,12 @@ export function RhDashboard() {
                           Alcance *
                         </label>
                         <select
-                          value={alcanceFeriado === 'NACIONAL' ? 'MUNICIPAL' : alcanceFeriado}
+                          value={alcanceFeriado === 'NACIONAL' ? 'ESTADUAL' : alcanceFeriado}
                           onChange={(e) => setAlcanceFeriado(e.target.value)}
                           className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
                         >
-                          <option value="ESTADUAL">ESTADUAL (Exige UF)</option>
-                          <option value="MUNICIPAL">MUNICIPAL (UF + Município)</option>
+                          <option value="ESTADUAL">Estadual (UF)</option>
+                          <option value="MUNICIPAL">Municipal</option>
                         </select>
                       </div>
                     </div>
@@ -1196,7 +1196,7 @@ export function RhDashboard() {
                             required
                             value={ufFeriado}
                             onChange={(e) => setUfFeriado(e.target.value.toUpperCase())}
-                            placeholder="SP"
+                            placeholder="Ex: PE"
                             className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none font-mono"
                           />
                         </div>
@@ -1211,7 +1211,7 @@ export function RhDashboard() {
                               required
                               value={municipioFeriado}
                               onChange={(e) => setMunicipioFeriado(e.target.value)}
-                              placeholder="São Paulo"
+                              placeholder="Ex: Recife"
                               className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-amber-500 focus:outline-none"
                             />
                           </div>
@@ -1272,13 +1272,12 @@ export function RhDashboard() {
                           Alcance *
                         </label>
                         <select
-                          value={alcancePF}
+                          value={alcancePF === 'NACIONAL' ? 'ESTADUAL' : alcancePF}
                           onChange={(e) => setAlcancePF(e.target.value)}
                           className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
                         >
-                          <option value="NACIONAL">NACIONAL</option>
-                          <option value="ESTADUAL">ESTADUAL</option>
-                          <option value="MUNICIPAL">MUNICIPAL</option>
+                          <option value="ESTADUAL">Estadual (UF)</option>
+                          <option value="MUNICIPAL">Municipal</option>
                         </select>
                       </div>
                     </div>
@@ -1295,7 +1294,7 @@ export function RhDashboard() {
                             required
                             value={ufPF}
                             onChange={(e) => setUfPF(e.target.value.toUpperCase())}
-                            placeholder="SP"
+                            placeholder="Ex: PE"
                             className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none font-mono"
                           />
                         </div>
@@ -1310,7 +1309,7 @@ export function RhDashboard() {
                               required
                               value={municipioPF}
                               onChange={(e) => setMunicipioPF(e.target.value)}
-                              placeholder="São Paulo"
+                              placeholder="Ex: Recife"
                               className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-100 focus:border-indigo-500 focus:outline-none"
                             />
                           </div>
@@ -1345,23 +1344,23 @@ export function RhDashboard() {
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">UF (Filtro)</label>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">UF (Opcional)</label>
                     <input
                       type="text"
                       maxLength={2}
                       value={ufFiltro}
                       onChange={(e) => setUfFiltro(e.target.value.toUpperCase())}
-                      placeholder="SP"
+                      placeholder="Todas"
                       className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white font-mono"
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">Município (Filtro)</label>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">Município (Opcional)</label>
                     <input
                       type="text"
                       value={municipioFiltro}
                       onChange={(e) => setMunicipioFiltro(e.target.value)}
-                      placeholder="São Paulo"
+                      placeholder="Todos"
                       className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white"
                     />
                   </div>
@@ -1372,7 +1371,7 @@ export function RhDashboard() {
                         carregarCalendarioFeriados();
                         carregarCalendarioPF();
                       }}
-                      className="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white"
+                      className="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white cursor-pointer"
                     >
                       Filtrar
                     </button>
@@ -1399,18 +1398,24 @@ export function RhDashboard() {
                           className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3 text-xs"
                         >
                           <div>
-                            <div className="font-semibold text-white flex items-center gap-2">
+                            <div className="font-semibold text-white flex flex-wrap items-center gap-2">
                               <span>{f.descricao}</span>
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-amber-300 font-mono">
                                 {f.alcance}
                               </span>
                               {f.uf && <span className="text-[10px] text-slate-400 font-mono">{f.uf}</span>}
-                              {f.municipio && <span className="text-[10px] text-slate-400 font-mono">- {f.municipio}</span>}
+                              {f.municipio && <span className="text-[10px] text-slate-400 font-mono">· {f.municipio}</span>}
                             </div>
-                            <div className="text-[11px] text-slate-400 font-mono mt-0.5">Data: {f.data}</div>
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                              Data: {f.data ? f.data.split('-').reverse().join('/') : '—'}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {f.ativo ? (
+                          <div className="flex items-center gap-2 shrink-0">
+                            {f.alcance === 'NACIONAL' ? (
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 font-medium">
+                                Global
+                              </span>
+                            ) : f.ativo ? (
                               <button
                                 type="button"
                                 onClick={() => handleInativarFeriado(f.id, f.descricao)}
@@ -1449,18 +1454,24 @@ export function RhDashboard() {
                           className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3 text-xs"
                         >
                           <div>
-                            <div className="font-semibold text-white flex items-center gap-2">
+                            <div className="font-semibold text-white flex flex-wrap items-center gap-2">
                               <span>{pf.descricao}</span>
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono">
                                 {pf.alcance}
                               </span>
                               {pf.uf && <span className="text-[10px] text-slate-400 font-mono">{pf.uf}</span>}
-                              {pf.municipio && <span className="text-[10px] text-slate-400 font-mono">- {pf.municipio}</span>}
+                              {pf.municipio && <span className="text-[10px] text-slate-400 font-mono">· {pf.municipio}</span>}
                             </div>
-                            <div className="text-[11px] text-slate-400 font-mono mt-0.5">Data: {pf.data}</div>
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                              Data: {pf.data ? pf.data.split('-').reverse().join('/') : '—'}
+                            </div>
                           </div>
-                          <div className="flex items-center gap-2">
-                            {pf.ativo ? (
+                          <div className="flex items-center gap-2 shrink-0">
+                            {pf.alcance === 'NACIONAL' ? (
+                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-slate-800 text-slate-400 font-medium">
+                                Global
+                              </span>
+                            ) : pf.ativo ? (
                               <button
                                 type="button"
                                 onClick={() => handleInativarPF(pf.id, pf.descricao)}

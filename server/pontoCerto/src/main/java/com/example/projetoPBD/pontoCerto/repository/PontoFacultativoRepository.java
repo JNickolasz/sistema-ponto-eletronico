@@ -51,9 +51,14 @@ public interface PontoFacultativoRepository extends JpaRepository<PontoFacultati
               AND (p.empresa IS NULL OR (:empresaId IS NOT NULL AND p.empresa.id = :empresaId))
               AND (
                   p.alcance = 'NACIONAL'
-                  OR (p.alcance = 'ESTADUAL' AND UPPER(p.uf) = UPPER(:uf))
-                  OR (p.alcance = 'MUNICIPAL' AND UPPER(p.uf) = UPPER(:uf) AND LOWER(TRIM(p.municipio)) = LOWER(TRIM(:municipio)))
+                  OR (p.alcance = 'ESTADUAL' AND (:uf IS NULL OR UPPER(p.uf) = UPPER(:uf)))
+                  OR (
+                      p.alcance = 'MUNICIPAL'
+                      AND (:uf IS NULL OR UPPER(p.uf) = UPPER(:uf))
+                      AND (:municipio IS NULL OR LOWER(TRIM(p.municipio)) = LOWER(TRIM(:municipio)))
+                  )
               )
+            ORDER BY p.data ASC
             """)
     List<PontoFacultativo> buscarCalendarioAnual(
             @Param("ano") int ano,

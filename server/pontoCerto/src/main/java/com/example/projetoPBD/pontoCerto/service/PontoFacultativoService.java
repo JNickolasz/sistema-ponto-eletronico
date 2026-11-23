@@ -127,7 +127,9 @@ public class PontoFacultativoService {
     @Transactional(readOnly = true)
     public List<PontoFacultativoDTO.Response> buscarCalendarioAnual(int ano, String uf, String municipio) {
         UUID empresaAtualId = securityTenantContext.empresaAtual();
-        return pontoFacultativoRepository.buscarCalendarioAnual(ano, uf, municipio, empresaAtualId)
+        String ufNorm = (uf == null || uf.isBlank()) ? null : uf.trim();
+        String municipioNorm = (municipio == null || municipio.isBlank()) ? null : municipio.trim();
+        return pontoFacultativoRepository.buscarCalendarioAnual(ano, ufNorm, municipioNorm, empresaAtualId)
                 .stream()
                 .map(PontoFacultativoDTO.Response::new)
                 .toList();

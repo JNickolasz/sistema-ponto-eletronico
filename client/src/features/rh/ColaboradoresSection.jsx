@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, Search, Trash2, UserMinus, UserPlus, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../hooks/useAuth';
 import rhService from '../../services/rhService';
 import { formatarCpf, formatarPis, validarCpf, validarPis } from '../../utils/brazilianDocuments';
 import { Badge, Button, Card, EmptyState, PageHeader } from '../../components/ui/Primitives';
@@ -12,6 +14,8 @@ export default function ColaboradoresSection({
   loading,
   onAtualizado,
 }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [nomeCompleto, setNomeCompleto] = useState('');
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
@@ -83,8 +87,23 @@ export default function ColaboradoresSection({
     try {
       setProcessandoAcao(true);
       await rhService.desligarFuncionario(modalDesligar.id, dataDesligamento);
-      toast.success(`Desligamento de ${modalDesligar.nomeCompleto} registrado.`);
+
+      const hojeIso = new Date().toISOString().split('T')[0];
+      const ehAutoDesligamento =
+        user?.usuario &&
+        modalDesligar.usuario &&
+        modalDesligar.usuario.toLowerCase() === user.usuario.toLowerCase();
+
       setModalDesligar(null);
+
+      if (ehAutoDesligamento && dataDesligamento <= hojeIso) {
+        toast('Seu desligamento foi registrado. Seu acesso foi revogado imediatamente.');
+        logout();
+        navigate('/login', { replace: true });
+        return;
+      }
+
+      toast.success(`Desligamento de ${modalDesligar.nomeCompleto} registrado.`);
       await onAtualizado?.();
     } catch (err) {
       toast.error(err?.message || 'Erro ao desligar colaborador.');

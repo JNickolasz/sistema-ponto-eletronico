@@ -148,7 +148,9 @@ public class FeriadoService {
 
     @Transactional(readOnly = true)
     public List<FeriadoDTO.Response> buscarCalendarioAnual(int ano, String uf, String municipio, UUID empresaId) {
-        return feriadoRepository.buscarCalendarioAnual(ano, uf, municipio, empresaId)
+        String ufNorm = (uf == null || uf.isBlank()) ? null : uf.trim();
+        String municipioNorm = (municipio == null || municipio.isBlank()) ? null : municipio.trim();
+        return feriadoRepository.buscarCalendarioAnual(ano, ufNorm, municipioNorm, empresaId)
                 .stream()
                 .map(FeriadoDTO.Response::new)
                 .toList();

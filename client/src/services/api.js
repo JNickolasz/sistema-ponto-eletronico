@@ -55,6 +55,23 @@ export async function request(endpoint, options = {}) {
         response.statusText ||
         'Erro na requisição';
 
+      const enviadoComBearer = Boolean(token && token !== 'admin-session-token');
+      const isLoginEndpoint = cleanEndpoint.includes('/auth/login');
+      const contaRevogada =
+        response.status === 401 ||
+        (typeof data === 'object' &&
+          (data?.codigo === 'USUARIO_DESLIGADO' || data?.codigo === 'USUARIO_INEXISTENTE'));
+
+      if (enviadoComBearer && !isLoginEndpoint && contaRevogada && typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.dispatchEvent(
+          new CustomEvent('auth:session-revoked', {
+            detail: { message: errorMessage },
+          })
+        );
+      }
+
       const error = new Error(errorMessage);
       error.status = response.status;
       error.data = data;

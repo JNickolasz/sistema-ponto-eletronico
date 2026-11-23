@@ -52,9 +52,14 @@ public interface FeriadoRepository extends JpaRepository<Feriado, UUID> {
               AND (f.empresa IS NULL OR (:empresaId IS NOT NULL AND f.empresa.id = :empresaId))
               AND (
                   f.alcance = 'NACIONAL'
-                  OR (f.alcance = 'ESTADUAL' AND UPPER(f.uf) = UPPER(:uf))
-                  OR (f.alcance = 'MUNICIPAL' AND UPPER(f.uf) = UPPER(:uf) AND LOWER(TRIM(f.municipio)) = LOWER(TRIM(:municipio)))
+                  OR (f.alcance = 'ESTADUAL' AND (:uf IS NULL OR UPPER(f.uf) = UPPER(:uf)))
+                  OR (
+                      f.alcance = 'MUNICIPAL'
+                      AND (:uf IS NULL OR UPPER(f.uf) = UPPER(:uf))
+                      AND (:municipio IS NULL OR LOWER(TRIM(f.municipio)) = LOWER(TRIM(:municipio)))
+                  )
               )
+            ORDER BY f.data ASC
             """)
     List<Feriado> buscarCalendarioAnual(
             @Param("ano") int ano,

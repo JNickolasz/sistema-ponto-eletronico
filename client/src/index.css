@@ -368,6 +368,94 @@ dialog::backdrop {
   border-color: var(--border-subtle) !important;
 }
 
+/* Harmoniza seções originalmente claras (Espelho, Banco de Horas, Ocorrências) com o tema Claro/Escuro */
+.theme-harmonized .bg-white {
+  background-color: var(--surface-card) !important;
+}
+
+.theme-harmonized .bg-slate-50,
+.theme-harmonized .bg-slate-50\/50,
+.theme-harmonized .bg-slate-50\/80,
+.theme-harmonized .bg-slate-100,
+.theme-harmonized .bg-indigo-50,
+.theme-harmonized .bg-purple-50,
+.theme-harmonized .bg-blue-50 {
+  background-color: var(--surface-subtle) !important;
+}
+
+.theme-harmonized .hover\:bg-slate-50:hover,
+.theme-harmonized .hover\:bg-slate-100:hover {
+  background-color: var(--surface-hover) !important;
+}
+
+.theme-harmonized .border-slate-200,
+.theme-harmonized .border-slate-100,
+.theme-harmonized .border-slate-300,
+.theme-harmonized .border-indigo-200,
+.theme-harmonized .divide-slate-100 > * + *,
+.theme-harmonized .divide-slate-200 > * + * {
+  border-color: var(--border-subtle) !important;
+}
+
+.theme-harmonized .text-slate-900,
+.theme-harmonized .text-slate-800 {
+  color: var(--text-primary) !important;
+}
+
+.theme-harmonized .text-slate-700,
+.theme-harmonized .text-slate-600 {
+  color: var(--text-secondary) !important;
+}
+
+.theme-harmonized .text-indigo-600,
+.theme-harmonized .text-indigo-700,
+.theme-harmonized .text-purple-600,
+.theme-harmonized .text-purple-700 {
+  color: var(--brand-600) !important;
+}
+
+.theme-harmonized .bg-rose-50,
+.theme-harmonized .bg-red-50 {
+  background-color: light-dark(#fff1f2, rgba(136, 19, 55, 0.28)) !important;
+}
+
+.theme-harmonized .bg-emerald-50 {
+  background-color: light-dark(#ecfdf5, rgba(6, 78, 59, 0.28)) !important;
+}
+
+.theme-harmonized .bg-amber-50 {
+  background-color: light-dark(#fffbeb, rgba(120, 53, 15, 0.28)) !important;
+}
+
+.theme-harmonized .border-rose-200,
+.theme-harmonized .border-red-200 {
+  border-color: light-dark(#fecdd3, rgba(244, 63, 94, 0.35)) !important;
+}
+
+.theme-harmonized .border-emerald-200 {
+  border-color: light-dark(#a7f3d0, rgba(16, 185, 129, 0.35)) !important;
+}
+
+.theme-harmonized .border-amber-200 {
+  border-color: light-dark(#fde68a, rgba(245, 158, 11, 0.35)) !important;
+}
+
+.theme-harmonized .text-rose-700,
+.theme-harmonized .text-rose-800,
+.theme-harmonized .text-red-700 {
+  color: light-dark(#be123c, #fda4af) !important;
+}
+
+.theme-harmonized .text-emerald-700,
+.theme-harmonized .text-emerald-800 {
+  color: light-dark(#047857, #6ee7b7) !important;
+}
+
+.theme-harmonized .text-amber-700,
+.theme-harmonized .text-amber-800 {
+  color: light-dark(#b45309, #fcd34d) !important;
+}
+
 @media print {
   body {
     background-color: #ffffff !important;
