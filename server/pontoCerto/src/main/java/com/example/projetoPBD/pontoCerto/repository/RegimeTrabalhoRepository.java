@@ -30,12 +30,33 @@ public interface RegimeTrabalhoRepository extends JpaRepository<RegimeTrabalho, 
     @Query("""
             SELECT r FROM RegimeTrabalho r
             WHERE r.funcionario.id = :funcionarioId
-              AND (:dataFim IS NULL OR r.dataInicioVigencia <= :dataFim)
               AND (r.dataFimVigencia IS NULL OR r.dataFimVigencia >= :dataInicio)
         """)
-    List<RegimeTrabalho> findSobrepostos(
+    List<RegimeTrabalho> findSobrepostosSemDataFim(
+            @Param("funcionarioId") UUID funcionarioId,
+            @Param("dataInicio") LocalDate dataInicio
+    );
+
+    @Query("""
+            SELECT r FROM RegimeTrabalho r
+            WHERE r.funcionario.id = :funcionarioId
+              AND r.dataInicioVigencia <= :dataFim
+              AND (r.dataFimVigencia IS NULL OR r.dataFimVigencia >= :dataInicio)
+        """)
+    List<RegimeTrabalho> findSobrepostosComDataFim(
             @Param("funcionarioId") UUID funcionarioId,
             @Param("dataInicio") LocalDate dataInicio,
             @Param("dataFim") LocalDate dataFim
     );
+
+    default List<RegimeTrabalho> findSobrepostos(
+            UUID funcionarioId,
+            LocalDate dataInicio,
+            LocalDate dataFim
+    ) {
+        if (dataFim == null) {
+            return findSobrepostosSemDataFim(funcionarioId, dataInicio);
+        }
+        return findSobrepostosComDataFim(funcionarioId, dataInicio, dataFim);
+    }
 }

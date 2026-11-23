@@ -1,15 +1,34 @@
 package com.example.projetoPBD.pontoCerto.service.exceptions;
 
+import jakarta.persistence.PersistenceException;
+import org.hibernate.JDBCException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.sql.SQLException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final Pattern PARAM_TYPE_PATTERN =
+            Pattern.compile("could not determine data type of parameter \\$(\\d+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern NOT_NULL_COLUMN_PATTERN =
+            Pattern.compile("null value in column \"([^\"]+)\"(?: of relation \"([^\"]+)\")?", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TABLE_NAME_PATTERN =
+            Pattern.compile("\\b(?:from|into|update)\\s+([a-zA-Z0-9_.\"]+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SQL_BRACKET_PATTERN =
+            Pattern.compile("\\[((?:select|insert|update|delete)\\b[^\\]]+)\\]", Pattern.CASE_INSENSITIVE);
 
     @ExceptionHandler(AcessoNegadoException.class)
     public ResponseEntity<String> handleException(AcessoNegadoException ex) {
@@ -178,6 +197,127 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(OcorrenciaConflitoException.class)
     public ResponseEntity<String> handleException(OcorrenciaConflitoException ex) {
         return buildResponse(HttpStatus.CONFLICT, ex);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<String> handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.error("Erro de integridade de dados no banco", ex);
+
+        String detalheCausa = extrairMensagensDaCausa(ex);
+        Matcher notNullMatcher = NOT_NULL_COLUMN_PATTERN.matcher(detalheCausa);
+        if (notNullMatcher.find()) {
+            String coluna = notNullMatcher.group(1);
+            String tabela = notNullMatcher.group(2);
+            String mensagem = tabela != null
+                    ? String.format("Não foi possível concluir a operação: o campo obrigatório '%s' (tabela '%s') está nulo (null).", coluna, tabela)
+                    : String.format("Não foi possível concluir a operação: o campo obrigatório '%s' está nulo (null).", coluna);
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(mensagem);
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body("Não foi possível concluir a operação: os dados informados violam uma restrição do banco de dados (registro duplicado, vínculo inválido ou campo obrigatório ausente).");
+    }
+
+    @ExceptionHandler({
+            DataAccessException.class,
+            PersistenceException.class,
+            JDBCException.class,
+            SQLException.class
+    })
+    public ResponseEntity<String> handleDatabaseException(Exception ex) {
+        log.error("Erro ao executar operação no banco de dados", ex);
+
+        String mensagem = "Erro interno ao acessar o banco de dados. Não foi possível concluir a operação no momento.";
+        String detalheCausa = extrairMensagensDaCausa(ex);
+
+        Matcher paramMatcher = PARAM_TYPE_PATTERN.matcher(detalheCausa);
+        if (paramMatcher.find()) {
+            int numeroParametro = Integer.parseInt(paramMatcher.group(1));
+            String sql = extrairSql(ex, detalheCausa);
+            String tabela = extrairTabela(sql);
+            String trecho = extrairTrechoParametro(sql, numeroParametro);
+
+            StringBuilder sb = new StringBuilder("Erro ao consultar o banco de dados");
+            if (tabela != null) {
+                sb.append(" na tabela '").append(tabela).append("'");
+            }
+            sb.append(": o parâmetro $").append(numeroParametro)
+              .append(" foi enviado como nulo (null) sem tipo definido");
+            if (trecho != null) {
+                sb.append(" no trecho '").append(trecho).append("'");
+            }
+            sb.append(".");
+            mensagem = sb.toString();
+        }
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(mensagem);
+    }
+
+    private String extrairMensagensDaCausa(Throwable ex) {
+        StringBuilder sb = new StringBuilder();
+        Throwable atual = ex;
+        while (atual != null) {
+            if (atual.getMessage() != null) {
+                sb.append(atual.getMessage()).append(" ");
+            }
+            atual = atual.getCause();
+        }
+        return sb.toString();
+    }
+
+    private String extrairSql(Throwable ex, String detalheCausa) {
+        Throwable atual = ex;
+        while (atual != null) {
+            if (atual instanceof JDBCException jdbcEx && jdbcEx.getSQL() != null && !jdbcEx.getSQL().isBlank()) {
+                return jdbcEx.getSQL();
+            }
+            atual = atual.getCause();
+        }
+        Matcher matcher = SQL_BRACKET_PATTERN.matcher(detalheCausa);
+        return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private String extrairTabela(String sql) {
+        if (sql == null) {
+            return null;
+        }
+        Matcher matcher = TABLE_NAME_PATTERN.matcher(sql);
+        return matcher.find() ? matcher.group(1).replace("\"", "") : null;
+    }
+
+    private String extrairTrechoParametro(String sql, int numeroParametro) {
+        if (sql == null || numeroParametro <= 0) {
+            return null;
+        }
+        int pos = -1;
+        int encontrados = 0;
+        for (int i = 0; i < sql.length(); i++) {
+            if (sql.charAt(i) == '?') {
+                encontrados++;
+                if (encontrados == numeroParametro) {
+                    pos = i;
+                    break;
+                }
+            }
+        }
+        if (pos == -1) {
+            return null;
+        }
+
+        int abre = sql.lastIndexOf('(', pos);
+        int fecha = sql.indexOf(')', pos);
+        if (abre != -1 && fecha != -1 && (fecha - abre) <= 120) {
+            return sql.substring(abre, fecha + 1).trim();
+        }
+
+        int inicio = Math.max(0, pos - 40);
+        int fim = Math.min(sql.length(), pos + 40);
+        return sql.substring(inicio, fim).trim();
     }
 
     private ResponseEntity<String> buildResponse(
