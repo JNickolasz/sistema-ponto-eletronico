@@ -23,6 +23,9 @@ export const authService = {
           headers: { 'X-Admin-Key': trimmedSenha },
         });
       } catch (err) {
+        if (err?.message && (err?.status === 401 || err?.status === 403 || err?.status === 429)) {
+          throw new Error(err.message);
+        }
         if (err?.status === 401 || err?.status === 403) {
           throw new Error('Chave de Administrador inválida!');
         }

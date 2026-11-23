@@ -5,8 +5,11 @@ import com.example.projetoPBD.pontoCerto.domain.enums.*;
 import com.example.projetoPBD.pontoCerto.dto.domaindtos.*;
 import com.example.projetoPBD.pontoCerto.repository.*;
 import com.example.projetoPBD.pontoCerto.resource.BancoHorasController;
+import com.example.projetoPBD.pontoCerto.security.AdminBruteForceService;
 import com.example.projetoPBD.pontoCerto.security.RateLimiterService;
 import com.example.projetoPBD.pontoCerto.security.SecurityTenantContext;
+import com.example.projetoPBD.pontoCerto.security.filter.AdminFilter;
+import com.example.projetoPBD.pontoCerto.security.filter.GlobalRateLimitFilter;
 import com.example.projetoPBD.pontoCerto.service.*;
 import com.example.projetoPBD.pontoCerto.service.exceptions.*;
 import org.junit.jupiter.api.AfterEach;
@@ -14,10 +17,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockFilterChain;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -49,6 +56,7 @@ class SecurityAuditRound2Test {
     @Mock private RelogioService relogioService;
     @Mock private EstacaoService estacaoService;
     @Mock private BancoHorasService bancoHorasService;
+    @Mock private AdminIpBloqueioRepository adminIpBloqueioRepository;
     @Mock private EstacaoRepository estacaoRepository;
     @Mock private HistoricoImportacaoRepository historicoImportacaoRepository;
     @Mock private InconsistenciaRepository inconsistenciaRepository;
@@ -372,5 +380,132 @@ class SecurityAuditRound2Test {
         limiter.verificarLimite("ip-test", 2, 60);
         limiter.verificarLimite("ip-test", 2, 60);
         assertThrows(TooManyRequestsException.class, () -> limiter.verificarLimite("ip-test", 2, 60));
+    }
+
+    @Test
+    void r209_rateLimiterComRedisDeveBloquearQuandoExcederEFazerFallbackEmFalha() {
+        org.springframework.data.redis.core.StringRedisTemplate redisTemplate =
+                mock(org.springframework.data.redis.core.StringRedisTemplate.class);
+        RateLimiterService limiter = new RateLimiterService(redisTemplate, true);
+
+        when(redisTemplate.execute(any(), anyList(), anyString()))
+                .thenReturn(1L, 2L, 3L);
+
+        limiter.verificarLimite("ip-redis", 2, 60);
+        limiter.verificarLimite("ip-redis", 2, 60);
+        assertThrows(TooManyRequestsException.class, () -> limiter.verificarLimite("ip-redis", 2, 60));
+
+        // Se o Redis cair, deve fazer fallback transparente para memória e ainda aplicar o limite
+        when(redisTemplate.execute(any(), anyList(), anyString()))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("Redis offline"));
+
+        limiter.verificarLimite("ip-fallback", 2, 60);
+        limiter.verificarLimite("ip-fallback", 2, 60);
+        assertThrows(TooManyRequestsException.class, () -> limiter.verificarLimite("ip-fallback", 2, 60));
+    }
+
+    @Test
+    void globalRateLimitFilter_deveRetornar429ERetryAfterQuandoExcederLimite() throws Exception {
+        RateLimiterService limiter = new RateLimiterService();
+        GlobalRateLimitFilter filter = new GlobalRateLimitFilter(limiter, true, 3, 2, 2);
+
+        for (int i = 0; i < 2; i++) {
+            MockHttpServletRequest req = new MockHttpServletRequest("GET", "/api/folha/previa");
+            req.setRemoteAddr("10.0.0.5");
+            MockHttpServletResponse res = new MockHttpServletResponse();
+            filter.doFilter(req, res, new MockFilterChain());
+            assertEquals(200, res.getStatus());
+        }
+
+        MockHttpServletRequest blockedReq = new MockHttpServletRequest("GET", "/api/folha/previa");
+        blockedReq.setRemoteAddr("10.0.0.5");
+        MockHttpServletResponse blockedRes = new MockHttpServletResponse();
+        filter.doFilter(blockedReq, blockedRes, new MockFilterChain());
+
+        assertEquals(429, blockedRes.getStatus());
+        assertEquals("60", blockedRes.getHeader("Retry-After"));
+        assertTrue(blockedRes.getContentAsString().contains("TOO_MANY_REQUESTS"));
+    }
+
+    @Test
+    void adminFilter_deveEscalonarBloqueioProgressivoEPermitirDesbloqueioNoBanco() throws Exception {
+        java.util.Map<String, AdminIpBloqueio> memoriaDb = new java.util.concurrent.ConcurrentHashMap<>();
+        when(adminIpBloqueioRepository.findByIp(anyString()))
+                .thenAnswer(inv -> Optional.ofNullable(memoriaDb.get(inv.getArgument(0))));
+        when(adminIpBloqueioRepository.save(any(AdminIpBloqueio.class))).thenAnswer(inv -> {
+            AdminIpBloqueio reg = inv.getArgument(0);
+            if (reg.getId() == null) reg.setId(UUID.randomUUID());
+            memoriaDb.put(reg.getIp(), reg);
+            return reg;
+        });
+
+        AdminBruteForceService bruteForce = new AdminBruteForceService(adminIpBloqueioRepository);
+        AdminFilter filter = new AdminFilter(bruteForce);
+        ReflectionTestUtils.setField(filter, "adminKey", "chave-super-secreta");
+
+        String ip = "10.0.0.99";
+
+        // 4 primeiras tentativas inválidas retornam 401
+        for (int i = 0; i < 4; i++) {
+            MockHttpServletRequest req = new MockHttpServletRequest("GET", "/api/v1/admin/empresas");
+            req.setRemoteAddr(ip);
+            req.addHeader("X-Admin-Key", "errada");
+            MockHttpServletResponse res = new MockHttpServletResponse();
+            filter.doFilter(req, res, new MockFilterChain());
+            assertEquals(401, res.getStatus());
+        }
+
+        // 5ª tentativa inválida dispara bloqueio nível 1 (5 minutos) -> 429
+        MockHttpServletRequest req5 = new MockHttpServletRequest("GET", "/api/v1/admin/empresas");
+        req5.setRemoteAddr(ip);
+        req5.addHeader("X-Admin-Key", "errada");
+        MockHttpServletResponse res5 = new MockHttpServletResponse();
+        filter.doFilter(req5, res5, new MockFilterChain());
+        assertEquals(429, res5.getStatus());
+        assertEquals("300", res5.getHeader("Retry-After"));
+        assertEquals(1, memoriaDb.get(ip).getNivelPenalidade());
+
+        // Mesmo enviando a chave CORRETA durante o bloqueio, continua bloqueado
+        MockHttpServletRequest reqChaveCertaDuranteBan = new MockHttpServletRequest("GET", "/api/v1/admin/empresas");
+        reqChaveCertaDuranteBan.setRemoteAddr(ip);
+        reqChaveCertaDuranteBan.addHeader("X-Admin-Key", "chave-super-secreta");
+        MockHttpServletResponse resDuranteBan = new MockHttpServletResponse();
+        filter.doFilter(reqChaveCertaDuranteBan, resDuranteBan, new MockFilterChain());
+        assertEquals(429, resDuranteBan.getStatus());
+
+        // Simula expiração e reincidências: 2h -> 3d -> 30d -> permanente
+        LocalDateTime base = LocalDateTime.now().plusMinutes(6);
+        var s2 = bruteForce.registrarFalha(ip, base);
+        assertEquals(2, s2.nivelPenalidade());
+        assertEquals(7200L, s2.segundosRestantes());
+
+        var s3 = bruteForce.registrarFalha(ip, base.plusHours(3));
+        assertEquals(3, s3.nivelPenalidade());
+        assertEquals(3 * 86400L, s3.segundosRestantes());
+
+        var s4 = bruteForce.registrarFalha(ip, base.plusDays(4));
+        assertEquals(4, s4.nivelPenalidade());
+        assertEquals(30 * 86400L, s4.segundosRestantes());
+
+        var s5 = bruteForce.registrarFalha(ip, base.plusDays(35));
+        assertTrue(s5.permanente());
+        assertEquals(5, s5.nivelPenalidade());
+
+        // Filtro devolve 403 Forbidden no bloqueio permanente
+        MockHttpServletRequest reqPerm = new MockHttpServletRequest("GET", "/api/v1/admin/empresas");
+        reqPerm.setRemoteAddr(ip);
+        reqPerm.addHeader("X-Admin-Key", "chave-super-secreta");
+        MockHttpServletResponse resPerm = new MockHttpServletResponse();
+        filter.doFilter(reqPerm, resPerm, new MockFilterChain());
+        assertEquals(403, resPerm.getStatus());
+
+        // Desbloqueio manual no banco (ativo = false) libera imediatamente o acesso com a chave correta
+        memoriaDb.get(ip).setAtivo(false);
+        MockHttpServletRequest reqDesbloqueado = new MockHttpServletRequest("GET", "/api/v1/admin/empresas");
+        reqDesbloqueado.setRemoteAddr(ip);
+        reqDesbloqueado.addHeader("X-Admin-Key", "chave-super-secreta");
+        MockHttpServletResponse resDesbloqueado = new MockHttpServletResponse();
+        filter.doFilter(reqDesbloqueado, resDesbloqueado, new MockFilterChain());
+        assertEquals(200, resDesbloqueado.getStatus());
     }
 }

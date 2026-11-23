@@ -4,7 +4,7 @@ Documento técnico descrevendo todas as tabelas, colunas, tipos de dados, restri
 
 ---
 
-## Sumário das Entidades (27 Tabelas + 1 Sequence)
+## Sumário das Entidades (29 Tabelas + 1 Sequence)
 
 1. **Multi-Tenant & Identidade Visual:** [`empresa`](#1-empresa)
 2. **Estrutura Organizacional & Acessos:** [`funcionario`](#2-funcionario), [`local_trabalho`](#3-local_trabalho)
@@ -14,6 +14,7 @@ Documento técnico descrevendo todas as tabelas, colunas, tipos de dados, restri
 6. **Coleta de Ponto, AFD & Inconsistências (Portaria 671):** [`batida`](#17-batida) (`seq_nsr_batida`), [`historico_importacao`](#18-historico_importacao), [`inconsistencia`](#19-inconsistencia), [`solicitacao_ajuste`](#20-solicitacao_ajuste)
 7. **Ocorrências, Abonos & Apuração Diária:** [`tipo_ocorrencia`](#21-tipo_ocorrencia), [`ocorrencias_colaborador`](#22-ocorrencias_colaborador), [`apuracao_diaria`](#23-apuracao_diaria)
 8. **Banco de Horas, Fechamento & Folha de Pagamento:** [`movimentacao_banco_horas`](#24-movimentacao_banco_horas), [`fechamento_banco_horas`](#25-fechamento_banco_horas), [`fechamento_periodo`](#26-fechamento_periodo), [`historico_fechamento_periodo`](#27-historico_fechamento_periodo), [`historico_exportacao_folha`](#28-historico_exportacao_folha)
+9. **Segurança & Controle de Brute-Force:** [`admin_ip_bloqueio`](#29-admin_ip_bloqueio)
 
 ---
 
@@ -517,3 +518,24 @@ Documento técnico descrevendo todas as tabelas, colunas, tipos de dados, restri
 | `nome_arquivo` | `VARCHAR(255)` | Nome padronizado do arquivo gerado (ex: `folha-ponto-vertice-2026-11.csv`). | `NOT NULL` |
 | `quantidade_colaboradores` | `INTEGER` | Quantidade de colaboradores incluídos no lote exportado. | `NOT NULL`, Default: `0` |
 | `hash_sha256` | `VARCHAR(64)` | Assinatura `SHA-256` hexadecimal do conteúdo exportado para verificação de integridade. | `NOT NULL` |
+
+---
+
+## 29. `admin_ip_bloqueio`
+Controle persistente de tentativas inválidas da chave mestra `X-Admin-Key` por endereço IP, com escalonamento progressivo de penalidades (`5 minutos` → `2 horas` → `3 dias` → `30 dias` → `permanente`) e desbloqueio administrativo diretamente via SQL.
+
+| Coluna | Tipo SQL | Descrição | Restrições / Regras |
+| :--- | :--- | :--- | :--- |
+| `id` | `UUID` | Identificador único do registro de bloqueio. | `PK` |
+| `ip` | `VARCHAR(64)` | Endereço IP monitorado nas rotas `/api/v1/admin/**`. | `UNIQUE` (`uk_admin_ip_bloqueio_ip`), `NOT NULL` |
+| `falhas_consecutivas` | `INTEGER` | Contador de tentativas inválidas consecutivas antes de atingir o bloqueio. | `NOT NULL`, Default: `0` |
+| `nivel_penalidade` | `INTEGER` | Nível atual de escalonamento (`0` inicial, `1`=5 min, `2`=2 h, `3`=3 dias, `4`=30 dias, `5`=permanente). | `NOT NULL`, Default: `0` |
+| `total_bloqueios` | `INTEGER` | Total acumulado de bloqueios já aplicados a este IP. | `NOT NULL`, Default: `0` |
+| `bloqueado_ate` | `TIMESTAMP` | Data/hora limite do bloqueio temporário vigente (`NULL` quando não há expiração ou é permanente). | `NULLABLE` |
+| `bloqueado_permanente` | `BOOLEAN` | Indica se o IP atingiu o nível 5 (bloqueio definitivo até intervenção no banco). | `NOT NULL`, Default: `false` |
+| `ativo` | `BOOLEAN` | Flag de controle administrativo (`false` libera o IP imediatamente via SQL). | `NOT NULL`, Default: `true` |
+| `motivo` | `TEXT` | Motivo/histórico do último bloqueio aplicado. | `NULLABLE` |
+| `ultima_tentativa_em` | `TIMESTAMP` | Timestamp da última tentativa inválida registrada. | `NULLABLE` |
+| `criado_em` | `TIMESTAMP` | Timestamp de criação do registro. | `NOT NULL` |
+| `atualizado_em` | `TIMESTAMP` | Timestamp da última atualização do registro. | `NOT NULL` |
+

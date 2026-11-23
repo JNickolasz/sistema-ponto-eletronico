@@ -1,6 +1,7 @@
 package com.example.projetoPBD.pontoCerto.config;
 
 import com.example.projetoPBD.pontoCerto.security.filter.AdminFilter;
+import com.example.projetoPBD.pontoCerto.security.filter.GlobalRateLimitFilter;
 import com.example.projetoPBD.pontoCerto.security.filter.JwtAuthFilter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -29,10 +30,16 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    private final GlobalRateLimitFilter globalRateLimitFilter;
     private final JwtAuthFilter jwtAuthFilter;
     private final AdminFilter adminFilter;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, AdminFilter adminFilter) {
+    public SecurityConfig(
+            GlobalRateLimitFilter globalRateLimitFilter,
+            JwtAuthFilter jwtAuthFilter,
+            AdminFilter adminFilter
+    ) {
+        this.globalRateLimitFilter = globalRateLimitFilter;
         this.jwtAuthFilter = jwtAuthFilter;
         this.adminFilter = adminFilter;
     }
@@ -63,6 +70,7 @@ public class SecurityConfig {
                 )
                 .addFilterBefore(adminFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(globalRateLimitFilter, AdminFilter.class)
 
                 .build();
     }
