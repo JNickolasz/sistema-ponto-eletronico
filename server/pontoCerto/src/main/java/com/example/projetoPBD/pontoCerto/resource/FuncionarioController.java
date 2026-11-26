@@ -92,13 +92,26 @@ public class FuncionarioController {
     }
 
     @GetMapping("/gestor/painel")
-    @PreAuthorize("hasRole('GESTOR')")
+    @PreAuthorize("hasAnyRole('GESTOR', 'RH')")
     public ResponseEntity<Map<String, Object>> rotaGestor(Authentication authentication) {
         Map<String, Object> response = new HashMap<>();
         response.put("mensagem", "Acesso liberado para GESTOR");
         response.put("usuarioLogado", authentication.getName());
         response.put("permissoes", authentication.getAuthorities());
+        if (authentication.getPrincipal() instanceof FuncionarioUserDetails fud && fud.getFuncionario() != null) {
+            response.put("funcionarioId", fud.getFuncionario().getId());
+            response.put("nomeCompleto", fud.getFuncionario().getNomeCompleto());
+        }
 
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/rh/funcionarios/{id}")
+    @PreAuthorize("hasRole('RH')")
+    public ResponseEntity<FuncionarioDTO.Response> atualizarFuncionario(
+            @PathVariable UUID id,
+            @RequestBody FuncionarioDTO.Atualizar dto) {
+        FuncionarioDTO.Response response = service.atualizar(id, dto);
         return ResponseEntity.ok(response);
     }
 

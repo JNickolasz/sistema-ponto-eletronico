@@ -66,7 +66,16 @@ public class RegimeTrabalhoService {
                 dto.dataFimVigencia()
         );
         if (!sobrepostos.isEmpty()) {
-            throw new RegimeTrabalhoConflitoException("O colaborador já possui um regime vigente com período sobreposto.");
+            for (RegimeTrabalho anterior : sobrepostos) {
+                if (anterior.getDataInicioVigencia() != null
+                        && anterior.getDataInicioVigencia().isBefore(dto.dataInicioVigencia())) {
+                    anterior.setDataFimVigencia(dto.dataInicioVigencia().minusDays(1));
+                    regimeRepository.save(anterior);
+                } else {
+                    regimeRepository.delete(anterior);
+                }
+            }
+            regimeRepository.flush();
         }
 
         RegimeTrabalho regime = new RegimeTrabalho();

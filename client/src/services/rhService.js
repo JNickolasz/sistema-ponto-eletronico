@@ -16,6 +16,10 @@ export const rhService = {
     return await api.post('/rh/adicionar', dados);
   },
 
+  async atualizarFuncionario(id, dados) {
+    return await api.put(`/rh/funcionarios/${id}`, dados);
+  },
+
   /**
    * Lista as empresas cadastradas
    */

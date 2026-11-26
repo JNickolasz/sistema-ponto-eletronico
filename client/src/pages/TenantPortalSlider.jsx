@@ -146,8 +146,19 @@ export default function TenantPortalSlider() {
       streamRef.current.getTracks().forEach((tr) => tr.stop());
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setCameraAtiva(false);
   };
+
+  useEffect(() => {
+    if (cameraAtiva && videoRef.current && streamRef.current) {
+      if (videoRef.current.srcObject !== streamRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+      }
+    }
+  }, [cameraAtiva, fotoPreview, comprovante]);
 
   useEffect(() => {
     return () => pararCamera();
@@ -220,6 +231,7 @@ export default function TenantPortalSlider() {
       }
 
       const previewConfirmada = fotoPreview || URL.createObjectURL(blobParaEnviar);
+      pararCamera();
       setComprovanteFoto(previewConfirmada);
       setComprovante(data);
       setSegundosRestantes(TEMPO_EXIBICAO_COMPROVANTE_SEG);
@@ -559,17 +571,16 @@ export default function TenantPortalSlider() {
                       </div>
 
                       <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface-card)] overflow-hidden aspect-[16/10] relative flex items-center justify-center">
-                        {fotoPreview ? (
+                        {fotoPreview && (
                           <img src={fotoPreview} alt="Foto capturada" className="w-full h-full object-cover" />
-                        ) : (
-                          <video
-                            ref={videoRef}
-                            autoPlay
-                            playsInline
-                            muted
-                            className={`w-full h-full object-cover ${cameraAtiva ? 'block' : 'hidden'}`}
-                          />
                         )}
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className={`w-full h-full object-cover ${cameraAtiva && !fotoPreview ? 'block' : 'hidden'}`}
+                        />
 
                         {!cameraAtiva && !fotoPreview && (
                           <div className="text-center p-6 space-y-3.5">

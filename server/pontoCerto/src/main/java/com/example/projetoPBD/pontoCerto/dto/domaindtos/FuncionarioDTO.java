@@ -21,6 +21,45 @@ public class FuncionarioDTO {
             LocalDate dataAdmissao,
             UUID localTrabalhoId,
             UUID gestorId,
+            PerfilAcesso perfilAcesso,
+            String cargo,
+            String email
+    ) {
+        public Criar(
+                String nomeCompleto,
+                String usuario,
+                String senha,
+                String pis_pasep,
+                String cpf,
+                String matricula,
+                LocalDate dataAdmissao,
+                UUID localTrabalhoId,
+                UUID gestorId,
+                PerfilAcesso perfilAcesso
+        ) {
+            this(
+                    nomeCompleto,
+                    usuario,
+                    senha,
+                    pis_pasep,
+                    cpf,
+                    matricula,
+                    dataAdmissao,
+                    localTrabalhoId,
+                    gestorId,
+                    perfilAcesso,
+                    null,
+                    null
+            );
+        }
+    }
+
+    public record Atualizar(
+            String nomeCompleto,
+            String cargo,
+            String email,
+            UUID localTrabalhoId,
+            UUID gestorId,
             PerfilAcesso perfilAcesso
     ) {}
 
@@ -40,7 +79,9 @@ public class FuncionarioDTO {
             LocalDate dataDesligamento,
             UUID localTrabalhoId,
             UUID gestorId,
-            PerfilAcesso perfilAcesso
+            PerfilAcesso perfilAcesso,
+            String cargo,
+            String email
     ) {
         public Response(Funcionario f) {
             this(
@@ -55,7 +96,9 @@ public class FuncionarioDTO {
                     f.getDataDesligamento(),
                     f.getLocalDeTrabalho() != null ? f.getLocalDeTrabalho().getId() : null,
                     f.getGestor() != null ? f.getGestor().getId() : null,
-                    f.getPerfilAcesso()
+                    f.getPerfilAcesso(),
+                    f.getCargo(),
+                    f.getEmail()
             );
         }
     }

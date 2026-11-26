@@ -1,15 +1,39 @@
-import { API_BASE } from './api';
+import api, { API_BASE } from './api';
 
 const BACKEND_ROOT = API_BASE.replace(/\/api\/v1\/?$/, '');
 
 async function fetchAuth(path) {
   const token = localStorage.getItem('token');
   const res = await fetch(`${BACKEND_ROOT}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: token && token !== 'admin-session-token' ? { Authorization: `Bearer ${token}` } : {},
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(text || 'Falha ao consultar relatório.');
+    const contentType = res.headers.get('content-type') || '';
+    let errorMessage = '';
+    let data = null;
+    if (contentType.includes('application/json')) {
+      data = await res.json().catch(() => null);
+      errorMessage = data?.message || data?.mensagem || data?.error || '';
+    } else {
+      errorMessage = (await res.text().catch(() => '')).trim();
+    }
+
+    if (
+      res.status === 401 &&
+      token &&
+      token !== 'admin-session-token' &&
+      typeof window !== 'undefined'
+    ) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.dispatchEvent(
+        new CustomEvent('auth:session-revoked', {
+          detail: { message: errorMessage || 'Sua sessão expirou. Faça login novamente.' },
+        })
+      );
+    }
+
+    throw new Error(errorMessage || 'Falha ao consultar relatório.');
   }
   return res;
 }

@@ -78,6 +78,8 @@ public class FuncionarioService {
         funcionario.setPisPasep(dto.pis_pasep());
         funcionario.setMatricula(dto.matricula());
         funcionario.setPerfilAcesso(dto.perfilAcesso());
+        funcionario.setCargo(dto.cargo() != null && !dto.cargo().isBlank() ? dto.cargo().trim() : null);
+        funcionario.setEmail(dto.email() != null && !dto.email().isBlank() ? dto.email().trim() : null);
         // injeta a data atual
         funcionario.setDataAdmissao(dto.dataAdmissao() != null ? dto.dataAdmissao() : LocalDate.now());
 
@@ -100,6 +102,51 @@ public class FuncionarioService {
 
         Funcionario salvo = repository.save(funcionario);
 
+        return new FuncionarioDTO.Response(salvo);
+    }
+
+    public FuncionarioDTO.Response atualizar(UUID id, FuncionarioDTO.Atualizar dto) {
+        UUID empresaAtual = securityTenantContext.empresaAtual();
+        Funcionario funcionario = repository.findByIdAndEmpresaId(id, empresaAtual)
+                .orElseThrow(() -> new UsuarioNaoEncontradoNaEmpresa("Colaborador não encontrado!"));
+
+        if (dto.nomeCompleto() != null && !dto.nomeCompleto().isBlank()) {
+            funcionario.setNomeCompleto(dto.nomeCompleto().trim());
+        }
+
+        if (dto.cargo() != null) {
+            funcionario.setCargo(dto.cargo().isBlank() ? null : dto.cargo().trim());
+        }
+
+        if (dto.email() != null) {
+            funcionario.setEmail(dto.email().isBlank() ? null : dto.email().trim());
+        }
+
+        if (dto.perfilAcesso() != null) {
+            funcionario.setPerfilAcesso(dto.perfilAcesso());
+        }
+
+        if (dto.localTrabalhoId() != null) {
+            LocalDeTrabalho local = localDeTrabalhoRepository.findById(dto.localTrabalhoId())
+                    .orElseThrow(() -> new RuntimeException("Local de trabalho não encontrado!"));
+            if (local.getEmpresa() == null || !local.getEmpresa().getId().equals(empresaAtual)) {
+                throw new AcessoNegadoException("Acesso negado: local de trabalho não pertence à sua empresa.");
+            }
+            funcionario.setLocalDeTrabalho(local);
+        }
+
+        if (dto.gestorId() != null) {
+            if (dto.gestorId().equals(funcionario.getId())) {
+                throw new IllegalArgumentException("O colaborador não pode ser gestor de si mesmo.");
+            }
+            Funcionario gestor = repository.findByIdAndEmpresaId(dto.gestorId(), empresaAtual)
+                    .orElseThrow(() -> new AcessoNegadoException("Gestor não encontrado na sua empresa!"));
+            funcionario.setGestor(gestor);
+        } else {
+            funcionario.setGestor(null);
+        }
+
+        Funcionario salvo = repository.save(funcionario);
         return new FuncionarioDTO.Response(salvo);
     }
 

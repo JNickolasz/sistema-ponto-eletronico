@@ -35,6 +35,13 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.FORBIDDEN, ex);
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<String> handleSpringAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body("Acesso negado: você não possui permissão para realizar esta operação.");
+    }
+
     @ExceptionHandler(AlcanceInvalidoException.class)
     public ResponseEntity<String> handleException(AlcanceInvalidoException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, ex);
@@ -324,9 +331,12 @@ public class GlobalExceptionHandler {
             HttpStatus status,
             RuntimeException ex
     ) {
+        String msg = (ex != null && ex.getMessage() != null && !ex.getMessage().isBlank())
+                ? ex.getMessage()
+                : "Erro inesperado ao processar a requisição.";
         return ResponseEntity
                 .status(status)
-                .body(ex.getMessage());
+                .body(msg);
     }
 }
 

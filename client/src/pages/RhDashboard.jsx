@@ -136,7 +136,7 @@ export function RhDashboard() {
   const [loadingFeriados, setLoadingFeriados] = useState(false);
   const [pontosFacultativosList, setPontosFacultativosList] = useState([]);
   const [loadingPontosFacultativos, setLoadingPontosFacultativos] = useState(false);
-  const [anoCalendario, setAnoCalendario] = useState(new Date().getFullYear());
+  const [anoCalendario, setAnoCalendario] = useState('');
   const [ufFiltro, setUfFiltro] = useState('');
   const [municipioFiltro, setMunicipioFiltro] = useState('');
 
@@ -881,13 +881,16 @@ export function RhDashboard() {
     }
   };
 
-  const carregarCalendarioFeriados = async () => {
+  const carregarCalendarioFeriados = async (override = {}) => {
     try {
       setLoadingFeriados(true);
+      const anoEfetivo = override.ano !== undefined ? override.ano : anoCalendario;
+      const ufEfetiva = override.uf !== undefined ? override.uf : ufFiltro;
+      const municipioEfetivo = override.municipio !== undefined ? override.municipio : municipioFiltro;
       const lista = await feriadoService.buscarCalendarioFeriados({
-        ano: anoCalendario,
-        uf: ufFiltro,
-        municipio: municipioFiltro,
+        ano: anoEfetivo,
+        uf: ufEfetiva,
+        municipio: municipioEfetivo,
         empresaId: empresaIdSelecionada || undefined,
       });
       setFeriadosList(Array.isArray(lista) ? lista : []);
@@ -898,13 +901,16 @@ export function RhDashboard() {
     }
   };
 
-  const carregarCalendarioPF = async () => {
+  const carregarCalendarioPF = async (override = {}) => {
     try {
       setLoadingPontosFacultativos(true);
+      const anoEfetivo = override.ano !== undefined ? override.ano : anoCalendario;
+      const ufEfetiva = override.uf !== undefined ? override.uf : ufFiltro;
+      const municipioEfetivo = override.municipio !== undefined ? override.municipio : municipioFiltro;
       const lista = await feriadoService.buscarCalendarioPontosFacultativos({
-        ano: anoCalendario,
-        uf: ufFiltro,
-        municipio: municipioFiltro,
+        ano: anoEfetivo,
+        uf: ufEfetiva,
+        municipio: municipioEfetivo,
       });
       setPontosFacultativosList(Array.isArray(lista) ? lista : []);
     } catch (err) {
@@ -1333,13 +1339,14 @@ export function RhDashboard() {
                 {/* Filtro de Calendário */}
                 <div className="p-4 rounded-2xl bg-slate-950/70 border border-slate-800 grid grid-cols-1 sm:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">Ano</label>
+                    <label className="block text-[11px] font-semibold text-slate-400 mb-1">Ano (Opcional)</label>
                     <input
                       type="number"
                       min="2020"
                       max="2035"
                       value={anoCalendario}
-                      onChange={(e) => setAnoCalendario(Number(e.target.value))}
+                      onChange={(e) => setAnoCalendario(e.target.value)}
+                      placeholder="Todos"
                       className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white"
                     />
                   </div>
@@ -1364,17 +1371,33 @@ export function RhDashboard() {
                       className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-xs text-white"
                     />
                   </div>
-                  <div className="flex items-end">
+                  <div className="flex items-end gap-1.5">
                     <button
                       type="button"
                       onClick={() => {
                         carregarCalendarioFeriados();
                         carregarCalendarioPF();
                       }}
-                      className="w-full py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white cursor-pointer"
+                      className="flex-1 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white cursor-pointer"
                     >
                       Filtrar
                     </button>
+                    {(anoCalendario !== '' || ufFiltro !== '' || municipioFiltro !== '') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAnoCalendario('');
+                          setUfFiltro('');
+                          setMunicipioFiltro('');
+                          carregarCalendarioFeriados({ ano: '', uf: '', municipio: '' });
+                          carregarCalendarioPF({ ano: '', uf: '', municipio: '' });
+                        }}
+                        className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 cursor-pointer"
+                        title="Limpar filtros e exibir todos os feriados cadastrados"
+                      >
+                        Todos
+                      </button>
+                    )}
                   </div>
                 </div>
 

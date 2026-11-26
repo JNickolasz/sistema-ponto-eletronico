@@ -48,7 +48,7 @@ public class FeriadoController {
 
     @GetMapping("/calendario")
     public ResponseEntity<List<FeriadoDTO.Response>> buscarCalendario(
-            @RequestParam("ano") int ano,
+            @RequestParam(value = "ano", required = false) Integer ano,
             @RequestParam(value = "uf", required = false) String uf,
             @RequestParam(value = "municipio", required = false) String municipio,
             @RequestParam(value = "empresaId", required = false) UUID empresaId) {
@@ -58,7 +58,7 @@ public class FeriadoController {
             throw new AcessoNegadoException("Acesso negado: não é permitido consultar calendário de outra empresa.");
         }
 
-        List<FeriadoDTO.Response> calendario = feriadoService.buscarCalendarioAnual(ano, uf, municipio, empresaAtual);
+        List<FeriadoDTO.Response> calendario = feriadoService.listarCalendarioFiltrado(ano, uf, municipio, empresaAtual);
         return ResponseEntity.ok(calendario);
     }
 }

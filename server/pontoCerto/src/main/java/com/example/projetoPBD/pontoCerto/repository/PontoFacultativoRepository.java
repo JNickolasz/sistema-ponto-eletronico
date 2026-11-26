@@ -66,4 +66,13 @@ public interface PontoFacultativoRepository extends JpaRepository<PontoFacultati
             @Param("municipio") String municipio,
             @Param("empresaId") UUID empresaId
     );
+
+    @Query("""
+            SELECT p
+            FROM PontoFacultativo p
+            WHERE p.ativo = true
+              AND (p.empresa IS NULL OR (:empresaId IS NOT NULL AND p.empresa.id = :empresaId))
+            ORDER BY p.data ASC
+            """)
+    List<PontoFacultativo> listarAtivosPorEmpresaOuGlobais(@Param("empresaId") UUID empresaId);
 }

@@ -156,6 +156,35 @@ public class FeriadoService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<FeriadoDTO.Response> listarCalendarioFiltrado(
+            Integer ano,
+            String uf,
+            String municipio,
+            UUID empresaId
+    ) {
+        String ufNorm = (uf == null || uf.isBlank()) ? null : uf.trim().toUpperCase();
+        String municipioNorm = normalizarTexto(municipio);
+
+        return feriadoRepository.listarAtivosPorEmpresaOuGlobais(empresaId)
+                .stream()
+                .filter(f -> ano == null || (f.getData() != null && f.getData().getYear() == ano))
+                .filter(f -> ufNorm == null || (f.getUf() != null && f.getUf().trim().equalsIgnoreCase(ufNorm)))
+                .filter(f -> municipioNorm == null || normalizarTexto(f.getMunicipio()) != null
+                        && normalizarTexto(f.getMunicipio()).contains(municipioNorm))
+                .map(FeriadoDTO.Response::new)
+                .toList();
+    }
+
+    private String normalizarTexto(String valor) {
+        if (valor == null || valor.isBlank()) {
+            return null;
+        }
+        String semAcento = java.text.Normalizer.normalize(valor.trim(), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+        return semAcento.toLowerCase();
+    }
+
     private void validarCamposPorAlcance(@NotNull(message = "Alcance é obrigatório, nacional, estadual e municipal") Alcance alcance, String uf, String municipio) {
         if (alcance == null) {
             throw new AlcanceInvalidoException("O alcance do feriado é obrigatório.");

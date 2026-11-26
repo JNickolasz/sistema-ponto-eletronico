@@ -135,6 +135,35 @@ public class PontoFacultativoService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<PontoFacultativoDTO.Response> listarCalendarioFiltrado(
+            Integer ano,
+            String uf,
+            String municipio
+    ) {
+        UUID empresaAtualId = securityTenantContext.empresaAtual();
+        String ufNorm = (uf == null || uf.isBlank()) ? null : uf.trim().toUpperCase();
+        String municipioNorm = normalizarTexto(municipio);
+
+        return pontoFacultativoRepository.listarAtivosPorEmpresaOuGlobais(empresaAtualId)
+                .stream()
+                .filter(p -> ano == null || (p.getData() != null && p.getData().getYear() == ano))
+                .filter(p -> ufNorm == null || (p.getUf() != null && p.getUf().trim().equalsIgnoreCase(ufNorm)))
+                .filter(p -> municipioNorm == null || normalizarTexto(p.getMunicipio()) != null
+                        && normalizarTexto(p.getMunicipio()).contains(municipioNorm))
+                .map(PontoFacultativoDTO.Response::new)
+                .toList();
+    }
+
+    private String normalizarTexto(String valor) {
+        if (valor == null || valor.isBlank()) {
+            return null;
+        }
+        String semAcento = java.text.Normalizer.normalize(valor.trim(), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+        return semAcento.toLowerCase();
+    }
+
 
     // VERIFICAR OS EXCEPTIONS AQUI DEPOIS, NO MOMENTO QUE ESTOU FAZENDO DEU PREGUIÇA DE AJEITAR
     // PERDÃO, feriadoservice e facultativoservice - LUAN 20/09 13H47

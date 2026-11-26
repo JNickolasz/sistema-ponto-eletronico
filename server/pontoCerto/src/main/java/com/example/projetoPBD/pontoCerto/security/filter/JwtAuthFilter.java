@@ -48,11 +48,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
 
-            String token = authHeader.substring(7);
-            String usuario = jwtService.validateToken(token);
+            String token = authHeader.substring(7).trim();
+            String usuario = token.isEmpty() ? null : jwtService.validateToken(token);
 
-            if (usuario != null
-                    && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (usuario == null) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write(
+                        "{\"codigo\":\"TOKEN_INVALIDO\",\"message\":\"Sua sessão expirou ou é inválida. Faça login novamente.\"}"
+                );
+                return;
+            }
+
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 try {
                     UserDetails userDetails =

@@ -16,6 +16,23 @@ function mesAtualISO() {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
+function formatarMinutos(min, comSinal = false) {
+  if (min == null || Number.isNaN(Number(min))) return '00:00';
+  const n = Number(min);
+  const abs = Math.abs(n);
+  const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+  const mm = String(abs % 60).padStart(2, '0');
+  if (n < 0) return `-${hh}:${mm}`;
+  if (comSinal && n > 0) return `+${hh}:${mm}`;
+  return `${hh}:${mm}`;
+}
+
+function formatarDataBr(iso) {
+  if (!iso) return '—';
+  const partes = String(iso).split('-');
+  return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : iso;
+}
+
 export default function RelatoriosSection() {
   const [tipo, setTipo] = useState('horas-extras');
   const [competencia, setCompetencia] = useState(mesAtualISO);
@@ -52,7 +69,53 @@ export default function RelatoriosSection() {
     }
   };
 
-  const itens = dados?.itens || dados?.colaboradores || dados?.linhas || [];
+  const itens =
+    tipo === 'pendencias'
+      ? [...(dados?.abertas || []), ...(dados?.tratadas || [])]
+      : dados?.itens || dados?.colaboradores || dados?.linhas || [];
+
+  const renderIndicadorPrincipal = (row) => {
+    if (tipo === 'horas-extras') {
+      return formatarMinutos(row.totalMinutosExtras ?? 0);
+    }
+    if (tipo === 'absenteismo') {
+      const totalAusencia =
+        (row.totalMinutosFalta || 0) +
+        (row.totalMinutosAtraso || 0) +
+        (row.totalMinutosSaidaAntecipada || 0);
+      const pct = Number(row.percentualAbsenteismo || 0).toFixed(1);
+      return `${formatarMinutos(totalAusencia)} (${pct}%)`;
+    }
+    if (tipo === 'banco-horas') {
+      return formatarMinutos(row.saldoFinalMinutos ?? 0, true);
+    }
+    if (tipo === 'pendencias') {
+      return row.tipo || '—';
+    }
+    return '—';
+  };
+
+  const renderDetalhes = (row) => {
+    const local = row.localTrabalhoNome || row.localTrabalho;
+    if (tipo === 'horas-extras') {
+      const dias = `${row.diasComExtra ?? 0} dia(s) c/ extra`;
+      return local ? `${dias} · ${local}` : dias;
+    }
+    if (tipo === 'absenteismo') {
+      const resumo = `Faltas: ${row.diasComFalta ?? 0}d · Atrasos: ${row.diasComAtraso ?? 0}d · Abonado: ${formatarMinutos(row.totalMinutosAbonados ?? 0)}`;
+      return local ? `${resumo} · ${local}` : resumo;
+    }
+    if (tipo === 'banco-horas') {
+      const resumo = `Créd: ${formatarMinutos(row.creditosPeriodoMinutos ?? 0)} · Déb: ${formatarMinutos(row.debitosPeriodoMinutos ?? 0)}`;
+      return local ? `${resumo} · ${local}` : resumo;
+    }
+    if (tipo === 'pendencias') {
+      const dataStr = formatarDataBr(row.dataReferencia);
+      const sit = row.situacao || 'ABERTA';
+      return local ? `${dataStr} · ${sit} · ${local}` : `${dataStr} · ${sit}`;
+    }
+    return local || 'Consolidado';
+  };
 
   return (
     <div className="space-y-6">
@@ -124,22 +187,22 @@ export default function RelatoriosSection() {
               </thead>
               <tbody className="divide-y divide-[var(--border-subtle)]">
                 {itens.map((row, idx) => (
-                  <tr key={row.funcionarioId || idx} className="hover:bg-[var(--surface-hover)]">
+                  <tr key={row.id || row.funcionarioId || idx} className="hover:bg-[var(--surface-hover)]">
                     <td className="px-4 py-3 font-medium text-[var(--text-primary)]">
-                      {row.nomeColaborador || row.colaboradorNome || row.nome || '—'}
+                      <div>{row.nomeCompleto || row.nomeColaborador || row.colaboradorNome || row.nome || '—'}</div>
+                      {row.cargo && (
+                        <div className="text-[11px] font-normal text-[var(--text-muted)]">{row.cargo}</div>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-mono-tabular text-[var(--text-secondary)]">
                       {row.matricula || '—'}
                     </td>
                     <td className="px-4 py-3 text-right font-mono-tabular font-semibold">
-                      {row.totalHorasExtrasFormatado ||
-                        row.saldoFormatado ||
-                        row.totalFaltasFormatado ||
-                        (row.totalPendencias != null ? `${row.totalPendencias} pendência(s)` : '—')}
+                      {renderIndicadorPrincipal(row)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Badge tone="neutral">
-                        {row.localTrabalho || row.gestorNome || row.status || 'Consolidado'}
+                        {renderDetalhes(row)}
                       </Badge>
                     </td>
                   </tr>

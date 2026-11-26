@@ -67,4 +67,13 @@ public interface FeriadoRepository extends JpaRepository<Feriado, UUID> {
             @Param("municipio") String municipio,
             @Param("empresaId") UUID empresaId
     );
+
+    @Query("""
+            SELECT f
+            FROM Feriado f
+            WHERE f.ativo = true
+              AND (f.empresa IS NULL OR (:empresaId IS NOT NULL AND f.empresa.id = :empresaId))
+            ORDER BY f.data ASC
+            """)
+    List<Feriado> listarAtivosPorEmpresaOuGlobais(@Param("empresaId") UUID empresaId);
 }

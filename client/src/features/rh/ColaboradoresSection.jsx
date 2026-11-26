@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Search, Trash2, UserMinus, UserPlus, Users } from 'lucide-react';
+import { Loader2, Pencil, Search, Trash2, UserMinus, UserPlus, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 import rhService from '../../services/rhService';
@@ -22,6 +22,8 @@ export default function ColaboradoresSection({
   const [cpf, setCpf] = useState('');
   const [pisPasep, setPisPasep] = useState('');
   const [matricula, setMatricula] = useState('');
+  const [cargo, setCargo] = useState('');
+  const [email, setEmail] = useState('');
   const [dataAdmissao, setDataAdmissao] = useState(() => new Date().toISOString().split('T')[0]);
   const [perfilAcesso, setPerfilAcesso] = useState('COLABORADOR');
   const [localTrabalhoId, setLocalTrabalhoId] = useState('');
@@ -33,9 +35,55 @@ export default function ColaboradoresSection({
   const [dataDesligamento, setDataDesligamento] = useState(() => new Date().toISOString().split('T')[0]);
   const [processandoAcao, setProcessandoAcao] = useState(false);
 
+  const [modalEditar, setModalEditar] = useState(null);
+  const [editNomeCompleto, setEditNomeCompleto] = useState('');
+  const [editCargo, setEditCargo] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPerfilAcesso, setEditPerfilAcesso] = useState('COLABORADOR');
+  const [editLocalTrabalhoId, setEditLocalTrabalhoId] = useState('');
+  const [editGestorId, setEditGestorId] = useState('');
+  const [salvandoEdicao, setSalvandoEdicao] = useState(false);
+
   const gestoresDisponiveis = funcionarios.filter(
     (f) => f.perfilAcesso === 'GESTOR' || f.perfilAcesso === 'RH'
   );
+
+  const abrirModalEdicao = (func) => {
+    setModalEditar(func);
+    setEditNomeCompleto(func.nomeCompleto || '');
+    setEditCargo(func.cargo || '');
+    setEditEmail(func.email || '');
+    setEditPerfilAcesso(func.perfilAcesso || 'COLABORADOR');
+    setEditLocalTrabalhoId(func.localTrabalhoId || '');
+    setEditGestorId(func.gestorId || '');
+  };
+
+  const handleSalvarEdicao = async (e) => {
+    e.preventDefault();
+    if (!modalEditar) return;
+    if (!editNomeCompleto.trim()) {
+      toast.error('O nome completo é obrigatório.');
+      return;
+    }
+    try {
+      setSalvandoEdicao(true);
+      await rhService.atualizarFuncionario(modalEditar.id, {
+        nomeCompleto: editNomeCompleto.trim(),
+        cargo: editCargo.trim(),
+        email: editEmail.trim(),
+        perfilAcesso: editPerfilAcesso,
+        localTrabalhoId: editLocalTrabalhoId || null,
+        gestorId: editGestorId || null,
+      });
+      toast.success('Dados do colaborador atualizados com sucesso.');
+      setModalEditar(null);
+      await onAtualizado?.();
+    } catch (err) {
+      toast.error(err?.message || 'Erro ao atualizar dados do colaborador.');
+    } finally {
+      setSalvandoEdicao(false);
+    }
+  };
 
   const handleCadastrar = async (e) => {
     e.preventDefault();
@@ -61,6 +109,8 @@ export default function ColaboradoresSection({
         cpf: cpf.replace(/\D/g, ''),
         pis_pasep: pisPasep.replace(/\D/g, ''),
         matricula: matricula.trim(),
+        cargo: cargo.trim() || undefined,
+        email: email.trim() || undefined,
         dataAdmissao: dataAdmissao || undefined,
         localTrabalhoId: localTrabalhoId || locais[0]?.id || undefined,
         gestorId: gestorId || undefined,
@@ -73,6 +123,8 @@ export default function ColaboradoresSection({
       setCpf('');
       setPisPasep('');
       setMatricula('');
+      setCargo('');
+      setEmail('');
       await onAtualizado?.();
     } catch (err) {
       toast.error(err?.message || 'Erro ao cadastrar colaborador.');
@@ -229,6 +281,29 @@ export default function ColaboradoresSection({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
+                <label className="text-xs font-medium">Cargo</label>
+                <input
+                  type="text"
+                  value={cargo}
+                  onChange={(e) => setCargo(e.target.value)}
+                  placeholder="Ex: Desenvolvedor"
+                  className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium">E-mail</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="nome@empresa.com"
+                  className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
                 <label className="text-xs font-medium">Perfil</label>
                 <select
                   value={perfilAcesso}
@@ -321,14 +396,24 @@ export default function ColaboradoresSection({
                         <Badge tone={f.perfilAcesso === 'RH' ? 'brand' : 'neutral'}>
                           {f.perfilAcesso}
                         </Badge>
+                        {f.cargo && <Badge tone="neutral">{f.cargo}</Badge>}
                         {desligado && <Badge tone="danger">Desligado</Badge>}
                       </div>
                       <div className="text-xs text-[var(--text-secondary)] font-mono-tabular mt-0.5">
                         {f.usuario} · Mat. {f.matricula || '—'} · CPF {formatarCpf(f.cpf)}
+                        {f.email ? ` · ${f.email}` : ''}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => abrirModalEdicao(f)}
+                        title="Editar cargo, e-mail e vínculos"
+                      >
+                        <Pencil size={13} />
+                      </Button>
                       {!desligado && (
                         <Button
                           variant="secondary"
@@ -355,6 +440,103 @@ export default function ColaboradoresSection({
           )}
         </Card>
       </div>
+
+      <Modal
+        open={!!modalEditar}
+        onClose={() => !salvandoEdicao && setModalEditar(null)}
+        title="Editar Colaborador"
+        subtitle={modalEditar ? `${modalEditar.usuario} · Mat. ${modalEditar.matricula || '—'}` : ''}
+      >
+        <form onSubmit={handleSalvarEdicao} className="space-y-3.5">
+          <div className="space-y-1">
+            <label className="block text-xs font-medium">Nome Completo *</label>
+            <input
+              type="text"
+              required
+              value={editNomeCompleto}
+              onChange={(e) => setEditNomeCompleto(e.target.value)}
+              className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="block text-xs font-medium">Cargo</label>
+              <input
+                type="text"
+                value={editCargo}
+                onChange={(e) => setEditCargo(e.target.value)}
+                placeholder="Ex: Desenvolvedor"
+                className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="block text-xs font-medium">E-mail</label>
+              <input
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                placeholder="nome@empresa.com"
+                className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-3 text-sm"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="block text-xs font-medium">Perfil</label>
+              <select
+                value={editPerfilAcesso}
+                onChange={(e) => setEditPerfilAcesso(e.target.value)}
+                className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-2.5 text-sm"
+              >
+                <option value="COLABORADOR">Colaborador</option>
+                <option value="GESTOR">Gestor</option>
+                <option value="RH">RH</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="block text-xs font-medium">Local</label>
+              <select
+                value={editLocalTrabalhoId}
+                onChange={(e) => setEditLocalTrabalhoId(e.target.value)}
+                className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-2.5 text-sm"
+              >
+                <option value="">Padrão da empresa</option>
+                {locais.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="block text-xs font-medium">Gestor Direto</label>
+            <select
+              value={editGestorId}
+              onChange={(e) => setEditGestorId(e.target.value)}
+              className="w-full h-9 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-2.5 text-sm"
+            >
+              <option value="">Sem gestor vinculado</option>
+              {gestoresDisponiveis
+                .filter((g) => g.id !== modalEditar?.id)
+                .map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.nomeCompleto} ({g.perfilAcesso})
+                  </option>
+                ))}
+            </select>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="secondary" onClick={() => setModalEditar(null)}>
+              Cancelar
+            </Button>
+            <Button type="submit" variant="primary" disabled={salvandoEdicao}>
+              {salvandoEdicao && <Loader2 size={14} className="animate-spin" />}
+              Salvar Alterações
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal
         open={!!modalDesligar}

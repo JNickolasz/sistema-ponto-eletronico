@@ -60,7 +60,10 @@ export async function request(endpoint, options = {}) {
       const contaRevogada =
         response.status === 401 ||
         (typeof data === 'object' &&
-          (data?.codigo === 'USUARIO_DESLIGADO' || data?.codigo === 'USUARIO_INEXISTENTE'));
+          (data?.codigo === 'USUARIO_DESLIGADO' ||
+            data?.codigo === 'USUARIO_INEXISTENTE' ||
+            data?.codigo === 'TOKEN_INVALIDO' ||
+            data?.codigo === 'NAO_AUTENTICADO'));
 
       if (enviadoComBearer && !isLoginEndpoint && contaRevogada && typeof window !== 'undefined') {
         localStorage.removeItem('token');

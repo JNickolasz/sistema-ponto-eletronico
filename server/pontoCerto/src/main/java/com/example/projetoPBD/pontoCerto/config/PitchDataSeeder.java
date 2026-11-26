@@ -77,9 +77,8 @@ public class PitchDataSeeder implements ApplicationRunner {
                 ));
                 empresaRepository.save(existente);
                 log.info("[PitchDataSeeder] Branding White-Label da empresa 'vertice' atualizado (logo + cor #0f766e).");
-            } else {
-                log.info("[PitchDataSeeder] Empresa modelo 'vertice' já existe no banco. Ignorando seed.");
             }
+            preencherCargoEmailExistentes(existente.getId());
             return;
         }
 
@@ -199,8 +198,40 @@ public class PitchDataSeeder implements ApplicationRunner {
         f.setPisPasep(pis);
         f.setMatricula(matricula);
         f.setPerfilAcesso(perfil);
+        f.setCargo(cargoPadraoParaUsuario(usuario, perfil));
+        f.setEmail(usuario + "@vertice.com.br");
         f.setDataAdmissao(LocalDate.now().minusMonths(8));
         return funcionarioRepository.save(f);
+    }
+
+    private void preencherCargoEmailExistentes(java.util.UUID empresaId) {
+        List<Funcionario> lista = funcionarioRepository.findByEmpresaId(empresaId);
+        for (Funcionario f : lista) {
+            boolean alterou = false;
+            if (f.getCargo() == null || f.getCargo().isBlank()) {
+                f.setCargo(cargoPadraoParaUsuario(f.getUsuario(), f.getPerfilAcesso()));
+                alterou = true;
+            }
+            if (f.getEmail() == null || f.getEmail().isBlank()) {
+                f.setEmail((f.getUsuario() != null ? f.getUsuario() : "colaborador") + "@vertice.com.br");
+                alterou = true;
+            }
+            if (alterou) {
+                funcionarioRepository.save(f);
+            }
+        }
+    }
+
+    private String cargoPadraoParaUsuario(String usuario, PerfilAcesso perfil) {
+        if ("rh.vertice".equalsIgnoreCase(usuario)) return "Coordenadora de RH";
+        if ("gestor.eng".equalsIgnoreCase(usuario)) return "Gerente de Engenharia";
+        if ("gestor.ops".equalsIgnoreCase(usuario)) return "Gerente de Operações";
+        if ("camila.dev".equalsIgnoreCase(usuario)) return "Engenheira de Software";
+        if ("rafael.eng".equalsIgnoreCase(usuario)) return "Engenheiro Civil";
+        if ("mariana.ops".equalsIgnoreCase(usuario)) return "Analista de Operações";
+        if (perfil == PerfilAcesso.RH) return "Analista de RH";
+        if (perfil == PerfilAcesso.GESTOR) return "Gestor de Equipe";
+        return "Analista / Colaborador";
     }
 
     private void criarTipoOcorrencia(

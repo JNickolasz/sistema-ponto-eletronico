@@ -68,6 +68,22 @@ public class SecurityConfig {
                         .requestMatchers("/api/estacao/**").permitAll() // Estação aberta na tela do corredor; autentica o colaborador por senha a cada batida.
                         .anyRequest().authenticated()
                 )
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(401);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write(
+                                    "{\"codigo\":\"NAO_AUTENTICADO\",\"message\":\"Sessão expirada ou não autenticada. Faça login novamente.\"}"
+                            );
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(403);
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.getWriter().write(
+                                    "{\"codigo\":\"ACESSO_NEGADO\",\"message\":\"Acesso negado: você não possui permissão para acessar este recurso.\"}"
+                            );
+                        })
+                )
                 .addFilterBefore(adminFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(globalRateLimitFilter, AdminFilter.class)

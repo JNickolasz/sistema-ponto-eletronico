@@ -39,11 +39,11 @@ public class PontoFacultativoController {
 
     @GetMapping("/calendario")
     public ResponseEntity<List<PontoFacultativoDTO.Response>> buscarCalendario(
-            @RequestParam("ano") int ano,
+            @RequestParam(value = "ano", required = false) Integer ano,
             @RequestParam(value = "uf", required = false) String uf,
             @RequestParam(value = "municipio", required = false) String municipio) {
 
-        List<PontoFacultativoDTO.Response> calendario = pontoFacultativoService.buscarCalendarioAnual(ano, uf, municipio);
+        List<PontoFacultativoDTO.Response> calendario = pontoFacultativoService.listarCalendarioFiltrado(ano, uf, municipio);
         return ResponseEntity.ok(calendario);
     }
 }

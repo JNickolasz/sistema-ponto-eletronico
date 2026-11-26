@@ -35,12 +35,15 @@ export const feriadoService = {
    */
   async buscarCalendarioFeriados(filtros = {}) {
     const params = new URLSearchParams();
-    params.append('ano', filtros.ano || new Date().getFullYear());
-    if (filtros.uf) params.append('uf', filtros.uf);
-    if (filtros.municipio) params.append('municipio', filtros.municipio);
+    if (filtros.ano !== undefined && filtros.ano !== null && String(filtros.ano).trim() !== '') {
+      params.append('ano', String(filtros.ano).trim());
+    }
+    if (filtros.uf && String(filtros.uf).trim() !== '') params.append('uf', String(filtros.uf).trim());
+    if (filtros.municipio && String(filtros.municipio).trim() !== '') params.append('municipio', String(filtros.municipio).trim());
     if (filtros.empresaId) params.append('empresaId', filtros.empresaId);
 
-    return await api.get(`/v1/feriado/calendario?${params.toString()}`);
+    const qs = params.toString();
+    return await api.get(`/v1/feriado/calendario${qs ? `?${qs}` : ''}`);
   },
 
   /**
@@ -75,11 +78,14 @@ export const feriadoService = {
    */
   async buscarCalendarioPontosFacultativos(filtros = {}) {
     const params = new URLSearchParams();
-    params.append('ano', filtros.ano || new Date().getFullYear());
-    if (filtros.uf) params.append('uf', filtros.uf);
-    if (filtros.municipio) params.append('municipio', filtros.municipio);
+    if (filtros.ano !== undefined && filtros.ano !== null && String(filtros.ano).trim() !== '') {
+      params.append('ano', String(filtros.ano).trim());
+    }
+    if (filtros.uf && String(filtros.uf).trim() !== '') params.append('uf', String(filtros.uf).trim());
+    if (filtros.municipio && String(filtros.municipio).trim() !== '') params.append('municipio', String(filtros.municipio).trim());
 
-    return await api.get(`/v1/ponto-facultativo/calendario?${params.toString()}`);
+    const qs = params.toString();
+    return await api.get(`/v1/ponto-facultativo/calendario${qs ? `?${qs}` : ''}`);
   },
 };
 
